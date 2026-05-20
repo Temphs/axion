@@ -3,36 +3,24 @@
 import { Link2, BrainCircuit, LineChart } from 'lucide-react'
 import { Eyebrow } from './ui'
 import { Reveal, RevealGroup, RevealItem } from './motion'
+import { useI18n } from './i18n'
 
-const steps = [
-  {
-    icon: Link2,
-    title: 'Connect your data',
-    desc: 'Securely link your invoice and accounting data through MyData and your existing tools.',
-  },
-  {
-    icon: BrainCircuit,
-    title: 'Axion analyzes',
-    desc: 'Our engine categorizes transactions and models your business operations in real time.',
-  },
-  {
-    icon: LineChart,
-    title: 'Get actionable insights',
-    desc: 'Receive clear forecasts, alerts, and profitability reports you can act on immediately.',
-  },
-]
+const stepIcons = [Link2, BrainCircuit, LineChart]
 
 export function HowItWorks() {
+  const { dict } = useI18n()
+  const steps = dict.howItWorks.steps.map((step, i) => ({ ...step, icon: stepIcons[i] }))
+
   return (
     <section id="how-it-works" className="bg-slate-50/60 px-4 py-24 sm:px-6 sm:py-28">
       <div className="mx-auto max-w-6xl">
         <Reveal className="mx-auto max-w-2xl text-center">
-          <Eyebrow>How it works</Eyebrow>
+          <Eyebrow>{dict.howItWorks.eyebrow}</Eyebrow>
           <h2
             className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl"
             style={{ fontFamily: 'var(--font-manrope), system-ui, sans-serif' }}
           >
-            From raw invoices to clarity in three steps
+            {dict.howItWorks.title}
           </h2>
         </Reveal>
 

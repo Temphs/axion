@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { ArrowRight, Sparkles, Star } from 'lucide-react'
 import { Button } from './ui'
 import { HeroDashboard } from './HeroDashboard'
+import { useI18n } from './i18n'
 
 function HeroBackground() {
   return (
@@ -32,6 +33,9 @@ function HeroBackground() {
 }
 
 export function Hero() {
+  const { dict } = useI18n()
+  const t = dict.hero
+
   return (
     <section id="top" className="relative overflow-hidden px-4 pb-16 pt-32 sm:px-6 sm:pt-40">
       <HeroBackground />
@@ -44,7 +48,7 @@ export function Hero() {
           className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50/80 px-3.5 py-1.5 text-xs font-medium text-blue-700 shadow-sm backdrop-blur"
         >
           <Sparkles className="h-3.5 w-3.5" />
-          AI-powered financial intelligence · AADE / MyData ready
+          {t.badge}
         </motion.div>
 
         <motion.h1
@@ -54,9 +58,9 @@ export function Hero() {
           className="text-balance text-4xl font-bold leading-[1.05] tracking-tight text-slate-900 sm:text-6xl"
           style={{ fontFamily: 'var(--font-manrope), system-ui, sans-serif' }}
         >
-          Financial Intelligence for{' '}
+          {t.titleLead}
           <span className="bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent">
-            Modern Businesses
+            {t.titleHighlight}
           </span>
         </motion.h1>
 
@@ -66,8 +70,7 @@ export function Hero() {
           transition={{ duration: 0.7, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
           className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600"
         >
-          Predict VAT liabilities, analyze business performance, and track employee
-          profitability in one intelligent platform.
+          {t.subtitle}
         </motion.p>
 
         <motion.div
@@ -77,11 +80,11 @@ export function Hero() {
           className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
         >
           <Button href="#cta" size="lg" className="w-full sm:w-auto">
-            Start Free Trial
+            {t.ctaPrimary}
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </Button>
           <Button href="#cta" variant="secondary" size="lg" className="w-full sm:w-auto">
-            Book Demo
+            {t.ctaSecondary}
           </Button>
         </motion.div>
 
@@ -96,7 +99,7 @@ export function Hero() {
               <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
             ))}
           </span>
-          No credit card required · 14-day trial
+          {t.rating}
         </motion.div>
       </div>
 

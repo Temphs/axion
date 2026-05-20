@@ -18,6 +18,7 @@ import {
 import { ForecastChart, BarChart, Donut, ProgressBar } from './charts'
 import { Eyebrow } from './ui'
 import { Reveal } from './motion'
+import { useI18n } from './i18n'
 
 /* ─── shared row layout ──────────────────────────────────────── */
 
@@ -108,22 +109,24 @@ function MockShell({ title, sub, children }: { title: string; sub?: string; chil
 /* ─── mockups ────────────────────────────────────────────────── */
 
 function VatMockup() {
+  const { dict } = useI18n()
+  const t = dict.features.vatMockup
   const liabilities = [
-    { m: 'April', v: '€18,420', up: true },
-    { m: 'May', v: '€21,050', up: true },
-    { m: 'June', v: '€19,300', up: false },
+    { m: t.months[0], v: '€18,420', up: true },
+    { m: t.months[1], v: '€21,050', up: true },
+    { m: t.months[2], v: '€19,300', up: false },
   ]
   return (
-    <MockShell title="VAT forecast" sub="Next 6 months · powered by MyData">
+    <MockShell title={t.title} sub={t.sub}>
       <ForecastChart data={[16, 19, 17, 24, 22, 28, 26, 31, 34]} splitAt={5} />
       <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
         <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
         <span className="text-xs font-medium text-amber-700">
-          Liquidity dips below threshold in <span className="font-bold">23 days</span>
+          {t.alertPre} <span className="font-bold">{t.alertDays}</span>
         </span>
       </div>
       <div className="mt-3 space-y-1.5">
-        <div className="text-xs font-semibold text-slate-500">Upcoming liabilities</div>
+        <div className="text-xs font-semibold text-slate-500">{t.upcoming}</div>
         {liabilities.map((l) => (
           <div
             key={l.m}
@@ -144,19 +147,21 @@ function VatMockup() {
 }
 
 function PnlMockup() {
+  const { dict } = useI18n()
+  const t = dict.features.pnlMockup
   const cats = [
-    { label: 'Payroll', value: 45, color: '#2563EB' },
-    { label: 'Suppliers', value: 25, color: '#3b82f6' },
-    { label: 'Operations', value: 18, color: '#60a5fa' },
-    { label: 'Tax', value: 12, color: '#bfdbfe' },
+    { label: t.cats[0], value: 45, color: '#2563EB' },
+    { label: t.cats[1], value: 25, color: '#3b82f6' },
+    { label: t.cats[2], value: 18, color: '#60a5fa' },
+    { label: t.cats[3], value: 12, color: '#bfdbfe' },
   ]
   return (
-    <MockShell title="Profit & Loss" sub="This year vs. last year">
+    <MockShell title={t.title} sub={t.sub}>
       <div className="mb-4 grid grid-cols-3 gap-2">
         {[
-          { l: 'Revenue', v: '€248k', t: 'text-slate-900' },
-          { l: 'Expenses', v: '€156k', t: 'text-slate-900' },
-          { l: 'Margin', v: '37%', t: 'text-emerald-600' },
+          { l: t.stats[0], v: '€248k', t: 'text-slate-900' },
+          { l: t.stats[1], v: '€156k', t: 'text-slate-900' },
+          { l: t.stats[2], v: '37%', t: 'text-emerald-600' },
         ].map((k) => (
           <div key={k.l} className="rounded-lg bg-slate-50 p-2.5">
             <div className={`text-base font-bold tracking-tight ${k.t}`}>{k.v}</div>
@@ -178,7 +183,7 @@ function PnlMockup() {
         <Donut
           segments={cats}
           centerLabel="€156k"
-          centerSub="expenses"
+          centerSub={t.donutSub}
           className="mx-auto w-24"
         />
         <div className="space-y-1.5">
@@ -198,16 +203,18 @@ function PnlMockup() {
 }
 
 function EmployeeMockup() {
+  const { dict } = useI18n()
+  const t = dict.features.employeeMockup
   const rows = [
-    { in: 'MP', name: 'Maria P.', role: 'Senior Acct', hours: '164h', rate: '€38', margin: 92, color: '#2563EB' },
-    { in: 'AN', name: 'Andreas N.', role: 'Tax Advisor', hours: '152h', rate: '€42', margin: 78, color: '#3b82f6' },
-    { in: 'KG', name: 'Katerina G.', role: 'Bookkeeper', hours: '148h', rate: '€29', margin: 64, color: '#60a5fa' },
-    { in: 'DV', name: 'Dimitris V.', role: 'Analyst', hours: '140h', rate: '€34', margin: 71, color: '#93c5fd' },
+    { in: 'MP', name: 'Maria P.', role: t.roles[0], hours: '164h', rate: '€38', margin: 92, color: '#2563EB' },
+    { in: 'AN', name: 'Andreas N.', role: t.roles[1], hours: '152h', rate: '€42', margin: 78, color: '#3b82f6' },
+    { in: 'KG', name: 'Katerina G.', role: t.roles[2], hours: '148h', rate: '€29', margin: 64, color: '#60a5fa' },
+    { in: 'DV', name: 'Dimitris V.', role: t.roles[3], hours: '140h', rate: '€34', margin: 71, color: '#93c5fd' },
   ]
   return (
     <div className="grid gap-4 lg:grid-cols-5">
       <div className="lg:col-span-3">
-        <MockShell title="Employee profitability" sub="Q2 · all projects">
+        <MockShell title={t.title} sub={t.sub}>
           <div className="space-y-3">
             {rows.map((r, i) => (
               <motion.div
@@ -241,7 +248,7 @@ function EmployeeMockup() {
       </div>
 
       <div className="space-y-4 lg:col-span-2">
-        <MockShell title="Revenue by client">
+        <MockShell title={t.revenueByClient}>
           <Donut
             segments={[
               { value: 42, color: '#2563EB' },
@@ -258,12 +265,12 @@ function EmployeeMockup() {
           <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
             <Target className="mb-1 h-4 w-4 text-blue-600" />
             <div className="text-lg font-bold text-slate-900">€142</div>
-            <div className="text-[10px] text-slate-400">avg margin / hr</div>
+            <div className="text-[10px] text-slate-400">{t.avgMarginHr}</div>
           </div>
           <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
             <Clock className="mb-1 h-4 w-4 text-blue-600" />
             <div className="text-lg font-bold text-slate-900">86%</div>
-            <div className="text-[10px] text-slate-400">billable rate</div>
+            <div className="text-[10px] text-slate-400">{t.billableRate}</div>
           </div>
         </div>
       </div>
@@ -274,54 +281,45 @@ function EmployeeMockup() {
 /* ─── section ────────────────────────────────────────────────── */
 
 export function Features() {
+  const { dict } = useI18n()
+  const t = dict.features
+
   return (
     <section id="features" className="px-4 py-24 sm:px-6 sm:py-32">
       <div className="mx-auto max-w-6xl">
         <Reveal className="mx-auto max-w-2xl text-center">
-          <Eyebrow>Features</Eyebrow>
+          <Eyebrow>{t.eyebrow}</Eyebrow>
           <h2
             className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl"
             style={{ fontFamily: 'var(--font-manrope), system-ui, sans-serif' }}
           >
-            One platform for your entire financial picture
+            {t.title}
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-slate-600">
-            From VAT forecasting to employee-level profitability — Axion turns raw invoice
-            data into decisions you can act on.
-          </p>
+          <p className="mx-auto mt-4 max-w-xl text-lg text-slate-600">{t.subtitle}</p>
         </Reveal>
 
         <div className="mt-20 space-y-24 sm:space-y-32">
           <FeatureRow
-            eyebrow="MyVAT Prediction"
-            title="Predict VAT obligations before they're due"
-            desc="Predict future VAT obligations in real time using MyData invoice activity from AADE."
-            bullets={[
-              'VAT forecasting dashboard',
-              'Liquidity alerts before deadlines',
-              'Upcoming liabilities at a glance',
-            ]}
+            eyebrow={t.vat.eyebrow}
+            title={t.vat.title}
+            desc={t.vat.desc}
+            bullets={t.vat.bullets}
             chips={[
-              { icon: Database, label: 'SQL pipeline · MyData invoices' },
-              { icon: Zap, label: 'Real-time prediction engine' },
+              { icon: Database, label: t.vat.chips[0] },
+              { icon: Zap, label: t.vat.chips[1] },
             ]}
             mockup={<VatMockup />}
           />
 
           <FeatureRow
             reverse
-            eyebrow="P&L Analysis"
-            title="See exactly where money is made and spent"
-            desc="Automatically categorize invoices and monitor earnings and expenses across all businesses."
-            bullets={[
-              'Monthly vs. yearly comparison',
-              'Revenue & expense analytics',
-              'Automatic expense categorization',
-              'Live profitability metrics',
-            ]}
+            eyebrow={t.pnl.eyebrow}
+            title={t.pnl.title}
+            desc={t.pnl.desc}
+            bullets={t.pnl.bullets}
             chips={[
-              { icon: TrendingUp, label: 'Revenue analytics' },
-              { icon: PieIcon, label: 'Auto-categorization' },
+              { icon: TrendingUp, label: t.pnl.chips[0] },
+              { icon: PieIcon, label: t.pnl.chips[1] },
             ]}
             mockup={<PnlMockup />}
           />
@@ -334,31 +332,23 @@ export function Features() {
             <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
               <div>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white shadow-sm">
-                  <Star className="h-3 w-3 fill-white" /> Flagship feature
+                  <Star className="h-3 w-3 fill-white" /> {t.employee.flagship}
                 </span>
                 <div className="mt-4 flex items-center gap-2">
                   <Users className="h-5 w-5 text-blue-600" />
-                  <Eyebrow>MyEmployee</Eyebrow>
+                  <Eyebrow>{t.employee.eyebrow}</Eyebrow>
                 </div>
                 <h3
                   className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-4xl"
                   style={{ fontFamily: 'var(--font-manrope), system-ui, sans-serif' }}
                 >
-                  Track profitability down to the employee hour
+                  {t.employee.title}
                 </h3>
                 <p className="mt-4 max-w-md text-base leading-relaxed text-slate-600">
-                  Track employee time, project costs, and client profitability with complete
-                  visibility — so you always know which work actually pays.
+                  {t.employee.desc}
                 </p>
                 <ul className="mt-6 grid gap-3 sm:grid-cols-2">
-                  {[
-                    'Time tracking per project',
-                    'Cost per employee hour',
-                    'Client / project allocation',
-                    'Profitability reports',
-                    'Performance metrics',
-                    'Billable utilization',
-                  ].map((b) => (
+                  {t.employee.bullets.map((b) => (
                     <Bullet key={b}>{b}</Bullet>
                   ))}
                 </ul>
