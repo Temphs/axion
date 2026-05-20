@@ -3,51 +3,30 @@
 import { ShieldCheck, TrendingUp, Users, Lightbulb, LayoutGrid } from 'lucide-react'
 import { Eyebrow } from './ui'
 import { Reveal, RevealGroup, RevealItem } from './motion'
+import { useI18n } from './i18n'
 
-const benefits = [
-  {
-    icon: ShieldCheck,
-    title: 'Reduce liquidity risk',
-    desc: 'See VAT and cash obligations ahead of time and avoid nasty surprises.',
-    span: 'lg:col-span-2',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Improve profitability',
-    desc: 'Spot low-margin work and double down on what actually pays.',
-    span: 'lg:col-span-2',
-  },
-  {
-    icon: Users,
-    title: 'Track employee efficiency',
-    desc: 'Understand cost and output per hour across your whole team.',
-    span: 'lg:col-span-2',
-  },
-  {
-    icon: Lightbulb,
-    title: 'Make smarter decisions',
-    desc: 'Replace gut feel with live, data-driven financial insight at every level.',
-    span: 'lg:col-span-3',
-  },
-  {
-    icon: LayoutGrid,
-    title: 'Centralize business intelligence',
-    desc: 'One source of truth for VAT, P&L, and profitability across every business.',
-    span: 'lg:col-span-3',
-  },
+const benefitMeta = [
+  { icon: ShieldCheck, span: 'lg:col-span-2' },
+  { icon: TrendingUp, span: 'lg:col-span-2' },
+  { icon: Users, span: 'lg:col-span-2' },
+  { icon: Lightbulb, span: 'lg:col-span-3' },
+  { icon: LayoutGrid, span: 'lg:col-span-3' },
 ]
 
 export function Benefits() {
+  const { dict } = useI18n()
+  const benefits = dict.benefits.items.map((item, i) => ({ ...item, ...benefitMeta[i] }))
+
   return (
     <section id="benefits" className="px-4 py-24 sm:px-6 sm:py-32">
       <div className="mx-auto max-w-6xl">
         <Reveal className="mx-auto max-w-2xl text-center">
-          <Eyebrow>Why Axion</Eyebrow>
+          <Eyebrow>{dict.benefits.eyebrow}</Eyebrow>
           <h2
             className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl"
             style={{ fontFamily: 'var(--font-manrope), system-ui, sans-serif' }}
           >
-            Built to make your business measurably better
+            {dict.benefits.title}
           </h2>
         </Reveal>
 

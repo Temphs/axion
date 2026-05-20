@@ -2,23 +2,13 @@
 
 import { Mail, MapPin, AtSign, Globe, Share2 } from 'lucide-react'
 import { Logo } from './Logo'
-
-const columns = [
-  {
-    title: 'Product',
-    links: ['Features', 'MyVAT Prediction', 'P&L Analysis', 'MyEmployee'],
-  },
-  {
-    title: 'Company',
-    links: ['About', 'Careers', 'Blog', 'Contact'],
-  },
-  {
-    title: 'Resources',
-    links: ['Documentation', 'MyData guide', 'Pricing', 'Security'],
-  },
-]
+import { useI18n } from './i18n'
 
 export function Footer() {
+  const { dict } = useI18n()
+  const t = dict.footer
+  const columns = t.columns
+
   return (
     <footer id="contact" className="border-t border-slate-200 bg-white px-4 py-14 sm:px-6">
       <div className="mx-auto max-w-6xl">
@@ -26,15 +16,14 @@ export function Footer() {
           <div className="lg:col-span-4">
             <Logo />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-500">
-              Financial intelligence for accounting firms and SMEs. Predict, analyze, and grow
-              with clarity.
+              {t.tagline}
             </p>
             <div className="mt-5 space-y-2 text-sm text-slate-500">
               <a href="mailto:hello@axion.io" className="flex items-center gap-2 hover:text-blue-600">
                 <Mail className="h-4 w-4" /> hello@axion.io
               </a>
               <span className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" /> Athens, Greece
+                <MapPin className="h-4 w-4" /> {t.location}
               </span>
             </div>
             <div className="mt-5 flex gap-2">
@@ -71,12 +60,14 @@ export function Footer() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-slate-100 pt-7 sm:flex-row">
           <p className="text-xs text-slate-400">
-            © {new Date().getFullYear()} Axion. All rights reserved.
+            © {new Date().getFullYear()} Axion. {t.rights}
           </p>
           <div className="flex gap-6 text-xs text-slate-400">
-            <a href="#" className="hover:text-slate-600">Privacy</a>
-            <a href="#" className="hover:text-slate-600">Terms</a>
-            <a href="#" className="hover:text-slate-600">Cookies</a>
+            {t.legal.map((label) => (
+              <a key={label} href="#" className="hover:text-slate-600">
+                {label}
+              </a>
+            ))}
           </div>
         </div>
       </div>

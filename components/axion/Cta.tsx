@@ -3,8 +3,12 @@
 import { motion } from 'framer-motion'
 import { ArrowRight, Calendar } from 'lucide-react'
 import { Button } from './ui'
+import { useI18n } from './i18n'
 
 export function Cta() {
+  const { dict } = useI18n()
+  const t = dict.cta
+
   return (
     <section id="cta" className="px-4 py-20 sm:px-6 sm:py-28">
       <div className="relative mx-auto max-w-5xl overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 px-6 py-16 text-center shadow-[0_40px_80px_-30px_rgba(37,99,235,0.6)] sm:px-12 sm:py-20">
@@ -24,21 +28,20 @@ export function Cta() {
         >
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-blue-50 backdrop-blur">
             <Calendar className="h-3.5 w-3.5" />
-            See Axion on your own data
+            {t.badge}
           </span>
           <h2
             className="mx-auto mt-5 max-w-2xl text-balance text-3xl font-bold leading-tight tracking-tight text-white sm:text-5xl"
             style={{ fontFamily: 'var(--font-manrope), system-ui, sans-serif' }}
           >
-            Run Your Business With Clarity
+            {t.title}
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-blue-100">
-            Join the accounting firms and SMEs turning invoice data into confident financial
-            decisions.
+            {t.subtitle}
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button href="#contact" variant="light" size="lg" className="w-full sm:w-auto">
-              Schedule Demo
+              {t.primary}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Button>
             <Button
@@ -46,7 +49,7 @@ export function Cta() {
               size="lg"
               className="w-full bg-white/10 text-white shadow-none ring-1 ring-inset ring-white/30 hover:bg-white/20 sm:w-auto"
             >
-              Start Free Trial
+              {t.secondary}
             </Button>
           </div>
         </motion.div>

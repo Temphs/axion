@@ -2,34 +2,25 @@
 
 import { BrainCircuit, ShieldCheck, Activity } from 'lucide-react'
 import { Reveal, RevealGroup, RevealItem } from './motion'
+import { useI18n } from './i18n'
 
-const indicators = [
-  {
-    icon: BrainCircuit,
-    title: 'AI-powered',
-    desc: 'Prediction models trained on real invoice activity.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'AADE / MyData Ready',
-    desc: 'Native integration with Greek e-invoicing standards.',
-  },
-  {
-    icon: Activity,
-    title: 'Real-time insights',
-    desc: 'Live dashboards that update as transactions post.',
-  },
-]
+const indicatorIcons = [BrainCircuit, ShieldCheck, Activity]
 
 const logos = ['NorthBay', 'HelvETIA', 'Meridian', 'Aegis & Co', 'Lumina', 'Kanto']
 
 export function Trust() {
+  const { dict } = useI18n()
+  const indicators = dict.trust.indicators.map((item, i) => ({
+    ...item,
+    icon: indicatorIcons[i],
+  }))
+
   return (
     <section className="border-y border-slate-100 bg-slate-50/50 px-4 py-16 sm:px-6">
       <div className="mx-auto max-w-6xl">
         <Reveal className="text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-            Built for accounting firms and SMEs
+            {dict.trust.eyebrow}
           </p>
         </Reveal>
 
