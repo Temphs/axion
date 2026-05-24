@@ -55,7 +55,7 @@ export function Nav() {
           <Button href="#contact" variant="ghost" size="sm">
             {dict.nav.signIn}
           </Button>
-          <Button href="#cta" size="sm">
+          <Button href="#lead" size="sm">
             {dict.nav.bookDemo}
           </Button>
         </div>
@@ -63,7 +63,7 @@ export function Nav() {
         <div className="flex items-center gap-2 md:hidden">
           <LanguageSwitcher />
           <button
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100"
             onClick={() => setOpen((v) => !v)}
             aria-label={dict.nav.toggleMenu}
           >
@@ -92,7 +92,7 @@ export function Nav() {
               </a>
             ))}
             <div className="p-2">
-              <Button href="#cta" className="w-full" onClick={() => setOpen(false)}>
+              <Button href="#lead" className="w-full" onClick={() => setOpen(false)}>
                 {dict.nav.bookDemo}
               </Button>
             </div>

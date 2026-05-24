@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter, Manrope } from 'next/font/google'
 import { notFound } from 'next/navigation'
 import '../globals.css'
@@ -16,6 +16,13 @@ const manrope = Manrope({
   variable: '--font-manrope',
   display: 'swap',
 })
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#2563EB',
+}
 
 export function generateStaticParams() {
   return locales.map((lang) => ({ lang }))

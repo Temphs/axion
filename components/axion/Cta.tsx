@@ -10,7 +10,7 @@ export function Cta() {
   const t = dict.cta
 
   return (
-    <section id="cta" className="px-4 py-20 sm:px-6 sm:py-28">
+    <section id="cta" className="scroll-mt-20 px-4 py-14 sm:px-6 sm:py-28">
       <div className="relative mx-auto max-w-5xl overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 px-6 py-16 text-center shadow-[0_40px_80px_-30px_rgba(37,99,235,0.6)] sm:px-12 sm:py-20">
         {/* glow + grid */}
         <div className="pointer-events-none absolute inset-0">
@@ -40,12 +40,12 @@ export function Cta() {
             {t.subtitle}
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Button href="#contact" variant="light" size="lg" className="w-full sm:w-auto">
+            <Button href="#lead" variant="light" size="lg" className="w-full sm:w-auto">
               {t.primary}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Button>
             <Button
-              href="#contact"
+              href="#lead"
               size="lg"
               className="w-full bg-white/10 text-white shadow-none ring-1 ring-inset ring-white/30 hover:bg-white/20 sm:w-auto"
             >

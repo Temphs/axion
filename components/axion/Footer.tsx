@@ -47,7 +47,10 @@ export function Footer() {
                 <ul className="mt-4 space-y-3">
                   {col.links.map((l) => (
                     <li key={l}>
-                      <a href="#" className="text-sm text-slate-500 transition-colors hover:text-blue-600">
+                      <a
+                        href="#"
+                        className="inline-block py-1 text-sm text-slate-500 transition-colors hover:text-blue-600"
+                      >
                         {l}
                       </a>
                     </li>
@@ -64,7 +67,7 @@ export function Footer() {
           </p>
           <div className="flex gap-6 text-xs text-slate-400">
             {t.legal.map((label) => (
-              <a key={label} href="#" className="hover:text-slate-600">
+              <a key={label} href="#" className="inline-block py-1 hover:text-slate-600">
                 {label}
               </a>
             ))}

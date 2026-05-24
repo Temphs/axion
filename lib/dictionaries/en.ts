@@ -36,6 +36,7 @@ const en: Dictionary = {
   },
   trust: {
     eyebrow: 'Built for accounting firms and SMEs',
+    badges: ['AADE / myDATA', 'GDPR compliant', 'SSL encrypted'],
     indicators: [
       { title: 'AI-powered', desc: 'Prediction models trained on real invoice activity.' },
       {
@@ -178,6 +179,27 @@ const en: Dictionary = {
     rights: 'All rights reserved.',
     legal: ['Privacy', 'Terms', 'Cookies'],
   },
+  lead: {
+    eyebrow: 'Get started',
+    title: 'Book a demo on your own data',
+    subtitle: 'Fill in the form and we’ll get back to you within one business day.',
+    name: 'Full name',
+    namePlaceholder: 'Your name',
+    email: 'Email',
+    emailPlaceholder: 'you@company.com',
+    phone: 'Phone',
+    phonePlaceholder: 'Your phone number',
+    company: 'Company',
+    companyPlaceholder: 'Company name',
+    submit: 'Request demo',
+    sending: 'Sending…',
+    successTitle: 'Thank you!',
+    success: 'We’ve received your request — we’ll be in touch shortly.',
+    privacy: 'Your details are safe. No spam, ever.',
+    requiredError: 'Please fill in this field',
+    emailError: 'Enter a valid email',
+  },
+  stickyCta: 'Request demo',
   meta: {
     title: 'Axion — Financial Intelligence for Modern Businesses',
     description:
