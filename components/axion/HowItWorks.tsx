@@ -12,7 +12,7 @@ export function HowItWorks() {
   const steps = dict.howItWorks.steps.map((step, i) => ({ ...step, icon: stepIcons[i] }))
 
   return (
-    <section id="how-it-works" className="bg-slate-50/60 px-4 py-24 sm:px-6 sm:py-28">
+    <section id="how-it-works" className="scroll-mt-20 bg-slate-50/60 px-4 py-16 sm:px-6 sm:py-28">
       <div className="mx-auto max-w-6xl">
         <Reveal className="mx-auto max-w-2xl text-center">
           <Eyebrow>{dict.howItWorks.eyebrow}</Eyebrow>
@@ -24,7 +24,7 @@ export function HowItWorks() {
           </h2>
         </Reveal>
 
-        <div className="relative mt-16">
+        <div className="relative mt-12 sm:mt-16">
           {/* connector line */}
           <div className="absolute left-0 right-0 top-9 hidden h-px bg-gradient-to-r from-transparent via-blue-200 to-transparent lg:block" />
           <RevealGroup className="grid gap-6 lg:grid-cols-3">

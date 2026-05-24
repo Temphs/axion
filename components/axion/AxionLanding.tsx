@@ -8,7 +8,9 @@ import { Features } from './Features'
 import { HowItWorks } from './HowItWorks'
 import { Benefits } from './Benefits'
 import { Cta } from './Cta'
+import { LeadForm } from './LeadForm'
 import { Footer } from './Footer'
+import { StickyCta } from './StickyCta'
 
 export function AxionLanding() {
   return (
@@ -25,8 +27,10 @@ export function AxionLanding() {
           <HowItWorks />
           <Benefits />
           <Cta />
+          <LeadForm />
         </main>
         <Footer />
+        <StickyCta />
       </div>
     </MotionConfig>
   )

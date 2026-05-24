@@ -18,7 +18,7 @@ export function Benefits() {
   const benefits = dict.benefits.items.map((item, i) => ({ ...item, ...benefitMeta[i] }))
 
   return (
-    <section id="benefits" className="px-4 py-24 sm:px-6 sm:py-32">
+    <section id="benefits" className="scroll-mt-20 px-4 py-16 sm:px-6 sm:py-32">
       <div className="mx-auto max-w-6xl">
         <Reveal className="mx-auto max-w-2xl text-center">
           <Eyebrow>{dict.benefits.eyebrow}</Eyebrow>
@@ -30,7 +30,7 @@ export function Benefits() {
           </h2>
         </Reveal>
 
-        <RevealGroup className="mt-14 grid gap-4 lg:grid-cols-6">
+        <RevealGroup className="mt-10 grid gap-4 sm:mt-14 lg:grid-cols-6">
           {benefits.map((b) => (
             <RevealItem key={b.title} className={b.span}>
               <div className="group h-full rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_18px_40px_-24px_rgba(37,99,235,0.35)]">

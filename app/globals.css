@@ -6,9 +6,32 @@
 
 html {
   scroll-behavior: smooth;
+  /* Prevent iOS from auto-enlarging text in landscape */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
   background: #fff;
+  /* Stop the rubber-band scroll chaining that feels janky in in-app browsers */
+  overscroll-behavior-y: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Remove the grey tap flash on mobile taps */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Respect users who ask for less motion — also stops the decorative loops */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

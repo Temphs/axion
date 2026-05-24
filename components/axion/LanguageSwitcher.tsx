@@ -31,7 +31,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
           href={swapLocale(pathname, l)}
           aria-current={l === lang ? 'true' : undefined}
           className={cn(
-            'rounded-md px-2 py-1 text-xs font-semibold uppercase tracking-wide transition-colors',
+            'rounded-md px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors',
             l === lang
               ? 'bg-blue-600 text-white'
               : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
