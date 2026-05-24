@@ -285,7 +285,7 @@ export function Features() {
   const t = dict.features
 
   return (
-    <section id="features" className="px-4 py-24 sm:px-6 sm:py-32">
+    <section id="features" className="scroll-mt-20 px-4 py-16 sm:px-6 sm:py-32">
       <div className="mx-auto max-w-6xl">
         <Reveal className="mx-auto max-w-2xl text-center">
           <Eyebrow>{t.eyebrow}</Eyebrow>
@@ -298,7 +298,7 @@ export function Features() {
           <p className="mx-auto mt-4 max-w-xl text-lg text-slate-600">{t.subtitle}</p>
         </Reveal>
 
-        <div className="mt-20 space-y-24 sm:space-y-32">
+        <div className="mt-14 space-y-16 sm:mt-20 sm:space-y-32">
           <FeatureRow
             eyebrow={t.vat.eyebrow}
             title={t.vat.title}
@@ -327,7 +327,7 @@ export function Features() {
 
         {/* Flagship: MyEmployee */}
         <Reveal>
-          <div className="relative mt-24 overflow-hidden rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50/80 via-white to-indigo-50/60 p-6 sm:mt-32 sm:p-10">
+          <div className="relative mt-16 overflow-hidden rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50/80 via-white to-indigo-50/60 p-6 sm:mt-32 sm:p-10">
             <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-blue-300/20 blur-3xl" />
             <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
               <div>

@@ -34,6 +34,7 @@ const el = {
   },
   trust: {
     eyebrow: 'Σχεδιασμένο για λογιστικά γραφεία και ΜμΕ',
+    badges: ['ΑΑΔΕ / myDATA', 'Συμμόρφωση GDPR', 'Κρυπτογράφηση SSL'],
     indicators: [
       {
         title: 'Με τεχνολογία AI',
@@ -179,6 +180,28 @@ const el = {
     rights: 'Με την επιφύλαξη παντός δικαιώματος.',
     legal: ['Απόρρητο', 'Όροι', 'Cookies'],
   },
+  lead: {
+    eyebrow: 'Ξεκινήστε',
+    title: 'Κλείστε ένα demo στα δικά σας δεδομένα',
+    subtitle:
+      'Συμπληρώστε τη φόρμα και θα επικοινωνήσουμε μαζί σας εντός μίας εργάσιμης ημέρας.',
+    name: 'Ονοματεπώνυμο',
+    namePlaceholder: 'Το όνομά σας',
+    email: 'Email',
+    emailPlaceholder: 'you@company.gr',
+    phone: 'Τηλέφωνο',
+    phonePlaceholder: 'π.χ. 69XXXXXXXX',
+    company: 'Επιχείρηση',
+    companyPlaceholder: 'Επωνυμία επιχείρησης',
+    submit: 'Ζητήστε demo',
+    sending: 'Αποστολή…',
+    successTitle: 'Ευχαριστούμε!',
+    success: 'Λάβαμε το αίτημά σας — θα επικοινωνήσουμε πολύ σύντομα.',
+    privacy: 'Τα στοιχεία σας είναι ασφαλή. Καμία ανεπιθύμητη επικοινωνία.',
+    requiredError: 'Συμπληρώστε αυτό το πεδίο',
+    emailError: 'Εισάγετε ένα έγκυρο email',
+  },
+  stickyCta: 'Ζητήστε demo',
   meta: {
     title: 'Axion — Χρηματοοικονομική Ευφυΐα για Σύγχρονες Επιχειρήσεις',
     description:
