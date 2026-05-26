@@ -1,0 +1,102 @@
+// Prisma schema for the Axion employee-productivity backend.
+// See AGENTS.md: this is Prisma 7 (new `prisma-client` generator + prisma.config.ts).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// --- Auth (manager accounts) ---------------------------------------------
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime  @default(now())
+  sessions     Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Machine-to-machine credential for the companion time-tracking app.
+// Only the sha256 hash of the token is stored; the plaintext is shown once at creation.
+model ApiKey {
+  id         String    @id @default(cuid())
+  name       String
+  prefix     String
+  hashedKey  String    @unique
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+// --- Productivity domain --------------------------------------------------
+
+// A worker whose time is tracked. costPerHour is derived: monthlyCost / hoursPerMonth.
+model Employee {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  monthlyCost Float       @default(0)
+  notes       String?
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  entries     WorkEntry[]
+}
+
+// A client the work is billed against. Revenue is configured; cost/profit are computed.
+model Client {
+  id             String      @id @default(cuid())
+  name           String      @unique
+  billable       Boolean     @default(true)
+  monthlyRevenue Float       @default(0)
+  notes          String?
+  active         Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  entries        WorkEntry[]
+}
+
+// One logged unit of work. Fed by the separate time-tracking app or entered by the manager.
+// minutes is the source of truth; hours = minutes / 60.
+model WorkEntry {
+  id         String   @id @default(cuid())
+  date       DateTime
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  workType   String?
+  minutes    Int
+  notes      String?
+  externalId String?  @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([date])
+  @@index([employeeId])
+  @@index([clientId])
+}
+
+// Single-row global config. Always id = 1. hoursPerMonth = hoursPerDay * daysPerMonth.
+model Settings {
+  id              Int      @id @default(1)
+  hoursPerDay     Float    @default(8)
+  daysPerMonth    Float    @default(22)
+  includeOverhead Boolean  @default(true)
+  updatedAt       DateTime @updatedAt
+}

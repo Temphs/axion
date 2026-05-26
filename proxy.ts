@@ -28,6 +28,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Run on all paths except Next internals and files with an extension.
-  matcher: ['/((?!_next|favicon.ico|.*\\..*).*)'],
+  // Run on all paths except API routes, Next internals, and files with an extension.
+  matcher: ['/((?!api|_next|favicon.ico|.*\\..*).*)'],
 }
