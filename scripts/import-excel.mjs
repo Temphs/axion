@@ -46,18 +46,23 @@ console.log(`✓ account ready: ${ACCOUNT.email} (${auth.status})`)
 await api('PATCH', '/api/settings', data.settings)
 console.log('✓ settings applied')
 
-// 3. Employees -> name->id map.
+// 3. Employees -> name->id map (prefill from existing rows so re-runs are idempotent).
 const empMap = new Map()
+const existingEmp = await api('GET', '/api/employees')
+for (const e of existingEmp.json.employees ?? []) empMap.set(e.name, e.id)
 for (const e of dedupeByName(data.employees)) {
+  if (empMap.has(e.name)) continue
   const r = await api('POST', '/api/employees', { name: e.name, monthlyCost: e.monthlyCost ?? 0, notes: e.notes ?? null })
   if (r.status === 201) empMap.set(e.name, r.json.employee.id)
   else console.warn(`  employee "${e.name}" -> ${r.status} ${JSON.stringify(r.json)}`)
 }
 console.log(`✓ employees: ${empMap.size}`)
 
-// 4. Clients -> name->id map (parallel in chunks).
+// 4. Clients -> name->id map (prefill from existing, then create missing in parallel chunks).
 const clientMap = new Map()
-const clients = dedupeByName(data.clients)
+const existingCli = await api('GET', '/api/clients')
+for (const c of existingCli.json.clients ?? []) clientMap.set(c.name, c.id)
+const clients = dedupeByName(data.clients).filter((c) => !clientMap.has(c.name))
 const CHUNK = 24
 for (let i = 0; i < clients.length; i += CHUNK) {
   const slice = clients.slice(i, i + CHUNK)
@@ -100,7 +105,7 @@ for (const e of data.entries) {
 if (autoEmp || autoCli) console.log(`  (auto-created ${autoEmp} employee refs, ${autoCli} client refs from entries)`)
 
 let processed = 0
-const BATCH = 300
+const BATCH = 100
 for (let i = 0; i < prepared.length; i += BATCH) {
   const batch = prepared.slice(i, i + BATCH)
   const r = await api('POST', '/api/entries', { entries: batch })
