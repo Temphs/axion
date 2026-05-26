@@ -1,0 +1,74 @@
+import { prisma } from '@/lib/db'
+import { ok, fail, readJson, authed, isNotFound, isForeignKeyConstraint } from '@/lib/api'
+
+export async function GET(_req: Request, ctx: RouteContext<'/api/entries/[id]'>) {
+  const { res } = await authed()
+  if (res) return res
+
+  const { id } = await ctx.params
+  const entry = await prisma.workEntry.findUnique({
+    where: { id },
+    include: {
+      employee: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true } },
+    },
+  })
+  if (!entry) return fail('Entry not found', 404)
+  return ok({ entry: { ...entry, hours: entry.minutes / 60 } })
+}
+
+export async function PATCH(request: Request, ctx: RouteContext<'/api/entries/[id]'>) {
+  const { res } = await authed()
+  if (res) return res
+
+  const { id } = await ctx.params
+  const body = await readJson<{
+    date?: string
+    employeeId?: string
+    clientId?: string
+    workType?: string | null
+    minutes?: number
+    hours?: number
+    notes?: string | null
+  }>(request)
+  if (!body) return fail('Invalid JSON body')
+
+  const data: Record<string, unknown> = {}
+  if (body.date !== undefined) {
+    const d = new Date(body.date)
+    if (Number.isNaN(d.getTime())) return fail(`invalid date: ${body.date}`)
+    data.date = d
+  }
+  if (body.employeeId !== undefined) data.employeeId = body.employeeId
+  if (body.clientId !== undefined) data.clientId = body.clientId
+  if (body.workType !== undefined) data.workType = body.workType?.toString().trim() || null
+  if (body.notes !== undefined) data.notes = body.notes?.toString().trim() || null
+  if (body.minutes !== undefined || body.hours !== undefined) {
+    const minutes = typeof body.minutes === 'number' ? Math.round(body.minutes) : Math.round((body.hours as number) * 60)
+    if (!Number.isFinite(minutes) || minutes <= 0) return fail('minutes/hours must be a positive number')
+    data.minutes = minutes
+  }
+
+  try {
+    const entry = await prisma.workEntry.update({ where: { id }, data })
+    return ok({ entry: { ...entry, hours: entry.minutes / 60 } })
+  } catch (e) {
+    if (isNotFound(e)) return fail('Entry not found', 404)
+    if (isForeignKeyConstraint(e)) return fail('Unknown employeeId or clientId', 400)
+    throw e
+  }
+}
+
+export async function DELETE(_req: Request, ctx: RouteContext<'/api/entries/[id]'>) {
+  const { res } = await authed()
+  if (res) return res
+
+  const { id } = await ctx.params
+  try {
+    await prisma.workEntry.delete({ where: { id } })
+    return ok({ ok: true })
+  } catch (e) {
+    if (isNotFound(e)) return fail('Entry not found', 404)
+    throw e
+  }
+}
