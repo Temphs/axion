@@ -217,3 +217,217 @@ export async function buildStats(filter: StatsFilter): Promise<Stats> {
     clients,
   }
 }
+
+// --- Employee analytics ---------------------------------------------------
+
+function monthKey(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+function monthLabel(key: string): string {
+  const [y, m] = key.split('-').map(Number)
+  return new Intl.DateTimeFormat('el-GR', { month: 'short', year: '2-digit' }).format(
+    new Date(Date.UTC(y, m - 1, 1))
+  )
+}
+
+export type EmployeeOverview = {
+  id: string
+  name: string
+  notes: string | null
+  active: boolean
+  monthlyCost: number
+  costPerHour: number
+  hours: number
+  days: number
+  months: number
+  avgPerDay: number
+  avgPerMonth: number
+  utilization: number | null
+  billableHours: number
+  nonBillableHours: number
+  billablePct: number | null
+  cost: number
+}
+
+// Per-employee headline metrics for the cards grid. Aggregated in the database.
+export async function getEmployeesOverview(): Promise<EmployeeOverview[]> {
+  const settings = await getSettings()
+  const hpm = hoursPerMonth(settings)
+
+  const [employees, dayGroups, clientGroups, clients] = await Promise.all([
+    prisma.employee.findMany({ orderBy: { name: 'asc' } }),
+    prisma.workEntry.groupBy({ by: ['employeeId', 'date'], _sum: { minutes: true } }),
+    prisma.workEntry.groupBy({ by: ['employeeId', 'clientId'], _sum: { minutes: true } }),
+    prisma.client.findMany({ select: { id: true, billable: true } }),
+  ])
+  const billableOf = new Map(clients.map((c) => [c.id, c.billable]))
+
+  type Agg = { minutes: number; days: number; months: Set<string>; billable: number; nonBillable: number }
+  const agg = new Map<string, Agg>()
+  const get = (id: string): Agg => {
+    let a = agg.get(id)
+    if (!a) {
+      a = { minutes: 0, days: 0, months: new Set(), billable: 0, nonBillable: 0 }
+      agg.set(id, a)
+    }
+    return a
+  }
+
+  for (const g of dayGroups) {
+    const a = get(g.employeeId)
+    a.minutes += g._sum.minutes ?? 0
+    a.days += 1
+    a.months.add(monthKey(g.date))
+  }
+  for (const g of clientGroups) {
+    const a = get(g.employeeId)
+    const m = g._sum.minutes ?? 0
+    if (billableOf.get(g.clientId)) a.billable += m
+    else a.nonBillable += m
+  }
+
+  return employees.map((e) => {
+    const a = agg.get(e.id)
+    const hours = (a?.minutes ?? 0) / 60
+    const days = a?.days ?? 0
+    const months = a?.months.size ?? 0
+    const avgPerDay = days > 0 ? hours / days : 0
+    const avgPerMonth = months > 0 ? hours / months : 0
+    const costPerHour = hpm > 0 ? e.monthlyCost / hpm : 0
+    const billableHours = (a?.billable ?? 0) / 60
+    const nonBillableHours = (a?.nonBillable ?? 0) / 60
+    const totalBN = billableHours + nonBillableHours
+    return {
+      id: e.id,
+      name: e.name,
+      notes: e.notes,
+      active: e.active,
+      monthlyCost: e.monthlyCost,
+      costPerHour,
+      hours,
+      days,
+      months,
+      avgPerDay,
+      avgPerMonth,
+      utilization: hpm > 0 ? avgPerMonth / hpm : null,
+      billableHours,
+      nonBillableHours,
+      billablePct: totalBN > 0 ? billableHours / totalBN : null,
+      cost: hours * costPerHour,
+    }
+  })
+}
+
+export type EmployeeDetail = {
+  id: string
+  name: string
+  notes: string | null
+  active: boolean
+  monthlyCost: number
+  costPerHour: number
+  hours: number
+  days: number
+  months: number
+  avgPerDay: number
+  avgPerMonth: number
+  utilization: number | null
+  cost: number
+  entryCount: number
+  billableHours: number
+  nonBillableHours: number
+  billablePct: number | null
+  workTypes: { type: string; hours: number; pct: number }[]
+  clients: { id: string; name: string; hours: number; cost: number; billable: boolean }[]
+  trend: { month: string; label: string; hours: number }[]
+}
+
+// Full breakdown for one employee's detail page.
+export async function getEmployeeDetail(id: string): Promise<EmployeeDetail | null> {
+  const settings = await getSettings()
+  const hpm = hoursPerMonth(settings)
+
+  const employee = await prisma.employee.findUnique({ where: { id } })
+  if (!employee) return null
+
+  const where = { employeeId: id }
+  const [dayGroups, typeGroups, clientGroups, clientRows] = await Promise.all([
+    prisma.workEntry.groupBy({ by: ['date'], where, _sum: { minutes: true }, _count: { _all: true } }),
+    prisma.workEntry.groupBy({ by: ['workType'], where, _sum: { minutes: true } }),
+    prisma.workEntry.groupBy({ by: ['clientId'], where, _sum: { minutes: true }, _count: { _all: true } }),
+    prisma.client.findMany({ select: { id: true, name: true, billable: true } }),
+  ])
+  const cliInfo = new Map(clientRows.map((c) => [c.id, c]))
+
+  let totalMin = 0
+  let entryCount = 0
+  const monthsMap = new Map<string, number>()
+  for (const g of dayGroups) {
+    const m = g._sum.minutes ?? 0
+    totalMin += m
+    entryCount += g._count._all
+    const k = monthKey(g.date)
+    monthsMap.set(k, (monthsMap.get(k) ?? 0) + m)
+  }
+  const days = dayGroups.length
+  const months = monthsMap.size
+  const hours = totalMin / 60
+  const avgPerDay = days > 0 ? hours / days : 0
+  const avgPerMonth = months > 0 ? hours / months : 0
+  const costPerHour = hpm > 0 ? employee.monthlyCost / hpm : 0
+
+  let billableMin = 0
+  let nonBillableMin = 0
+  const clients = clientGroups
+    .map((g) => {
+      const info = cliInfo.get(g.clientId)
+      const m = g._sum.minutes ?? 0
+      if (info?.billable) billableMin += m
+      else nonBillableMin += m
+      return {
+        id: g.clientId,
+        name: info?.name ?? '—',
+        hours: m / 60,
+        cost: (m / 60) * costPerHour,
+        billable: !!info?.billable,
+      }
+    })
+    .sort((a, b) => b.hours - a.hours)
+
+  const workTypes = typeGroups
+    .map((g) => ({ type: g.workType ?? '—', hours: (g._sum.minutes ?? 0) / 60 }))
+    .sort((a, b) => b.hours - a.hours)
+    .map((t) => ({ ...t, pct: hours > 0 ? t.hours / hours : 0 }))
+
+  const trend = [...monthsMap.entries()]
+    .map(([month, min]) => ({ month, hours: min / 60 }))
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .map((t) => ({ ...t, label: monthLabel(t.month) }))
+
+  const billableHours = billableMin / 60
+  const nonBillableHours = nonBillableMin / 60
+  const totalBN = billableHours + nonBillableHours
+
+  return {
+    id: employee.id,
+    name: employee.name,
+    notes: employee.notes,
+    active: employee.active,
+    monthlyCost: employee.monthlyCost,
+    costPerHour,
+    hours,
+    days,
+    months,
+    avgPerDay,
+    avgPerMonth,
+    utilization: hpm > 0 ? avgPerMonth / hpm : null,
+    cost: hours * costPerHour,
+    entryCount,
+    billableHours,
+    nonBillableHours,
+    billablePct: totalBN > 0 ? billableHours / totalBN : null,
+    workTypes,
+    clients,
+    trend,
+  }
+}
