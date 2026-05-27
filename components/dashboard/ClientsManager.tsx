@@ -60,7 +60,7 @@ export function ClientsManager({ initial }: { initial: Client[] }) {
       <header>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Πελάτες</h1>
         <p className="text-sm text-slate-500">
-          Ώρες & κόστος μισθών (σταθμισμένο ανά κόστος/ώρα κάθε εργαζομένου) · ταξινόμηση κατά ώρες
+          Μέσος όρος ανά μήνα — ώρες & κόστος μισθών (σταθμισμένο ανά κόστος/ώρα κάθε εργαζομένου)
         </p>
       </header>
 
@@ -99,8 +99,8 @@ export function ClientsManager({ initial }: { initial: Client[] }) {
               <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
                 <th className="px-5 py-3 font-medium">Πελάτης</th>
                 <th className="px-5 py-3 font-medium">Τύπος</th>
-                <th className="px-5 py-3 text-right font-medium">Ώρες</th>
-                <th className="px-5 py-3 text-right font-medium">Κόστος μισθών</th>
+                <th className="px-5 py-3 text-right font-medium">Ώρες/μήνα</th>
+                <th className="px-5 py-3 text-right font-medium">Κόστος μισθών/μήνα</th>
                 <th className="px-5 py-3 text-right font-medium">Μηνιαίο έσοδο</th>
                 <th className="px-5 py-3 text-center font-medium">Κατάσταση</th>
                 <th className="px-5 py-3 text-right font-medium">Ενέργειες</th>

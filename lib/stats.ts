@@ -434,26 +434,45 @@ export async function getEmployeeDetail(id: string): Promise<EmployeeDetail | nu
 
 export type ClientStatsRow = { hours: number; cost: number }
 
-// Per-client hours and salary cost, weighted by which employee did the work
-// (cost = sum over employees of hours * that employee's cost/hour).
+// Per-client AVERAGE hours and salary cost per active month. Cost is weighted by
+// which employee did the work (sum of hours * that employee's cost/hour), then
+// divided by the number of distinct months the client had any activity.
 export async function getClientsStats(): Promise<Map<string, ClientStatsRow>> {
   const settings = await getSettings()
   const hpm = hoursPerMonth(settings)
 
-  const [groups, employees] = await Promise.all([
+  const [costGroups, monthGroups, employees] = await Promise.all([
     prisma.workEntry.groupBy({ by: ['clientId', 'employeeId'], _sum: { minutes: true } }),
+    prisma.workEntry.groupBy({ by: ['clientId', 'date'], _sum: { minutes: true } }),
     prisma.employee.findMany({ select: { id: true, monthlyCost: true } }),
   ])
   const costPerHour = new Map(employees.map((e) => [e.id, hpm > 0 ? e.monthlyCost / hpm : 0]))
 
-  const map = new Map<string, ClientStatsRow>()
-  for (const g of groups) {
+  const totalHours = new Map<string, number>()
+  const totalCost = new Map<string, number>()
+  for (const g of costGroups) {
     const hours = (g._sum.minutes ?? 0) / 60
     const cost = hours * (costPerHour.get(g.employeeId) ?? 0)
-    const row = map.get(g.clientId) ?? { hours: 0, cost: 0 }
-    row.hours += hours
-    row.cost += cost
-    map.set(g.clientId, row)
+    totalHours.set(g.clientId, (totalHours.get(g.clientId) ?? 0) + hours)
+    totalCost.set(g.clientId, (totalCost.get(g.clientId) ?? 0) + cost)
+  }
+
+  const monthsByClient = new Map<string, Set<string>>()
+  for (const g of monthGroups) {
+    let s = monthsByClient.get(g.clientId)
+    if (!s) {
+      s = new Set()
+      monthsByClient.set(g.clientId, s)
+    }
+    s.add(monthKey(g.date))
+  }
+
+  const map = new Map<string, ClientStatsRow>()
+  for (const clientId of totalHours.keys()) {
+    const months = monthsByClient.get(clientId)?.size ?? 0
+    const h = totalHours.get(clientId) ?? 0
+    const c = totalCost.get(clientId) ?? 0
+    map.set(clientId, { hours: months > 0 ? h / months : 0, cost: months > 0 ? c / months : 0 })
   }
   return map
 }
