@@ -12,7 +12,7 @@
 
 /* Cool dusty-blue canvas for the dashboard — kept light so dark text stays readable. */
 .dashboard-surface {
-  background-color: #cdd7ec;
+  background-color: #3a72eb;
   background-image:
     radial-gradient(75rem 60rem at 115% -25%, rgba(255, 255, 255, 0.55), transparent 60%),
     linear-gradient(165deg, #d7dff1 0%, #c4d0e8 60%, #bdcae6 100%);
