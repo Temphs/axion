@@ -6,6 +6,7 @@ import { Menu, X } from 'lucide-react'
 import { Logo } from './Logo'
 import { Button } from './ui'
 import { LanguageSwitcher } from './LanguageSwitcher'
+import { AuthModal } from './AuthModal'
 import { useI18n } from './i18n'
 import { cn } from '@/lib/utils'
 
@@ -15,6 +16,7 @@ export function Nav() {
   const { lang, dict } = useI18n()
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
+  const [authOpen, setAuthOpen] = useState(false)
 
   const links = dict.nav.links.map((label, i) => ({ label, href: linkHrefs[i] }))
 
@@ -26,6 +28,7 @@ export function Nav() {
   }, [])
 
   return (
+    <>
     <header className="fixed inset-x-0 top-0 z-50">
       <div
         className={cn(
@@ -52,7 +55,7 @@ export function Nav() {
 
         <div className="hidden items-center gap-2 md:flex">
           <LanguageSwitcher />
-          <Button href={`/${lang}/login`} variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" onClick={() => setAuthOpen(true)}>
             {dict.nav.signIn}
           </Button>
           <Button href="#lead" size="sm">
@@ -91,13 +94,15 @@ export function Nav() {
                 {l.label}
               </a>
             ))}
-            <a
-              href={`/${lang}/login`}
-              onClick={() => setOpen(false)}
-              className="block rounded-lg px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            <button
+              onClick={() => {
+                setOpen(false)
+                setAuthOpen(true)
+              }}
+              className="block w-full rounded-lg px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-100"
             >
               {dict.nav.signIn}
-            </a>
+            </button>
             <div className="p-2">
               <Button href="#lead" className="w-full" onClick={() => setOpen(false)}>
                 {dict.nav.bookDemo}
@@ -107,5 +112,7 @@ export function Nav() {
         )}
       </AnimatePresence>
     </header>
+    <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} lang={lang} />
+    </>
   )
 }
