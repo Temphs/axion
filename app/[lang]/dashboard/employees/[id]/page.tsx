@@ -104,7 +104,7 @@ export default async function EmployeeDetailPage({ params }: PageProps<'/[lang]/
           </Card>
 
           {/* clients (searchable) */}
-          <EmployeeClientsTable clients={d.clients} />
+          <EmployeeClientsTable clients={d.clients} lang={lang} />
         </>
       )}
     </div>
