@@ -57,12 +57,12 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
         </aside>
 
         <main className="min-w-0 flex-1">
-          <div className="mb-4 flex items-center justify-between gap-3 lg:hidden">
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-stone-200/70 bg-white/85 px-4 py-2.5 shadow-sm backdrop-blur-sm lg:hidden">
             <span className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-500 text-sm font-bold text-white">
                 A
               </span>
-              <span className="font-display text-lg font-semibold tracking-tight">Axion</span>
+              <span className="font-display text-lg font-semibold tracking-tight text-stone-900">Axion</span>
             </span>
             <LogoutButton />
           </div>

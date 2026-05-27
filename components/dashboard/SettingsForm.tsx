@@ -39,8 +39,8 @@ export function SettingsForm({ initial }: { initial: Settings }) {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">Ρυθμίσεις</h1>
-        <p className="text-sm text-slate-500">Παράμετροι υπολογισμού κόστους & αξιοποίησης</p>
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-white">Ρυθμίσεις</h1>
+        <p className="text-sm text-blue-200/90">Παράμετροι υπολογισμού κόστους & αξιοποίησης</p>
       </header>
 
       <Card className="max-w-xl p-5">

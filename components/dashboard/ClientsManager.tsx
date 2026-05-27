@@ -65,8 +65,8 @@ export function ClientsManager({ initial, lang }: { initial: Client[]; lang: str
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Πελάτες</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-white">Πελάτες</h1>
+        <p className="text-sm text-blue-200/90">
           Μέσος όρος ανά μήνα — ώρες & κόστος μισθών (σταθμισμένο ανά κόστος/ώρα κάθε εργαζομένου)
         </p>
       </header>

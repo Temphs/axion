@@ -17,7 +17,7 @@ export default async function ClientDetailPage({ params }: PageProps<'/[lang]/da
 
   return (
     <div className="space-y-6">
-      <Link href={`/${lang}/dashboard/clients`} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-blue-600">
+      <Link href={`/${lang}/dashboard/clients`} className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-200 transition hover:text-white">
         <ArrowLeft size={16} /> Πελάτες
       </Link>
 
@@ -28,14 +28,14 @@ export default async function ClientDetailPage({ params }: PageProps<'/[lang]/da
             {d.name.trim().charAt(0).toUpperCase()}
           </span>
           <div>
-            <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">{d.name}</h1>
-            <p className="text-sm text-slate-500">
-              <span className={'rounded-full px-2 py-0.5 text-[11px] font-medium ' + (d.billable ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600')}>
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-white">{d.name}</h1>
+            <p className="text-sm text-blue-200/90">
+              <span className={'rounded-full px-2 py-0.5 text-[11px] font-medium ' + (d.billable ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700')}>
                 {d.billable ? 'Χρεώσιμος' : 'Overhead'}
               </span>
               {d.billable && <span className="ml-2">{eur(d.monthlyRevenue)}/μήνα έσοδο</span>}
-              {d.notes && <span className="ml-2 text-slate-400">{d.notes}</span>}
-              {!d.active && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">Ανενεργός</span>}
+              {d.notes && <span className="ml-2 text-blue-200/70">{d.notes}</span>}
+              {!d.active && <span className="ml-2 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-blue-50">Ανενεργός</span>}
             </p>
           </div>
         </div>

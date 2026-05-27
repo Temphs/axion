@@ -20,7 +20,7 @@ export default async function EmployeeDetailPage({ params }: PageProps<'/[lang]/
 
   return (
     <div className="space-y-6">
-      <Link href={`/${lang}/dashboard/employees`} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-blue-600">
+      <Link href={`/${lang}/dashboard/employees`} className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-200 transition hover:text-white">
         <ArrowLeft size={16} /> Εργαζόμενοι
       </Link>
 
@@ -31,10 +31,10 @@ export default async function EmployeeDetailPage({ params }: PageProps<'/[lang]/
             {d.name.trim().charAt(0).toUpperCase()}
           </span>
           <div>
-            <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">{d.name}</h1>
-            <p className="text-sm text-slate-500">
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-white">{d.name}</h1>
+            <p className="text-sm text-blue-200/90">
               {d.notes || 'Εργαζόμενος'} · {eur(d.monthlyCost)}/μήνα · {eur(d.costPerHour, true)}/ώρα
-              {!d.active && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">Ανενεργός</span>}
+              {!d.active && <span className="ml-2 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-blue-50">Ανενεργός</span>}
             </p>
           </div>
         </div>

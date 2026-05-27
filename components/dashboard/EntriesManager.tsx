@@ -55,8 +55,8 @@ export function EntriesManager({ entries, employees, clients }: { entries: Entry
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">Καταχωρήσεις εργασίας</h1>
-        <p className="text-sm text-slate-500">Χειροκίνητη προσθήκη ή μέσω της εφαρμογής καταγραφής (API key)</p>
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-white">Καταχωρήσεις εργασίας</h1>
+        <p className="text-sm text-blue-200/90">Χειροκίνητη προσθήκη ή μέσω της εφαρμογής καταγραφής (API key)</p>
       </header>
 
       <Card className="p-5">

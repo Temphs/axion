@@ -63,8 +63,8 @@ export function EmployeesGrid({
     <div className="space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">Εργαζόμενοι</h1>
-          <p className="text-sm text-slate-500">Επιλέξτε εργαζόμενο για αναλυτικά στοιχεία παραγωγικότητας</p>
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-white">Εργαζόμενοι</h1>
+          <p className="text-sm text-blue-200/90">Επιλέξτε εργαζόμενο για αναλυτικά στοιχεία παραγωγικότητας</p>
         </div>
         <button
           onClick={() => setAdding((v) => !v)}

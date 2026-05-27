@@ -10,12 +10,13 @@
   font-feature-settings: "liga" 1, "kern" 1;
 }
 
-/* Cool dusty-blue canvas for the dashboard — kept light so dark text stays readable. */
+/* Deep blue canvas for the dashboard. Slightly deepened + a gradient so the large
+   surface is easier on the eyes than a flat saturated blue; text on it is light. */
 .dashboard-surface {
-  background-color: #3a72eb;
+  background-color: #2a50b5;
   background-image:
-    radial-gradient(75rem 60rem at 115% -25%, rgba(255, 255, 255, 0.55), transparent 60%),
-    linear-gradient(165deg, #3367df 0%, #2a66dd 60%, #336adf 100%);
+    radial-gradient(80rem 64rem at 112% -28%, rgba(160, 190, 255, 0.28), transparent 55%),
+    linear-gradient(165deg, #3460cf 0%, #2849a4 55%, #21408f 100%);
 }
 
 /* Every card/segment casts a warm "paper" shadow against the cool blue. */
