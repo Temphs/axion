@@ -431,3 +431,29 @@ export async function getEmployeeDetail(id: string): Promise<EmployeeDetail | nu
     trend,
   }
 }
+
+export type ClientStatsRow = { hours: number; cost: number }
+
+// Per-client hours and salary cost, weighted by which employee did the work
+// (cost = sum over employees of hours * that employee's cost/hour).
+export async function getClientsStats(): Promise<Map<string, ClientStatsRow>> {
+  const settings = await getSettings()
+  const hpm = hoursPerMonth(settings)
+
+  const [groups, employees] = await Promise.all([
+    prisma.workEntry.groupBy({ by: ['clientId', 'employeeId'], _sum: { minutes: true } }),
+    prisma.employee.findMany({ select: { id: true, monthlyCost: true } }),
+  ])
+  const costPerHour = new Map(employees.map((e) => [e.id, hpm > 0 ? e.monthlyCost / hpm : 0]))
+
+  const map = new Map<string, ClientStatsRow>()
+  for (const g of groups) {
+    const hours = (g._sum.minutes ?? 0) / 60
+    const cost = hours * (costPerHour.get(g.employeeId) ?? 0)
+    const row = map.get(g.clientId) ?? { hours: 0, cost: 0 }
+    row.hours += hours
+    row.cost += cost
+    map.set(g.clientId, row)
+  }
+  return map
+}

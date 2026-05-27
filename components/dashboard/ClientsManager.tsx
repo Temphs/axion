@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/axion/ui'
 import { api } from '@/components/dashboard/api'
-import { eur } from '@/lib/format'
+import { eur, hrs } from '@/lib/format'
 
 type Client = {
   id: string
@@ -13,6 +13,8 @@ type Client = {
   monthlyRevenue: number
   active: boolean
   notes: string | null
+  hours: number
+  cost: number
 }
 
 export function ClientsManager({ initial }: { initial: Client[] }) {
@@ -57,7 +59,9 @@ export function ClientsManager({ initial }: { initial: Client[] }) {
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Πελάτες</h1>
-        <p className="text-sm text-slate-500">Χρεώσιμοι πελάτες έχουν μηνιαίο έσοδο· οι μη χρεώσιμοι μετρούν ως overhead</p>
+        <p className="text-sm text-slate-500">
+          Ώρες & κόστος μισθών (σταθμισμένο ανά κόστος/ώρα κάθε εργαζομένου) · ταξινόμηση κατά ώρες
+        </p>
       </header>
 
       <Card className="p-5">
@@ -95,6 +99,8 @@ export function ClientsManager({ initial }: { initial: Client[] }) {
               <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
                 <th className="px-5 py-3 font-medium">Πελάτης</th>
                 <th className="px-5 py-3 font-medium">Τύπος</th>
+                <th className="px-5 py-3 text-right font-medium">Ώρες</th>
+                <th className="px-5 py-3 text-right font-medium">Κόστος μισθών</th>
                 <th className="px-5 py-3 text-right font-medium">Μηνιαίο έσοδο</th>
                 <th className="px-5 py-3 text-center font-medium">Κατάσταση</th>
                 <th className="px-5 py-3 text-right font-medium">Ενέργειες</th>
@@ -102,7 +108,7 @@ export function ClientsManager({ initial }: { initial: Client[] }) {
             </thead>
             <tbody>
               {initial.length === 0 && (
-                <tr><td colSpan={5} className="px-5 py-8 text-center text-slate-400">Κανένας πελάτης ακόμη</td></tr>
+                <tr><td colSpan={7} className="px-5 py-8 text-center text-slate-400">Κανένας πελάτης ακόμη</td></tr>
               )}
               {initial.map((c) => (
                 <tr key={c.id} className="border-t border-slate-50">
@@ -115,6 +121,8 @@ export function ClientsManager({ initial }: { initial: Client[] }) {
                       {c.billable ? 'Χρεώσιμος' : 'Overhead'}
                     </span>
                   </td>
+                  <td className="px-5 py-3 text-right tabular-nums text-slate-700">{hrs(c.hours)}</td>
+                  <td className="px-5 py-3 text-right tabular-nums font-medium text-slate-700">{eur(c.cost)}</td>
                   <td className="px-5 py-3 text-right tabular-nums text-slate-600">{c.billable ? eur(c.monthlyRevenue) : '—'}</td>
                   <td className="px-5 py-3 text-center">
                     <button onClick={() => toggle(c)} className={'rounded-full px-2.5 py-0.5 text-xs font-medium ' + (c.active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500')}>
