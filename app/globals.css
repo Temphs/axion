@@ -10,12 +10,19 @@
   font-feature-settings: "liga" 1, "kern" 1;
 }
 
-/* Warm "paper" backdrop for the dashboard — replaces the flat grey. */
+/* Cool dusty-blue canvas for the dashboard — kept light so dark text stays readable. */
 .dashboard-surface {
-  background-color: #faf8f4;
+  background-color: #cdd7ec;
   background-image:
-    radial-gradient(60rem 60rem at 110% -10%, rgba(37, 99, 235, 0.06), transparent 60%),
-    radial-gradient(50rem 50rem at -10% 110%, rgba(217, 119, 6, 0.05), transparent 55%);
+    radial-gradient(75rem 60rem at 115% -25%, rgba(255, 255, 255, 0.55), transparent 60%),
+    linear-gradient(165deg, #d7dff1 0%, #c4d0e8 60%, #bdcae6 100%);
+}
+
+/* Every card/segment casts a warm "paper" shadow against the cool blue. */
+.dashboard-surface :is([class~="rounded-2xl"], [class~="rounded-3xl"]) {
+  box-shadow:
+    0 1px 2px rgba(95, 80, 45, 0.1),
+    0 16px 40px -18px rgba(193, 168, 112, 0.55);
 }
 
 ::selection {
