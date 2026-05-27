@@ -15,7 +15,7 @@
   background-color: #3a72eb;
   background-image:
     radial-gradient(75rem 60rem at 115% -25%, rgba(255, 255, 255, 0.55), transparent 60%),
-    linear-gradient(165deg, #d7dff1 0%, #c4d0e8 60%, #bdcae6 100%);
+    linear-gradient(165deg, #3367df 0%, #2a66dd 60%, #336adf 100%);
 }
 
 /* Every card/segment casts a warm "paper" shadow against the cool blue. */
