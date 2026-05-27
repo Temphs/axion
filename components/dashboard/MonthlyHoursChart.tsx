@@ -30,9 +30,9 @@ export function MonthlyHoursChart({ data }: { data: Point[] }) {
           </div>
         ))}
         {/* bars */}
-        <div className="absolute inset-0 flex items-end gap-1 pl-11">
+        <div className="absolute inset-0 flex items-stretch gap-1 pl-11">
           {data.map((d, i) => (
-            <div key={i} className="group flex flex-1 flex-col items-center justify-end" title={`${d.label}: ${d.hours.toFixed(1)} ώρες`}>
+            <div key={i} className="group flex h-full flex-1 flex-col items-center justify-end" title={`${d.label}: ${d.hours.toFixed(1)} ώρες`}>
               <span className="mb-0.5 text-[9px] font-semibold text-slate-500 opacity-0 transition group-hover:opacity-100">
                 {Math.round(d.hours)}
               </span>
