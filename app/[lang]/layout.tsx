@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Manrope } from 'next/font/google'
+import { Inter, Manrope, EB_Garamond } from 'next/font/google'
 import { notFound } from 'next/navigation'
 import '../globals.css'
 import { defaultLocale, hasLocale, locales } from '@/lib/i18n'
@@ -14,6 +14,13 @@ const inter = Inter({
 const manrope = Manrope({
   subsets: ['latin'],
   variable: '--font-manrope',
+  display: 'swap',
+})
+
+// Editorial serif for display headings — includes Greek glyphs.
+const ebGaramond = EB_Garamond({
+  subsets: ['latin', 'greek'],
+  variable: '--font-display',
   display: 'swap',
 })
 
@@ -56,7 +63,7 @@ export default async function RootLayout({
   if (!hasLocale(lang)) notFound()
 
   return (
-    <html lang={lang} className={`${inter.variable} ${manrope.variable}`}>
+    <html lang={lang} className={`${inter.variable} ${manrope.variable} ${ebGaramond.variable}`}>
       <body className="antialiased">{children}</body>
     </html>
   )

@@ -31,17 +31,25 @@ export function MonthlyHoursChart({ data }: { data: Point[] }) {
         ))}
         {/* bars */}
         <div className="absolute inset-0 flex items-stretch gap-1 pl-11">
-          {data.map((d, i) => (
-            <div key={i} className="group flex h-full flex-1 flex-col items-center justify-end" title={`${d.label}: ${d.hours.toFixed(1)} ώρες`}>
-              <span className="mb-0.5 text-[9px] font-semibold text-slate-500 opacity-0 transition group-hover:opacity-100">
-                {Math.round(d.hours)}
-              </span>
-              <div
-                className="w-full max-w-[28px] rounded-t bg-gradient-to-t from-blue-500 to-blue-400 transition-colors group-hover:from-blue-600 group-hover:to-blue-500"
-                style={{ height: `${Math.max(2, (d.hours / max) * 100)}%` }}
-              />
-            </div>
-          ))}
+          {data.map((d, i) => {
+            const isPeak = d.hours === peak.hours && d.hours > 0
+            return (
+              <div key={i} className="group flex h-full flex-1 flex-col items-center justify-end" title={`${d.label}: ${d.hours.toFixed(1)} ώρες`}>
+                <span className={'mb-0.5 text-[9px] font-semibold transition ' + (isPeak ? 'text-amber-600 opacity-100' : 'text-stone-500 opacity-0 group-hover:opacity-100')}>
+                  {Math.round(d.hours)}
+                </span>
+                <div
+                  className={
+                    'w-full max-w-[26px] rounded-t transition-colors ' +
+                    (isPeak
+                      ? 'bg-gradient-to-t from-amber-500 to-amber-300 shadow-[0_0_0_1px_rgba(217,119,6,0.15)]'
+                      : 'bg-gradient-to-t from-blue-600 to-blue-400 group-hover:from-blue-700 group-hover:to-blue-500')
+                  }
+                  style={{ height: `${Math.max(2, (d.hours / max) * 100)}%` }}
+                />
+              </div>
+            )
+          })}
         </div>
       </div>
 

@@ -31,7 +31,7 @@ export default async function EmployeeDetailPage({ params }: PageProps<'/[lang]/
             {d.name.trim().charAt(0).toUpperCase()}
           </span>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{d.name}</h1>
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">{d.name}</h1>
             <p className="text-sm text-slate-500">
               {d.notes || 'Εργαζόμενος'} · {eur(d.monthlyCost)}/μήνα · {eur(d.costPerHour, true)}/ώρα
               {!d.active && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">Ανενεργός</span>}
@@ -124,7 +124,7 @@ function Kpi({ icon, label, value, sub, tone }: { icon: React.ReactNode; label: 
       <div className="mb-1.5 flex items-center justify-between">
         <span className="text-blue-600">{icon}</span>
       </div>
-      <p className={'text-xl font-bold tracking-tight ' + (tone === 'pos' ? 'text-emerald-600' : tone === 'neg' ? 'text-amber-600' : 'text-slate-900')}>{value}</p>
+      <p className={'font-display text-2xl font-semibold tracking-tight tabular-nums ' + (tone === 'pos' ? 'text-emerald-600' : tone === 'neg' ? 'text-amber-600' : 'text-stone-900')}>{value}</p>
       <p className="text-xs font-medium text-slate-400">{label}</p>
       {sub && <p className="mt-0.5 text-[10px] text-slate-400">{sub}</p>}
     </Card>

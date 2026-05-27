@@ -39,7 +39,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Ρυθμίσεις</h1>
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">Ρυθμίσεις</h1>
         <p className="text-sm text-slate-500">Παράμετροι υπολογισμού κόστους & αξιοποίησης</p>
       </header>
 

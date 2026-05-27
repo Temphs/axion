@@ -24,8 +24,8 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
     <div className="space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Επισκόπηση</h1>
-          <p className="text-sm text-slate-500">Παραγωγικότητα & κερδοφορία ανά πελάτη και εργαζόμενο</p>
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">Επισκόπηση</h1>
+          <p className="text-sm text-stone-500">Παραγωγικότητα & κερδοφορία ανά πελάτη και εργαζόμενο</p>
         </div>
         <DateRangeFilter />
       </header>
@@ -121,12 +121,12 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: 'pos' | 'neg' }) {
   return (
-    <Card className="p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
+    <Card className="border-stone-200/70 p-4">
+      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-stone-400">{label}</p>
       <p
         className={
-          'mt-1 text-xl font-bold tracking-tight ' +
-          (tone === 'pos' ? 'text-emerald-600' : tone === 'neg' ? 'text-red-500' : 'text-slate-900')
+          'font-display mt-1.5 text-2xl font-semibold tracking-tight tabular-nums ' +
+          (tone === 'pos' ? 'text-emerald-600' : tone === 'neg' ? 'text-red-500' : 'text-stone-900')
         }
       >
         {value}

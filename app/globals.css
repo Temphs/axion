@@ -4,6 +4,24 @@
   box-sizing: border-box;
 }
 
+/* Editorial serif for display headings (Greek-capable). */
+.font-display {
+  font-family: var(--font-display), Georgia, "Times New Roman", serif;
+  font-feature-settings: "liga" 1, "kern" 1;
+}
+
+/* Warm "paper" backdrop for the dashboard — replaces the flat grey. */
+.dashboard-surface {
+  background-color: #faf8f4;
+  background-image:
+    radial-gradient(60rem 60rem at 110% -10%, rgba(37, 99, 235, 0.06), transparent 60%),
+    radial-gradient(50rem 50rem at -10% 110%, rgba(217, 119, 6, 0.05), transparent 55%);
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.15);
+}
+
 html {
   scroll-behavior: smooth;
   /* Prevent iOS from auto-enlarging text in landscape */

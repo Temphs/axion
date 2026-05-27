@@ -477,6 +477,32 @@ export async function getClientsStats(): Promise<Map<string, ClientStatsRow>> {
   return map
 }
 
+// Compact all-time snapshot for the sidebar widget.
+export async function getSidebarSummary(): Promise<{
+  hours: number
+  cost: number
+  clientCount: number
+  employeeCount: number
+}> {
+  const settings = await getSettings()
+  const hpm = hoursPerMonth(settings)
+  const [grp, employees, clientCount, employeeCount] = await Promise.all([
+    prisma.workEntry.groupBy({ by: ['employeeId'], _sum: { minutes: true } }),
+    prisma.employee.findMany({ select: { id: true, monthlyCost: true } }),
+    prisma.client.count({ where: { active: true } }),
+    prisma.employee.count({ where: { active: true } }),
+  ])
+  const cph = new Map(employees.map((e) => [e.id, hpm > 0 ? e.monthlyCost / hpm : 0]))
+  let hours = 0
+  let cost = 0
+  for (const g of grp) {
+    const h = (g._sum.minutes ?? 0) / 60
+    hours += h
+    cost += h * (cph.get(g.employeeId) ?? 0)
+  }
+  return { hours, cost, clientCount, employeeCount }
+}
+
 export type ClientDetail = {
   id: string
   name: string
