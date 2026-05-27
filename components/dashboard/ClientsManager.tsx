@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Search } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
 import { api } from '@/components/dashboard/api'
 import { eur, hrs } from '@/lib/format'
@@ -26,12 +27,18 @@ export function ClientsManager({ initial }: { initial: Client[] }) {
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [query, setQuery] = useState('')
+
+  const filtered = query.trim()
+    ? initial.filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase()))
+    : initial
 
   function reset() {
     setEditId(null); setName(''); setBillable(true); setMonthlyRevenue(''); setNotes(''); setError(null)
   }
   function startEdit(c: Client) {
     setEditId(c.id); setName(c.name); setBillable(c.billable); setMonthlyRevenue(String(c.monthlyRevenue)); setNotes(c.notes ?? ''); setError(null)
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function submit(ev: React.FormEvent) {
@@ -93,6 +100,18 @@ export function ClientsManager({ initial }: { initial: Client[] }) {
       </Card>
 
       <Card className="overflow-hidden">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-3">
+          <div className="relative w-full max-w-xs">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Αναζήτηση πελάτη…"
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+          <span className="shrink-0 text-xs text-slate-400">{filtered.length} / {initial.length}</span>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -102,15 +121,16 @@ export function ClientsManager({ initial }: { initial: Client[] }) {
                 <th className="px-5 py-3 text-right font-medium">Ώρες/μήνα</th>
                 <th className="px-5 py-3 text-right font-medium">Κόστος μισθών/μήνα</th>
                 <th className="px-5 py-3 text-right font-medium">Μηνιαίο έσοδο</th>
+                <th className="px-5 py-3 text-right font-medium">Καθαρό κέρδος/μήνα</th>
                 <th className="px-5 py-3 text-center font-medium">Κατάσταση</th>
                 <th className="px-5 py-3 text-right font-medium">Ενέργειες</th>
               </tr>
             </thead>
             <tbody>
-              {initial.length === 0 && (
-                <tr><td colSpan={7} className="px-5 py-8 text-center text-slate-400">Κανένας πελάτης ακόμη</td></tr>
+              {filtered.length === 0 && (
+                <tr><td colSpan={8} className="px-5 py-8 text-center text-slate-400">{initial.length === 0 ? 'Κανένας πελάτης ακόμη' : 'Δεν βρέθηκαν αποτελέσματα'}</td></tr>
               )}
-              {initial.map((c) => (
+              {filtered.map((c) => (
                 <tr key={c.id} className="border-t border-slate-50">
                   <td className="px-5 py-3 text-slate-800">
                     {c.name}
@@ -124,6 +144,15 @@ export function ClientsManager({ initial }: { initial: Client[] }) {
                   <td className="px-5 py-3 text-right tabular-nums text-slate-700">{hrs(c.hours)}</td>
                   <td className="px-5 py-3 text-right tabular-nums font-medium text-slate-700">{eur(c.cost)}</td>
                   <td className="px-5 py-3 text-right tabular-nums text-slate-600">{c.billable ? eur(c.monthlyRevenue) : '—'}</td>
+                  <td className="px-5 py-3 text-right tabular-nums">
+                    {c.billable ? (
+                      <span className={'font-medium ' + (c.monthlyRevenue - c.cost >= 0 ? 'text-emerald-600' : 'text-red-500')}>
+                        {eur(c.monthlyRevenue - c.cost)}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </td>
                   <td className="px-5 py-3 text-center">
                     <button onClick={() => toggle(c)} className={'rounded-full px-2.5 py-0.5 text-xs font-medium ' + (c.active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500')}>
                       {c.active ? 'Ενεργός' : 'Ανενεργός'}
