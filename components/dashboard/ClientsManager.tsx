@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
@@ -132,9 +131,13 @@ export function ClientsManager({ initial, lang }: { initial: Client[]; lang: str
                 <tr><td colSpan={8} className="px-5 py-8 text-center text-slate-400">{initial.length === 0 ? 'Κανένας πελάτης ακόμη' : 'Δεν βρέθηκαν αποτελέσματα'}</td></tr>
               )}
               {filtered.map((c) => (
-                <tr key={c.id} className="border-t border-slate-50">
+                <tr
+                  key={c.id}
+                  onClick={() => router.push(`/${lang}/dashboard/clients/${c.id}`)}
+                  className="cursor-pointer border-t border-slate-50 hover:bg-blue-50/40"
+                >
                   <td className="px-5 py-3 text-slate-800">
-                    <Link href={`/${lang}/dashboard/clients/${c.id}`} className="font-medium text-blue-600 hover:underline">{c.name}</Link>
+                    <span className="font-medium text-blue-600">{c.name}</span>
                     {c.notes && <span className="ml-2 text-xs text-slate-400">{c.notes}</span>}
                   </td>
                   <td className="px-5 py-3">
@@ -155,14 +158,14 @@ export function ClientsManager({ initial, lang }: { initial: Client[]; lang: str
                     )}
                   </td>
                   <td className="px-5 py-3 text-center">
-                    <button onClick={() => toggle(c)} className={'rounded-full px-2.5 py-0.5 text-xs font-medium ' + (c.active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500')}>
+                    <button onClick={(e) => { e.stopPropagation(); toggle(c) }} className={'rounded-full px-2.5 py-0.5 text-xs font-medium ' + (c.active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500')}>
                       {c.active ? 'Ενεργός' : 'Ανενεργός'}
                     </button>
                   </td>
                   <td className="px-5 py-3 text-right">
                     <div className="flex justify-end gap-2">
-                      <button onClick={() => startEdit(c)} className="text-blue-600 hover:underline">Επεξεργασία</button>
-                      <button onClick={() => remove(c)} className="text-red-500 hover:underline">Διαγραφή</button>
+                      <button onClick={(e) => { e.stopPropagation(); startEdit(c) }} className="text-blue-600 hover:underline">Επεξεργασία</button>
+                      <button onClick={(e) => { e.stopPropagation(); remove(c) }} className="text-red-500 hover:underline">Διαγραφή</button>
                     </div>
                   </td>
                 </tr>

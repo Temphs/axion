@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
 import { eur, hrs } from '@/lib/format'
@@ -9,6 +9,7 @@ import { eur, hrs } from '@/lib/format'
 type Row = { id: string; name: string; hours: number; cost: number; billable: boolean }
 
 export function EmployeeClientsTable({ clients, lang }: { clients: Row[]; lang: string }) {
+  const router = useRouter()
   const [q, setQ] = useState('')
   const filtered = q.trim()
     ? clients.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase()))
@@ -42,10 +43,14 @@ export function EmployeeClientsTable({ clients, lang }: { clients: Row[]; lang: 
               <tr><td colSpan={3} className="px-5 py-8 text-center text-slate-400">Δεν βρέθηκαν αποτελέσματα</td></tr>
             )}
             {filtered.map((c) => (
-              <tr key={c.id} className="border-t border-slate-50 hover:bg-slate-50/60">
+              <tr
+                key={c.id}
+                onClick={() => router.push(`/${lang}/dashboard/clients/${c.id}`)}
+                className="cursor-pointer border-t border-slate-50 hover:bg-blue-50/40"
+              >
                 <td className="px-5 py-3 text-slate-800">
                   <span className="flex items-center gap-2">
-                    <Link href={`/${lang}/dashboard/clients/${c.id}`} className="font-medium text-blue-600 hover:underline">{c.name}</Link>
+                    <span className="font-medium text-blue-600">{c.name}</span>
                     {!c.billable && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-600">overhead</span>}
                   </span>
                 </td>
