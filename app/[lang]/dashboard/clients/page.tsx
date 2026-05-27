@@ -2,7 +2,8 @@ import { prisma } from '@/lib/db'
 import { getClientsStats } from '@/lib/stats'
 import { ClientsManager } from '@/components/dashboard/ClientsManager'
 
-export default async function ClientsPage() {
+export default async function ClientsPage({ params }: PageProps<'/[lang]/dashboard/clients'>) {
+  const { lang } = await params
   const [clients, stats] = await Promise.all([
     prisma.client.findMany({ orderBy: { name: 'asc' } }),
     getClientsStats(),
@@ -25,5 +26,5 @@ export default async function ClientsPage() {
     // Heaviest clients first so the most significant ones surface immediately.
     .sort((a, b) => b.hours - a.hours || a.name.localeCompare(b.name))
 
-  return <ClientsManager initial={data} />
+  return <ClientsManager initial={data} lang={lang} />
 }

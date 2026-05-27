@@ -476,3 +476,105 @@ export async function getClientsStats(): Promise<Map<string, ClientStatsRow>> {
   }
   return map
 }
+
+export type ClientDetail = {
+  id: string
+  name: string
+  notes: string | null
+  active: boolean
+  billable: boolean
+  monthlyRevenue: number
+  hours: number
+  days: number
+  months: number
+  avgPerDay: number
+  avgPerMonth: number
+  entryCount: number
+  cost: number
+  avgMonthlyCost: number
+  profitPerMonth: number
+  employees: { id: string; name: string; hours: number; cost: number; pct: number }[]
+  workTypes: { type: string; hours: number; pct: number }[]
+  trend: { month: string; label: string; hours: number }[]
+}
+
+// Full breakdown for one client's profile page.
+export async function getClientDetail(id: string): Promise<ClientDetail | null> {
+  const settings = await getSettings()
+  const hpm = hoursPerMonth(settings)
+
+  const client = await prisma.client.findUnique({ where: { id } })
+  if (!client) return null
+
+  const where = { clientId: id }
+  const [dayGroups, empGroups, typeGroups, employees] = await Promise.all([
+    prisma.workEntry.groupBy({ by: ['date'], where, _sum: { minutes: true }, _count: { _all: true } }),
+    prisma.workEntry.groupBy({ by: ['employeeId'], where, _sum: { minutes: true } }),
+    prisma.workEntry.groupBy({ by: ['workType'], where, _sum: { minutes: true } }),
+    prisma.employee.findMany({ select: { id: true, name: true, monthlyCost: true } }),
+  ])
+  const empInfo = new Map(employees.map((e) => [e.id, e]))
+
+  let totalMin = 0
+  let entryCount = 0
+  const monthsMap = new Map<string, number>()
+  for (const g of dayGroups) {
+    const m = g._sum.minutes ?? 0
+    totalMin += m
+    entryCount += g._count._all
+    const k = monthKey(g.date)
+    monthsMap.set(k, (monthsMap.get(k) ?? 0) + m)
+  }
+  const days = dayGroups.length
+  const months = monthsMap.size
+  const hours = totalMin / 60
+  const avgPerDay = days > 0 ? hours / days : 0
+  const avgPerMonth = months > 0 ? hours / months : 0
+
+  let totalCost = 0
+  const employeesArr = empGroups
+    .map((g) => {
+      const info = empInfo.get(g.employeeId)
+      const cph = info && hpm > 0 ? info.monthlyCost / hpm : 0
+      const h = (g._sum.minutes ?? 0) / 60
+      const c = h * cph
+      totalCost += c
+      return { id: g.employeeId, name: info?.name ?? '—', hours: h, cost: c, pct: 0 }
+    })
+    .sort((a, b) => b.hours - a.hours)
+  for (const e of employeesArr) e.pct = hours > 0 ? e.hours / hours : 0
+
+  const workTypes = typeGroups
+    .map((g) => ({ type: g.workType ?? '—', hours: (g._sum.minutes ?? 0) / 60 }))
+    .sort((a, b) => b.hours - a.hours)
+    .map((t) => ({ ...t, pct: hours > 0 ? t.hours / hours : 0 }))
+
+  const trend = [...monthsMap.entries()]
+    .map(([month, min]) => ({ month, hours: min / 60 }))
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .map((t) => ({ ...t, label: monthLabel(t.month) }))
+
+  const avgMonthlyCost = months > 0 ? totalCost / months : 0
+  const revenue = client.billable ? client.monthlyRevenue : 0
+
+  return {
+    id: client.id,
+    name: client.name,
+    notes: client.notes,
+    active: client.active,
+    billable: client.billable,
+    monthlyRevenue: client.monthlyRevenue,
+    hours,
+    days,
+    months,
+    avgPerDay,
+    avgPerMonth,
+    entryCount,
+    cost: totalCost,
+    avgMonthlyCost,
+    profitPerMonth: revenue - avgMonthlyCost,
+    employees: employeesArr,
+    workTypes,
+    trend,
+  }
+}

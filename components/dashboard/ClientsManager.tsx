@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
@@ -18,7 +19,7 @@ type Client = {
   cost: number
 }
 
-export function ClientsManager({ initial }: { initial: Client[] }) {
+export function ClientsManager({ initial, lang }: { initial: Client[]; lang: string }) {
   const router = useRouter()
   const [editId, setEditId] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -133,7 +134,7 @@ export function ClientsManager({ initial }: { initial: Client[] }) {
               {filtered.map((c) => (
                 <tr key={c.id} className="border-t border-slate-50">
                   <td className="px-5 py-3 text-slate-800">
-                    {c.name}
+                    <Link href={`/${lang}/dashboard/clients/${c.id}`} className="font-medium text-blue-600 hover:underline">{c.name}</Link>
                     {c.notes && <span className="ml-2 text-xs text-slate-400">{c.notes}</span>}
                   </td>
                   <td className="px-5 py-3">

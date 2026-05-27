@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Search } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
 import { eur, hrs, pct } from '@/lib/format'
@@ -16,7 +17,7 @@ type Row = {
   roi: number | null
 }
 
-export function OverviewClientsTable({ clients }: { clients: Row[] }) {
+export function OverviewClientsTable({ clients, lang }: { clients: Row[]; lang: string }) {
   const [q, setQ] = useState('')
   const filtered = q.trim()
     ? clients.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase()))
@@ -56,7 +57,7 @@ export function OverviewClientsTable({ clients }: { clients: Row[] }) {
               <tr key={c.id} className="border-t border-slate-50 hover:bg-slate-50/60">
                 <td className="px-5 py-3 text-slate-800">
                   <span className="flex items-center gap-2">
-                    {c.name}
+                    <Link href={`/${lang}/dashboard/clients/${c.id}`} className="font-medium text-blue-600 hover:underline">{c.name}</Link>
                     {!c.billable && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-600">overhead</span>}
                   </span>
                 </td>

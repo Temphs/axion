@@ -97,7 +97,7 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
             </Card>
           </div>
 
-          <OverviewClientsTable clients={clients} />
+          <OverviewClientsTable clients={clients} lang={lang} />
 
           <Card className="overflow-hidden">
             <div className="border-b border-slate-100 px-5 py-4">
