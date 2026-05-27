@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Card } from '@/components/axion/ui'
 import { Donut, ProgressBar } from '@/components/axion/charts'
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter'
+import { OverviewClientsTable } from '@/components/dashboard/OverviewClientsTable'
 import { buildStats, parseStatsFilter } from '@/lib/stats'
 import { eur, hrs, num, pct } from '@/lib/format'
 
@@ -96,27 +97,7 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
             </Card>
           </div>
 
-          <Card className="overflow-hidden">
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className="text-sm font-semibold text-slate-900">Πελάτες</h2>
-            </div>
-            <Table
-              head={['Πελάτης', 'Ώρες', 'Κόστος', 'Έσοδα', 'Κέρδος', 'ROI']}
-              rows={clients.map((c) => [
-                <span key="n" className="flex items-center gap-2">
-                  {c.name}
-                  {!c.billable && (
-                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-600">overhead</span>
-                  )}
-                </span>,
-                hrs(c.hours),
-                eur(c.cost),
-                eur(c.revenue),
-                <span key="p" className={c.profit >= 0 ? 'text-emerald-600' : 'text-red-500'}>{eur(c.profit)}</span>,
-                pct(c.roi),
-              ])}
-            />
-          </Card>
+          <OverviewClientsTable clients={clients} />
 
           <Card className="overflow-hidden">
             <div className="border-b border-slate-100 px-5 py-4">

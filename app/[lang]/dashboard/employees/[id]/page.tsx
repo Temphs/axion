@@ -2,7 +2,9 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Clock, CalendarDays, Hourglass, Gauge, Wallet } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
-import { AreaChart, Donut, ProgressBar } from '@/components/axion/charts'
+import { Donut, ProgressBar } from '@/components/axion/charts'
+import { MonthlyHoursChart } from '@/components/dashboard/MonthlyHoursChart'
+import { EmployeeClientsTable } from '@/components/dashboard/EmployeeClientsTable'
 import { EmployeeEditPanel } from '@/components/dashboard/EmployeeEditPanel'
 import { getEmployeeDetail } from '@/lib/stats'
 import { getSettings, hoursPerMonth } from '@/lib/settings'
@@ -15,7 +17,6 @@ export default async function EmployeeDetailPage({ params }: PageProps<'/[lang]/
 
   const hpm = hoursPerMonth(settings)
   const topTypes = d.workTypes.slice(0, 6)
-  const topClients = d.clients.slice(0, 8)
 
   return (
     <div className="space-y-6">
@@ -60,17 +61,7 @@ export default async function EmployeeDetailPage({ params }: PageProps<'/[lang]/
               <p className="mb-3 text-xs text-slate-400">
                 {d.trend.length ? `${d.trend[0].label} → ${d.trend[d.trend.length - 1].label}` : '—'}
               </p>
-              {d.trend.length >= 2 ? (
-                <>
-                  <AreaChart data={d.trend.map((t) => t.hours)} />
-                  <div className="mt-2 flex justify-between text-[10px] text-slate-400">
-                    <span>{d.trend[0].label}</span>
-                    <span>{d.trend[d.trend.length - 1].label}</span>
-                  </div>
-                </>
-              ) : (
-                <p className="py-8 text-center text-sm text-slate-400">Χρειάζονται τουλάχιστον 2 μήνες δεδομένων για γράφημα τάσης.</p>
-              )}
+              <MonthlyHoursChart data={d.trend} />
             </Card>
 
             <Card className="flex flex-col items-center p-5">
@@ -112,37 +103,8 @@ export default async function EmployeeDetailPage({ params }: PageProps<'/[lang]/
             </div>
           </Card>
 
-          {/* top clients */}
-          <Card className="overflow-hidden">
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className="text-sm font-semibold text-slate-900">Κορυφαίοι πελάτες ({d.clients.length})</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
-                    <th className="px-5 py-3 font-medium">Πελάτης</th>
-                    <th className="px-5 py-3 text-right font-medium">Ώρες</th>
-                    <th className="px-5 py-3 text-right font-medium">Κόστος</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topClients.map((c) => (
-                    <tr key={c.id} className="border-t border-slate-50 hover:bg-slate-50/60">
-                      <td className="px-5 py-3 text-slate-800">
-                        <span className="flex items-center gap-2">
-                          {c.name}
-                          {!c.billable && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-600">overhead</span>}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-right tabular-nums text-slate-600">{hrs(c.hours)}</td>
-                      <td className="px-5 py-3 text-right tabular-nums text-slate-600">{eur(c.cost)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          {/* clients (searchable) */}
+          <EmployeeClientsTable clients={d.clients} />
         </>
       )}
     </div>
