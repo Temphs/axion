@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Card } from '@/components/axion/ui'
 import { api } from '@/components/dashboard/api'
+import { DateField } from '@/components/dashboard/DateField'
 import { hrs, shortDate } from '@/lib/format'
 
 type Ref = { id: string; name: string }
@@ -26,12 +27,16 @@ export function EntriesManager({
   entries,
   employees,
   clients,
-  activeDate,
+  from,
+  to,
+  truncated,
 }: {
   entries: Entry[]
   employees: Ref[]
   clients: Ref[]
-  activeDate: string | null
+  from: string
+  to: string
+  truncated: boolean
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -48,6 +53,7 @@ export function EntriesManager({
 
   async function submit(ev: React.FormEvent) {
     ev.preventDefault()
+    if (!date) return setError('Η ημερομηνία είναι υποχρεωτική')
     setSaving(true); setError(null)
     const r = await api('POST', '/api/entries', {
       date, employeeId, clientId, hours: Number(hours) || 0, workType, notes,
@@ -63,11 +69,15 @@ export function EntriesManager({
     router.refresh()
   }
 
-  function searchDate(value: string) {
-    const qs = value ? `?date=${value}` : ''
-    router.push(`${pathname}${qs}`, { scroll: false })
+  function applyRange(nextFrom: string, nextTo: string) {
+    const q = new URLSearchParams()
+    if (nextFrom) q.set('from', nextFrom)
+    if (nextTo) q.set('to', nextTo)
+    const qs = q.toString()
+    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
   }
 
+  const filtering = Boolean(from || to)
   const totalHours = entries.reduce((s, e) => s + e.minutes, 0) / 60
 
   return (
@@ -86,7 +96,7 @@ export function EntriesManager({
         ) : (
           <form onSubmit={submit} className="grid gap-3 md:grid-cols-3 lg:grid-cols-6 lg:items-end">
             <Field label="Ημερομηνία">
-              <input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} required />
+              <DateField value={date} onCommit={setDate} className="w-full" inputClassName={inputCls} ariaLabel="Ημερομηνία" />
             </Field>
             <Field label="Εργαζόμενος">
               <select className={inputCls} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
@@ -116,26 +126,24 @@ export function EntriesManager({
         <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">
-              {activeDate ? `Καταχωρήσεις: ${shortDate(activeDate)}` : 'Πρόσφατες καταχωρήσεις'}
+              {filtering ? `Καταχωρήσεις: ${rangeLabel(from, to)}` : 'Πρόσφατες καταχωρήσεις'}
             </h2>
-            {activeDate && (
+            {filtering && (
               <p className="mt-0.5 text-xs text-slate-500">
-                {entries.length} {entries.length === 1 ? 'καταχώρηση' : 'καταχωρήσεις'} · {hrs(totalHours)}
+                {entries.length}
+                {truncated ? '+' : ''} {entries.length === 1 ? 'καταχώρηση' : 'καταχωρήσεις'} · {hrs(totalHours)}
+                {truncated && ' · περιορίστε το διάστημα για όλα'}
               </p>
             )}
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-slate-500">Αναζήτηση ημ/νίας</span>
-            <input
-              type="date"
-              key={activeDate ?? 'none'}
-              defaultValue={activeDate ?? ''}
-              onChange={(e) => { if (e.target.value) searchDate(e.target.value) }}
-              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-700 outline-none focus:border-blue-400"
-            />
-            {activeDate && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-medium text-slate-500">Διάστημα</span>
+            <DateField value={from} onCommit={(v) => applyRange(v, to)} ariaLabel="Από" inputClassName={searchInputCls} />
+            <span className="text-slate-400">→</span>
+            <DateField value={to} onCommit={(v) => applyRange(from, v)} ariaLabel="Έως" inputClassName={searchInputCls} />
+            {filtering && (
               <button
-                onClick={() => searchDate('')}
+                onClick={() => applyRange('', '')}
                 className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700"
               >
                 Καθαρισμός
@@ -158,7 +166,7 @@ export function EntriesManager({
             <tbody>
               {entries.length === 0 && (
                 <tr><td colSpan={6} className="px-5 py-8 text-center text-slate-400">
-                  {activeDate ? 'Καμία καταχώρηση για αυτή την ημερομηνία' : 'Καμία καταχώρηση ακόμη'}
+                  {filtering ? 'Καμία καταχώρηση για αυτό το διάστημα' : 'Καμία καταχώρηση ακόμη'}
                 </td></tr>
               )}
               {entries.map((e) => (
@@ -183,6 +191,19 @@ export function EntriesManager({
 
 const inputCls =
   'w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20'
+
+const searchInputCls =
+  'w-36 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-700 outline-none focus:border-blue-400'
+
+// Human-readable label for the active range, in dd/mm/yyyy.
+function rangeLabel(from: string, to: string): string {
+  const f = from ? shortDate(from) : null
+  const t = to ? shortDate(to) : null
+  if (f && t) return `${f} → ${t}`
+  if (f) return `από ${f}`
+  if (t) return `έως ${t}`
+  return ''
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

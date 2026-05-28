@@ -1,6 +1,10 @@
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { DateField } from '@/components/dashboard/DateField'
+
+const dateInputCls =
+  'w-36 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 outline-none focus:border-blue-400'
 
 function iso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -54,23 +58,9 @@ export function DateRangeFilter() {
         ))}
       </div>
       <div className="flex items-center gap-1.5 text-sm">
-        <input
-          type="date"
-          key={`from-${from}`}
-          defaultValue={from}
-          onChange={(e) => { if (e.target.value) apply(e.target.value, to) }}
-          onBlur={(e) => { if (!e.target.value && from) apply('', to) }}
-          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 outline-none focus:border-blue-400"
-        />
+        <DateField value={from} onCommit={(v) => apply(v, to)} ariaLabel="Από" inputClassName={dateInputCls} />
         <span className="text-slate-400">→</span>
-        <input
-          type="date"
-          key={`to-${to}`}
-          defaultValue={to}
-          onChange={(e) => { if (e.target.value) apply(from, e.target.value) }}
-          onBlur={(e) => { if (!e.target.value && to) apply(from, '') }}
-          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 outline-none focus:border-blue-400"
-        />
+        <DateField value={to} onCommit={(v) => apply(from, v)} ariaLabel="Έως" inputClassName={dateInputCls} />
       </div>
     </div>
   )
