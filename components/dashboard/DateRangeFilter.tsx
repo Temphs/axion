@@ -56,15 +56,19 @@ export function DateRangeFilter() {
       <div className="flex items-center gap-1.5 text-sm">
         <input
           type="date"
-          value={from}
-          onChange={(e) => apply(e.target.value, to)}
+          key={`from-${from}`}
+          defaultValue={from}
+          onChange={(e) => { if (e.target.value) apply(e.target.value, to) }}
+          onBlur={(e) => { if (!e.target.value && from) apply('', to) }}
           className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 outline-none focus:border-blue-400"
         />
         <span className="text-slate-400">→</span>
         <input
           type="date"
-          value={to}
-          onChange={(e) => apply(from, e.target.value)}
+          key={`to-${to}`}
+          defaultValue={to}
+          onChange={(e) => { if (e.target.value) apply(from, e.target.value) }}
+          onBlur={(e) => { if (!e.target.value && to) apply(from, '') }}
           className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 outline-none focus:border-blue-400"
         />
       </div>

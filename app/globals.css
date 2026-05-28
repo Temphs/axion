@@ -4,10 +4,10 @@
   box-sizing: border-box;
 }
 
-/* Editorial serif for display headings (Greek-capable). */
+/* Clean sans-serif for display headings (Greek-capable via Inter). */
 .font-display {
-  font-family: var(--font-display), Georgia, "Times New Roman", serif;
-  font-feature-settings: "liga" 1, "kern" 1;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-feature-settings: "kern" 1;
 }
 
 /* Deep blue canvas for the dashboard. Slightly deepened + a gradient so the large

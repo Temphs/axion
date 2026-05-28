@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Card } from '@/components/axion/ui'
 import { api } from '@/components/dashboard/api'
 import { hrs, shortDate } from '@/lib/format'
@@ -22,8 +22,19 @@ function today() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function EntriesManager({ entries, employees, clients }: { entries: Entry[]; employees: Ref[]; clients: Ref[] }) {
+export function EntriesManager({
+  entries,
+  employees,
+  clients,
+  activeDate,
+}: {
+  entries: Entry[]
+  employees: Ref[]
+  clients: Ref[]
+  activeDate: string | null
+}) {
   const router = useRouter()
+  const pathname = usePathname()
   const [date, setDate] = useState(today())
   const [employeeId, setEmployeeId] = useState(employees[0]?.id ?? '')
   const [clientId, setClientId] = useState(clients[0]?.id ?? '')
@@ -51,6 +62,13 @@ export function EntriesManager({ entries, employees, clients }: { entries: Entry
     await api('DELETE', `/api/entries/${e.id}`)
     router.refresh()
   }
+
+  function searchDate(value: string) {
+    const qs = value ? `?date=${value}` : ''
+    router.push(`${pathname}${qs}`, { scroll: false })
+  }
+
+  const totalHours = entries.reduce((s, e) => s + e.minutes, 0) / 60
 
   return (
     <div className="space-y-6">
@@ -95,8 +113,35 @@ export function EntriesManager({ entries, employees, clients }: { entries: Entry
       </Card>
 
       <Card className="overflow-hidden">
-        <div className="border-b border-slate-100 px-5 py-4">
-          <h2 className="text-sm font-semibold text-slate-900">Πρόσφατες καταχωρήσεις</h2>
+        <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">
+              {activeDate ? `Καταχωρήσεις: ${shortDate(activeDate)}` : 'Πρόσφατες καταχωρήσεις'}
+            </h2>
+            {activeDate && (
+              <p className="mt-0.5 text-xs text-slate-500">
+                {entries.length} {entries.length === 1 ? 'καταχώρηση' : 'καταχωρήσεις'} · {hrs(totalHours)}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-slate-500">Αναζήτηση ημ/νίας</span>
+            <input
+              type="date"
+              key={activeDate ?? 'none'}
+              defaultValue={activeDate ?? ''}
+              onChange={(e) => { if (e.target.value) searchDate(e.target.value) }}
+              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-700 outline-none focus:border-blue-400"
+            />
+            {activeDate && (
+              <button
+                onClick={() => searchDate('')}
+                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+              >
+                Καθαρισμός
+              </button>
+            )}
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -112,7 +157,9 @@ export function EntriesManager({ entries, employees, clients }: { entries: Entry
             </thead>
             <tbody>
               {entries.length === 0 && (
-                <tr><td colSpan={6} className="px-5 py-8 text-center text-slate-400">Καμία καταχώρηση ακόμη</td></tr>
+                <tr><td colSpan={6} className="px-5 py-8 text-center text-slate-400">
+                  {activeDate ? 'Καμία καταχώρηση για αυτή την ημερομηνία' : 'Καμία καταχώρηση ακόμη'}
+                </td></tr>
               )}
               {entries.map((e) => (
                 <tr key={e.id} className="border-t border-slate-50">
