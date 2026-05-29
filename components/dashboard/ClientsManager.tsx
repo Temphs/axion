@@ -16,6 +16,7 @@ type Client = {
   notes: string | null
   hours: number
   cost: number
+  entryCount: number
 }
 
 export function ClientsManager({ initial, lang }: { initial: Client[]; lang: string }) {
@@ -29,9 +30,25 @@ export function ClientsManager({ initial, lang }: { initial: Client[]; lang: str
   const [saving, setSaving] = useState(false)
   const [query, setQuery] = useState('')
 
+  // Merge dialog state
+  const [mergeSource, setMergeSource] = useState<Client | null>(null)
+  const [mergeTargetId, setMergeTargetId] = useState('')
+  const [mergeQuery, setMergeQuery] = useState('')
+  const [merging, setMerging] = useState(false)
+  const [mergeError, setMergeError] = useState<string | null>(null)
+
   const filtered = query.trim()
     ? initial.filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase()))
     : initial
+
+  const mergeCandidates = mergeSource
+    ? initial.filter(
+        (c) =>
+          c.id !== mergeSource.id &&
+          (!mergeQuery.trim() || c.name.toLowerCase().includes(mergeQuery.trim().toLowerCase()))
+      )
+    : []
+  const mergeTarget = mergeTargetId ? initial.find((c) => c.id === mergeTargetId) ?? null : null
 
   function reset() {
     setEditId(null); setName(''); setBillable(true); setMonthlyRevenue(''); setNotes(''); setError(null)
@@ -59,6 +76,23 @@ export function ClientsManager({ initial, lang }: { initial: Client[]; lang: str
   async function remove(c: Client) {
     const r = await api('DELETE', `/api/clients/${c.id}`)
     if (!r.ok) return setError(r.data.error ?? 'Σφάλμα')
+    router.refresh()
+  }
+
+  function openMerge(c: Client) {
+    setMergeSource(c); setMergeTargetId(''); setMergeQuery(''); setMergeError(null)
+  }
+  function closeMerge() {
+    if (merging) return
+    setMergeSource(null); setMergeTargetId(''); setMergeQuery(''); setMergeError(null)
+  }
+  async function doMerge() {
+    if (!mergeSource || !mergeTargetId) return
+    setMerging(true); setMergeError(null)
+    const r = await api('POST', `/api/clients/${mergeSource.id}/merge`, { into: mergeTargetId })
+    setMerging(false)
+    if (!r.ok) return setMergeError(r.data.error ?? 'Σφάλμα')
+    setMergeSource(null); setMergeTargetId(''); setMergeQuery(''); setMergeError(null)
     router.refresh()
   }
 
@@ -165,6 +199,7 @@ export function ClientsManager({ initial, lang }: { initial: Client[]; lang: str
                   <td className="px-5 py-3 text-right">
                     <div className="flex justify-end gap-2">
                       <button onClick={(e) => { e.stopPropagation(); startEdit(c) }} className="text-blue-600 hover:underline">Επεξεργασία</button>
+                      <button onClick={(e) => { e.stopPropagation(); openMerge(c) }} className="text-slate-500 hover:underline">Συγχώνευση με</button>
                       <button onClick={(e) => { e.stopPropagation(); remove(c) }} className="text-red-500 hover:underline">Διαγραφή</button>
                     </div>
                   </td>
@@ -174,6 +209,80 @@ export function ClientsManager({ initial, lang }: { initial: Client[]; lang: str
           </table>
         </div>
       </Card>
+
+      {mergeSource && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          onClick={closeMerge}
+        >
+          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-base font-semibold text-slate-900">Συγχώνευση πελάτη</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Επιλέξτε τον πελάτη που θα <strong className="text-slate-700">διατηρηθεί</strong>. Όλες οι καταχωρήσεις
+              του <strong className="text-slate-700">«{mergeSource.name}»</strong> ({mergeSource.entryCount}) θα
+              μεταφερθούν σε αυτόν και ο «{mergeSource.name}» θα διαγραφεί.
+            </p>
+
+            <div className="relative mt-4">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={mergeQuery}
+                onChange={(e) => setMergeQuery(e.target.value)}
+                placeholder="Αναζήτηση πελάτη προς διατήρηση…"
+                autoFocus
+                className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+
+            <div className="mt-2 max-h-64 overflow-y-auto rounded-xl border border-slate-100">
+              {mergeCandidates.length === 0 ? (
+                <p className="px-3 py-6 text-center text-sm text-slate-400">Δεν βρέθηκαν πελάτες</p>
+              ) : (
+                mergeCandidates.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setMergeTargetId(c.id)}
+                    className={
+                      'flex w-full items-center justify-between gap-3 border-b border-slate-50 px-3 py-2 text-left text-sm last:border-0 ' +
+                      (mergeTargetId === c.id ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50')
+                    }
+                  >
+                    <span className="truncate font-medium">{c.name}</span>
+                    <span className="shrink-0 text-xs text-slate-400">{c.entryCount} καταχ.</span>
+                  </button>
+                ))
+              )}
+            </div>
+
+            {mergeTarget && (
+              <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                «{mergeSource.name}» → <strong className="text-slate-800">«{mergeTarget.name}»</strong>
+              </p>
+            )}
+            {mergeError && <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{mergeError}</p>}
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeMerge}
+                disabled={merging}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Άκυρο
+              </button>
+              <button
+                type="button"
+                onClick={doMerge}
+                disabled={!mergeTargetId || merging}
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+              >
+                {merging ? 'Συγχώνευση…' : 'Συγχώνευση'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

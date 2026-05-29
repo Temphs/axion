@@ -5,7 +5,7 @@ import { ClientsManager } from '@/components/dashboard/ClientsManager'
 export default async function ClientsPage({ params }: PageProps<'/[lang]/dashboard/clients'>) {
   const { lang } = await params
   const [clients, stats] = await Promise.all([
-    prisma.client.findMany({ orderBy: { name: 'asc' } }),
+    prisma.client.findMany({ orderBy: { name: 'asc' }, include: { _count: { select: { entries: true } } } }),
     getClientsStats(),
   ])
 
@@ -21,6 +21,7 @@ export default async function ClientsPage({ params }: PageProps<'/[lang]/dashboa
         notes: c.notes,
         hours: s?.hours ?? 0,
         cost: s?.cost ?? 0,
+        entryCount: c._count.entries,
       }
     })
     // Heaviest clients first so the most significant ones surface immediately.
