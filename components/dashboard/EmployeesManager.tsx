@@ -58,10 +58,10 @@ export function EmployeesManager({ initial, hoursPerMonth }: { initial: Employee
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Εργαζόμενοι</h1>
-        <p className="text-sm text-slate-500">Μηνιαίο κόστος → κόστος/ώρα (διά {hoursPerMonth} ώρες/μήνα)</p>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">Εργαζόμενοι</h1>
+        <p className="mt-0.5 text-sm text-blue-200/80">Μηνιαίο κόστος → κόστος/ώρα (διά {hoursPerMonth} ώρες/μήνα)</p>
       </header>
 
       <Card className="p-5">

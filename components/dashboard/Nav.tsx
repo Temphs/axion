@@ -31,7 +31,9 @@ export function Nav({ lang, orientation = 'vertical' }: { lang: string; orientat
             className={cn(
               'flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition',
               horizontal && 'whitespace-nowrap',
-              active ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              active
+                ? 'bg-white/[0.92] text-blue-700 shadow-sm'
+                : 'text-blue-100/80 hover:bg-white/10 hover:text-white'
             )}
           >
             <Icon size={18} strokeWidth={2} />
