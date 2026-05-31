@@ -90,7 +90,7 @@ export function Hero() {
             {t.ctaPrimary}
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </Button>
-          <Button href="#lead" variant="secondary" size="lg" className="w-full sm:w-auto">
+          <Button href="#features" variant="secondary" size="lg" className="w-full sm:w-auto">
             {t.ctaSecondary}
           </Button>
         </motion.div>
@@ -99,14 +99,16 @@ export function Hero() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.45 }}
-          className="mt-6 flex items-center justify-center gap-2 text-sm text-slate-500"
+          className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2"
         >
-          <span className="flex">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-            ))}
-          </span>
-          {t.rating}
+          {t.trustBullets.map((bullet) => (
+            <span key={bullet} className="flex items-center gap-1.5 text-sm text-slate-500">
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                <Star className="h-2.5 w-2.5 fill-blue-600" />
+              </span>
+              {bullet}
+            </span>
+          ))}
         </motion.div>
       </div>
 

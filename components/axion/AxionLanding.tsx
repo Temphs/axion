@@ -4,7 +4,12 @@ import { MotionConfig } from 'framer-motion'
 import { Nav } from './Nav'
 import { Hero } from './Hero'
 import { Trust } from './Trust'
+import { Problem } from './Problem'
+import { Solution } from './Solution'
 import { Features } from './Features'
+import { FeatureGrid } from './FeatureGrid'
+import { DashboardPreview } from './DashboardPreview'
+import { Audiences } from './Audiences'
 import { HowItWorks } from './HowItWorks'
 import { Benefits } from './Benefits'
 import { Cta } from './Cta'
@@ -23,7 +28,12 @@ export function AxionLanding() {
         <main>
           <Hero />
           <Trust />
+          <Problem />
+          <Solution />
           <Features />
+          <FeatureGrid />
+          <DashboardPreview />
+          <Audiences />
           <HowItWorks />
           <Benefits />
           <Cta />

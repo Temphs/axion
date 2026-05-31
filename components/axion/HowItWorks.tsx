@@ -1,11 +1,11 @@
 'use client'
 
-import { Link2, BrainCircuit, LineChart } from 'lucide-react'
+import { Link2, FileText, TrendingUp, LayoutDashboard, Lightbulb } from 'lucide-react'
 import { Eyebrow } from './ui'
 import { Reveal, RevealGroup, RevealItem } from './motion'
 import { useI18n } from './i18n'
 
-const stepIcons = [Link2, BrainCircuit, LineChart]
+const stepIcons = [Link2, FileText, TrendingUp, LayoutDashboard, Lightbulb]
 
 export function HowItWorks() {
   const { dict } = useI18n()
@@ -25,22 +25,22 @@ export function HowItWorks() {
         </Reveal>
 
         <div className="relative mt-12 sm:mt-16">
-          {/* connector line */}
-          <div className="absolute left-0 right-0 top-9 hidden h-px bg-gradient-to-r from-transparent via-blue-200 to-transparent lg:block" />
-          <RevealGroup className="grid gap-6 lg:grid-cols-3">
+          {/* connector line — desktop only */}
+          <div className="absolute left-0 right-0 top-9 hidden h-px bg-gradient-to-r from-transparent via-blue-200 to-transparent xl:block" />
+          <RevealGroup className="grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
             {steps.map((s, i) => (
               <RevealItem key={s.title}>
-                <div className="group relative h-full rounded-2xl border border-slate-200/70 bg-white p-7 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_-24px_rgba(37,99,235,0.35)]">
-                  <div className="mb-5 flex items-center gap-4">
-                    <span className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/25">
+                <div className="group relative h-full rounded-2xl border border-slate-200/70 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_-24px_rgba(37,99,235,0.35)]">
+                  <div className="mb-4 flex items-center gap-3">
+                    <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/25">
                       <s.icon className="h-5 w-5" />
                     </span>
-                    <span className="text-4xl font-bold tracking-tight text-slate-100 transition-colors group-hover:text-blue-100">
+                    <span className="text-3xl font-bold tracking-tight text-slate-100 transition-colors group-hover:text-blue-100">
                       0{i + 1}
                     </span>
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-900">{s.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{s.desc}</p>
+                  <h3 className="text-sm font-semibold text-slate-900">{s.title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-slate-500">{s.desc}</p>
                 </div>
               </RevealItem>
             ))}
