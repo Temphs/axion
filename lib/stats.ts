@@ -97,18 +97,21 @@ export async function buildStats(filter: StatsFilter): Promise<Stats> {
   if (filter.to) dateFilter.lte = filter.to
   if (Object.keys(dateFilter).length) where.date = dateFilter
 
-  const entries = await prisma.workEntry.findMany({
-    where,
-    include: {
-      employee: { select: { id: true, name: true, monthlyCost: true } },
-      client: { select: { id: true, name: true, billable: true, monthlyRevenue: true } },
-    },
-  })
+  // Aggregate in the database instead of pulling every row. Grouping by
+  // (employee, client) collapses thousands of entries into at most a few hundred
+  // pair rows, and the date bounds + count come back in one cheap aggregate.
+  const [pairGroups, bounds, employeeRows, clientRows] = await Promise.all([
+    prisma.workEntry.groupBy({ by: ['employeeId', 'clientId'], where, _sum: { minutes: true } }),
+    prisma.workEntry.aggregate({ where, _min: { date: true }, _max: { date: true }, _count: { _all: true } }),
+    prisma.employee.findMany({ select: { id: true, name: true, monthlyCost: true } }),
+    prisma.client.findMany({ select: { id: true, name: true, billable: true, monthlyRevenue: true } }),
+  ])
+  const empInfo = new Map(employeeRows.map((e) => [e.id, e]))
+  const cliInfo = new Map(clientRows.map((c) => [c.id, c]))
 
   // Effective range: explicit bounds, else the span of the matched entries.
-  const dates = entries.map((e) => e.date.getTime())
-  const from = filter.from ?? (dates.length ? new Date(Math.min(...dates)) : null)
-  const to = filter.to ?? (dates.length ? new Date(Math.max(...dates)) : null)
+  const from = filter.from ?? bounds._min.date ?? null
+  const to = filter.to ?? bounds._max.date ?? null
   const months = from && to ? monthsBetween(from, to) : 0
 
   const costPerHour = (monthlyCost: number) => (hpm > 0 ? monthlyCost / hpm : 0)
@@ -116,42 +119,38 @@ export async function buildStats(filter: StatsFilter): Promise<Stats> {
   const employeeMap = new Map<string, EmployeeStat>()
   const clientMap = new Map<string, ClientStat>()
   let totalHours = 0
-  let totalCost = 0
   let billableHours = 0
   let nonBillableHours = 0
 
-  for (const e of entries) {
-    const hours = e.minutes / 60
-    const cost = hours * costPerHour(e.employee.monthlyCost)
+  for (const g of pairGroups) {
+    const emp = empInfo.get(g.employeeId)
+    const cli = cliInfo.get(g.clientId)
+    if (!emp || !cli) continue
+    const hours = (g._sum.minutes ?? 0) / 60
+    const cost = hours * costPerHour(emp.monthlyCost)
     totalHours += hours
-    totalCost += cost
-    if (e.client.billable) billableHours += hours
+    if (cli.billable) billableHours += hours
     else nonBillableHours += hours
 
-    // Per employee, with a per-client breakdown.
-    let emp = employeeMap.get(e.employeeId)
-    if (!emp) {
-      emp = { id: e.employee.id, name: e.employee.name, hours: 0, cost: 0, clients: [] }
-      employeeMap.set(e.employeeId, emp)
+    // Per employee, with a per-client breakdown. Each pair appears once, so the
+    // client can be pushed directly without a lookup.
+    let empStat = employeeMap.get(g.employeeId)
+    if (!empStat) {
+      empStat = { id: emp.id, name: emp.name, hours: 0, cost: 0, clients: [] }
+      employeeMap.set(g.employeeId, empStat)
     }
-    emp.hours += hours
-    emp.cost += cost
-    let empClient = emp.clients.find((c) => c.id === e.clientId)
-    if (!empClient) {
-      empClient = { id: e.client.id, name: e.client.name, hours: 0, cost: 0 }
-      emp.clients.push(empClient)
-    }
-    empClient.hours += hours
-    empClient.cost += cost
+    empStat.hours += hours
+    empStat.cost += cost
+    empStat.clients.push({ id: cli.id, name: cli.name, hours, cost })
 
     // Per client.
-    let cli = clientMap.get(e.clientId)
-    if (!cli) {
-      cli = {
-        id: e.client.id,
-        name: e.client.name,
-        billable: e.client.billable,
-        monthlyRevenue: e.client.monthlyRevenue,
+    let cliStat = clientMap.get(g.clientId)
+    if (!cliStat) {
+      cliStat = {
+        id: cli.id,
+        name: cli.name,
+        billable: cli.billable,
+        monthlyRevenue: cli.monthlyRevenue,
         hours: 0,
         cost: 0,
         revenue: 0,
@@ -159,10 +158,10 @@ export async function buildStats(filter: StatsFilter): Promise<Stats> {
         roi: null,
         revenuePerHour: 0,
       }
-      clientMap.set(e.clientId, cli)
+      clientMap.set(g.clientId, cliStat)
     }
-    cli.hours += hours
-    cli.cost += cost
+    cliStat.hours += hours
+    cliStat.cost += cost
   }
 
   // Finalize per-client revenue/profit/ROI using the prorated revenue for the range.
@@ -193,7 +192,7 @@ export async function buildStats(filter: StatsFilter): Promise<Stats> {
     profit: summaryRevenue - summaryCost,
     billableHours,
     nonBillableHours,
-    entryCount: entries.length,
+    entryCount: bounds._count._all,
     employeeCount: employeeMap.size,
     clientCount: clientMap.size,
     capacityHours,
