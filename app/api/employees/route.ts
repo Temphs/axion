@@ -3,12 +3,12 @@ import { ok, fail, readJson, authed, authedAny, isUniqueViolation } from '@/lib/
 import { getSettings, hoursPerMonth } from '@/lib/settings'
 
 export async function GET(request: Request) {
-  const { res } = await authedAny(request)
+  const { userId, res } = await authedAny(request)
   if (res) return res
 
   const [employees, settings] = await Promise.all([
-    prisma.employee.findMany({ orderBy: { name: 'asc' } }),
-    getSettings(),
+    prisma.employee.findMany({ where: { userId }, orderBy: { name: 'asc' } }),
+    getSettings(userId),
   ])
   const hpm = hoursPerMonth(settings)
 
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { res } = await authed()
+  const { user, res } = await authed()
   if (res) return res
 
   const body = await readJson<{
@@ -43,6 +43,7 @@ export async function POST(request: Request) {
   try {
     const employee = await prisma.employee.create({
       data: {
+        userId: user.id,
         name,
         monthlyCost,
         notes: body.notes?.trim() || null,

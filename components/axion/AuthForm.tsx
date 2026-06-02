@@ -4,10 +4,12 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from './ui'
 
-// Login form. Render inside a Card (page) or AuthModal (popup). Self-service
-// signup is intentionally disabled — Axion accounts are provisioned by the operator.
+// Login / signup form. Render inside a Card (page) or AuthModal (popup).
+// Each signup gets its own isolated workspace, so open registration is safe.
 export function AuthForm({ lang }: { lang: string }) {
   const router = useRouter()
+  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -18,10 +20,12 @@ export function AuthForm({ lang }: { lang: string }) {
     setError(null)
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/login', {
+      const path = mode === 'login' ? '/api/auth/login' : '/api/auth/signup'
+      const body = mode === 'login' ? { email, password } : { email, password, name }
+      const res = await fetch(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -43,24 +47,46 @@ export function AuthForm({ lang }: { lang: string }) {
         <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-lg font-bold text-white">
           A
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Σύνδεση</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          {mode === 'login' ? 'Σύνδεση' : 'Δημιουργία λογαριασμού'}
+        </h1>
         <p className="mt-1 text-sm text-slate-500">Πίνακας παραγωγικότητας — Axion</p>
       </div>
 
       <form onSubmit={submit} className="space-y-4">
+        {mode === 'signup' && (
+          <Field label="Ονοματεπώνυμο">
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="Διαχειριστής" />
+          </Field>
+        )}
         <Field label="Email">
           <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} placeholder="manager@axion.gr" />
         </Field>
         <Field label="Κωδικός">
           <input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className={inputCls} placeholder="••••••••" />
+          {mode === 'signup' && <span className="mt-1 block text-xs text-slate-400">Τουλάχιστον 8 χαρακτήρες</span>}
         </Field>
 
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
         <Button type="submit" disabled={loading} className="w-full">
-          {loading ? '…' : 'Σύνδεση'}
+          {loading ? '…' : mode === 'login' ? 'Σύνδεση' : 'Εγγραφή'}
         </Button>
       </form>
+
+      <p className="mt-6 text-center text-sm text-slate-500">
+        {mode === 'login' ? 'Δεν έχετε λογαριασμό;' : 'Έχετε ήδη λογαριασμό;'}{' '}
+        <button
+          type="button"
+          onClick={() => {
+            setMode(mode === 'login' ? 'signup' : 'login')
+            setError(null)
+          }}
+          className="font-semibold text-blue-600 hover:text-blue-700"
+        >
+          {mode === 'login' ? 'Εγγραφή' : 'Σύνδεση'}
+        </button>
+      </p>
     </div>
   )
 }

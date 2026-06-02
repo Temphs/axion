@@ -1,16 +1,19 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft, Clock, Hourglass, Wallet, Coins, TrendingUp } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
 import { ProgressBar } from '@/components/axion/charts'
 import { MonthlyHoursChart } from '@/components/dashboard/MonthlyHoursChart'
 import { ClientEditPanel } from '@/components/dashboard/ClientEditPanel'
+import { getCurrentUser } from '@/lib/auth'
 import { getClientDetail } from '@/lib/stats'
 import { eur, hrs, num, pct } from '@/lib/format'
 
 export default async function ClientDetailPage({ params }: PageProps<'/[lang]/dashboard/clients/[id]'>) {
   const { lang, id } = await params
-  const d = await getClientDetail(id)
+  const user = await getCurrentUser()
+  if (!user) redirect(`/${lang}/login`)
+  const d = await getClientDetail(user.id, id)
   if (!d) notFound()
 
   const topTypes = d.workTypes.slice(0, 8)

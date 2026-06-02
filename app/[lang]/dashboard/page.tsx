@@ -9,20 +9,24 @@ import {
   Info,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { redirect } from 'next/navigation'
 import { Card } from '@/components/axion/ui'
 import { Donut, ProgressBar } from '@/components/axion/charts'
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter'
 import { OverviewClientsTable } from '@/components/dashboard/OverviewClientsTable'
+import { getCurrentUser } from '@/lib/auth'
 import { buildStats, parseStatsFilter } from '@/lib/stats'
 import { eur, hrs, num, pct } from '@/lib/format'
 
 export default async function DashboardOverview({ params, searchParams }: PageProps<'/[lang]/dashboard'>) {
   const { lang } = await params
+  const user = await getCurrentUser()
+  if (!user) redirect(`/${lang}/login`)
   const sp = await searchParams
   const usp = new URLSearchParams()
   for (const [k, v] of Object.entries(sp)) if (typeof v === 'string') usp.set(k, v)
   const parsed = parseStatsFilter(usp)
-  const stats = await buildStats('error' in parsed ? {} : parsed.filter)
+  const stats = await buildStats(user.id, 'error' in parsed ? {} : parsed.filter)
 
   const { summary, clients, employees } = stats
   const empty = summary.entryCount === 0

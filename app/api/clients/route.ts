@@ -2,15 +2,15 @@ import { prisma } from '@/lib/db'
 import { ok, fail, readJson, authed, authedAny, isUniqueViolation } from '@/lib/api'
 
 export async function GET(request: Request) {
-  const { res } = await authedAny(request)
+  const { userId, res } = await authedAny(request)
   if (res) return res
 
-  const clients = await prisma.client.findMany({ orderBy: { name: 'asc' } })
+  const clients = await prisma.client.findMany({ where: { userId }, orderBy: { name: 'asc' } })
   return ok({ clients })
 }
 
 export async function POST(request: Request) {
-  const { res } = await authed()
+  const { user, res } = await authed()
   if (res) return res
 
   const body = await readJson<{
@@ -33,6 +33,7 @@ export async function POST(request: Request) {
   try {
     const client = await prisma.client.create({
       data: {
+        userId: user.id,
         name,
         billable: body.billable ?? true,
         monthlyRevenue,

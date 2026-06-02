@@ -3,13 +3,13 @@ import { ok, fail, readJson, authed, isUniqueViolation, isNotFound, isForeignKey
 import { getSettings, hoursPerMonth } from '@/lib/settings'
 
 export async function GET(_req: Request, ctx: RouteContext<'/api/employees/[id]'>) {
-  const { res } = await authed()
+  const { user, res } = await authed()
   if (res) return res
 
   const { id } = await ctx.params
   const [employee, settings] = await Promise.all([
-    prisma.employee.findUnique({ where: { id } }),
-    getSettings(),
+    prisma.employee.findFirst({ where: { id, userId: user.id } }),
+    getSettings(user.id),
   ])
   if (!employee) return fail('Employee not found', 404)
 
@@ -18,10 +18,13 @@ export async function GET(_req: Request, ctx: RouteContext<'/api/employees/[id]'
 }
 
 export async function PATCH(request: Request, ctx: RouteContext<'/api/employees/[id]'>) {
-  const { res } = await authed()
+  const { user, res } = await authed()
   if (res) return res
 
   const { id } = await ctx.params
+  const owned = await prisma.employee.findFirst({ where: { id, userId: user.id }, select: { id: true } })
+  if (!owned) return fail('Employee not found', 404)
+
   const body = await readJson<{
     name?: string
     monthlyCost?: number
@@ -56,10 +59,13 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/employees/
 }
 
 export async function DELETE(_req: Request, ctx: RouteContext<'/api/employees/[id]'>) {
-  const { res } = await authed()
+  const { user, res } = await authed()
   if (res) return res
 
   const { id } = await ctx.params
+  const owned = await prisma.employee.findFirst({ where: { id, userId: user.id }, select: { id: true } })
+  if (!owned) return fail('Employee not found', 404)
+
   try {
     await prisma.employee.delete({ where: { id } })
     return ok({ ok: true })

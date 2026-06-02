@@ -1,12 +1,16 @@
+import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
+import { getCurrentUser } from '@/lib/auth'
 import { getClientsStats } from '@/lib/stats'
 import { ClientsManager } from '@/components/dashboard/ClientsManager'
 
 export default async function ClientsPage({ params }: PageProps<'/[lang]/dashboard/clients'>) {
   const { lang } = await params
+  const user = await getCurrentUser()
+  if (!user) redirect(`/${lang}/login`)
   const [clients, stats] = await Promise.all([
-    prisma.client.findMany({ orderBy: { name: 'asc' }, include: { _count: { select: { entries: true } } } }),
-    getClientsStats(),
+    prisma.client.findMany({ where: { userId: user.id }, orderBy: { name: 'asc' }, include: { _count: { select: { entries: true } } } }),
+    getClientsStats(user.id),
   ])
 
   const data = clients

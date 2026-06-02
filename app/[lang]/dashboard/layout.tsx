@@ -10,7 +10,7 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
   const user = await getCurrentUser()
   if (!user) redirect(`/${lang}/login`)
 
-  const summary = await getSidebarSummary()
+  const summary = await getSidebarSummary(user.id)
   const initials = (user.name ?? user.email)
     .trim()
     .split(/\s+/)

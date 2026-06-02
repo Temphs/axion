@@ -5,13 +5,9 @@ import { ok, fail, readJson } from '@/lib/api'
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export async function POST(request: Request) {
-  // Self-service registration is closed by default: Axion is operated by a known
-  // manager account, and an open signup grants any visitor full access to the
-  // (single-tenant) business data. Enable deliberately via env when provisioning.
-  if (process.env.AXION_ALLOW_SIGNUP !== 'true') {
-    return fail('Registration is closed', 403)
-  }
-
+  // Self-service registration is open. Each new account gets its own isolated
+  // workspace (all domain data is scoped by userId), so a new signup can never
+  // see or touch another account's data.
   const body = await readJson<{ email?: string; password?: string; name?: string }>(request)
   if (!body) return fail('Invalid JSON body')
 

@@ -29,8 +29,8 @@ export async function authed(): Promise<
 }
 
 export type Principal =
-  | { kind: 'user'; user: SessionUser }
-  | { kind: 'apiKey'; apiKeyId: string }
+  | { kind: 'user'; user: SessionUser; userId: string }
+  | { kind: 'apiKey'; apiKeyId: string; userId: string }
 
 function extractToken(request: Request): string | null {
   const auth = request.headers.get('authorization')
@@ -39,21 +39,22 @@ function extractToken(request: Request): string | null {
 }
 
 // Accepts either a manager session (cookie) or a valid API key (Authorization: Bearer / x-api-key).
-// Used on the ingestion surface the companion app calls.
+// Used on the ingestion surface the companion app calls. Either way, `userId` is
+// the owning account: all data access must be scoped to it.
 export async function authedAny(
   request: Request
-): Promise<{ principal: Principal; res: null } | { principal: null; res: Response }> {
+): Promise<{ principal: Principal; userId: string; res: null } | { principal: null; userId: null; res: Response }> {
   const token = extractToken(request)
   if (token) {
     const key = await prisma.apiKey.findUnique({ where: { hashedKey: hashApiKey(token) } })
-    if (!key || key.revokedAt) return { principal: null, res: fail('Invalid API key', 401) }
+    if (!key || key.revokedAt) return { principal: null, userId: null, res: fail('Invalid API key', 401) }
     await prisma.apiKey.update({ where: { id: key.id }, data: { lastUsedAt: new Date() } })
-    return { principal: { kind: 'apiKey', apiKeyId: key.id }, res: null }
+    return { principal: { kind: 'apiKey', apiKeyId: key.id, userId: key.userId }, userId: key.userId, res: null }
   }
 
   const user = await getCurrentUser()
-  if (user) return { principal: { kind: 'user', user }, res: null }
-  return { principal: null, res: fail('Unauthorized', 401) }
+  if (user) return { principal: { kind: 'user', user, userId: user.id }, userId: user.id, res: null }
+  return { principal: null, userId: null, res: fail('Unauthorized', 401) }
 }
 
 function prismaCode(e: unknown): string | undefined {

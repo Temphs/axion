@@ -2,12 +2,12 @@ import { prisma } from '@/lib/db'
 import { ok, fail, readJson, authed, isNotFound, isForeignKeyConstraint } from '@/lib/api'
 
 export async function GET(_req: Request, ctx: RouteContext<'/api/entries/[id]'>) {
-  const { res } = await authed()
+  const { user, res } = await authed()
   if (res) return res
 
   const { id } = await ctx.params
-  const entry = await prisma.workEntry.findUnique({
-    where: { id },
+  const entry = await prisma.workEntry.findFirst({
+    where: { id, userId: user.id },
     include: {
       employee: { select: { id: true, name: true } },
       client: { select: { id: true, name: true } },
@@ -18,10 +18,13 @@ export async function GET(_req: Request, ctx: RouteContext<'/api/entries/[id]'>)
 }
 
 export async function PATCH(request: Request, ctx: RouteContext<'/api/entries/[id]'>) {
-  const { res } = await authed()
+  const { user, res } = await authed()
   if (res) return res
 
   const { id } = await ctx.params
+  const owned = await prisma.workEntry.findFirst({ where: { id, userId: user.id }, select: { id: true } })
+  if (!owned) return fail('Entry not found', 404)
+
   const body = await readJson<{
     date?: string
     employeeId?: string
@@ -49,6 +52,16 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/entries/[i
     data.minutes = minutes
   }
 
+  // A reassigned employee/client must belong to the same account.
+  if (typeof data.employeeId === 'string') {
+    const e = await prisma.employee.findFirst({ where: { id: data.employeeId, userId: user.id }, select: { id: true } })
+    if (!e) return fail('Unknown employeeId or clientId', 400)
+  }
+  if (typeof data.clientId === 'string') {
+    const c = await prisma.client.findFirst({ where: { id: data.clientId, userId: user.id }, select: { id: true } })
+    if (!c) return fail('Unknown employeeId or clientId', 400)
+  }
+
   try {
     const entry = await prisma.workEntry.update({ where: { id }, data })
     return ok({ entry: { ...entry, hours: entry.minutes / 60 } })
@@ -60,10 +73,13 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/entries/[i
 }
 
 export async function DELETE(_req: Request, ctx: RouteContext<'/api/entries/[id]'>) {
-  const { res } = await authed()
+  const { user, res } = await authed()
   if (res) return res
 
   const { id } = await ctx.params
+  const owned = await prisma.workEntry.findFirst({ where: { id, userId: user.id }, select: { id: true } })
+  if (!owned) return fail('Entry not found', 404)
+
   try {
     await prisma.workEntry.delete({ where: { id } })
     return ok({ ok: true })

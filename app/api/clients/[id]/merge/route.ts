@@ -7,7 +7,7 @@ import { ok, fail, readJson, authed } from '@/lib/api'
 // (e.g. "Παπαλούκας" and "Παπαλούκας ΙΚΕ"). The target keeps its own name,
 // revenue, billable flag and notes.
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
-  const { res } = await authed()
+  const { user, res } = await authed()
   if (res) return res
 
   const { id } = await ctx.params
@@ -19,8 +19,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   if (targetId === id) return fail('Cannot merge a client into itself')
 
   const [source, target] = await Promise.all([
-    prisma.client.findUnique({ where: { id } }),
-    prisma.client.findUnique({ where: { id: targetId } }),
+    prisma.client.findFirst({ where: { id, userId: user.id } }),
+    prisma.client.findFirst({ where: { id: targetId, userId: user.id } }),
   ])
   if (!source) return fail('Source client not found', 404)
   if (!target) return fail('Target client not found', 404)
@@ -28,7 +28,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   // Reassign first, then delete — order matters so the onDelete: Restrict FK
   // is satisfied. $transaction runs the operations atomically and in order.
   const [moved] = await prisma.$transaction([
-    prisma.workEntry.updateMany({ where: { clientId: id }, data: { clientId: targetId } }),
+    prisma.workEntry.updateMany({ where: { clientId: id, userId: user.id }, data: { clientId: targetId } }),
     prisma.client.delete({ where: { id } }),
   ])
 

@@ -54,11 +54,11 @@ function normalizeEntry(input: EntryInput): { data: NormalizedEntry } | { error:
 }
 
 export async function GET(request: Request) {
-  const { res } = await authed()
+  const { user, res } = await authed()
   if (res) return res
 
   const { searchParams } = new URL(request.url)
-  const where: Record<string, unknown> = {}
+  const where: Record<string, unknown> = { userId: user.id }
 
   const employeeId = searchParams.get('employeeId')
   const clientId = searchParams.get('clientId')
@@ -106,7 +106,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { res } = await authedAny(request)
+  const { userId, res } = await authedAny(request)
   if (res) return res
 
   const body = await readJson<EntryInput | EntryInput[] | { entries?: EntryInput[] }>(request)
@@ -132,8 +132,8 @@ export async function POST(request: Request) {
     const employeeIds = [...new Set(normalized.map((n) => n.employeeId))]
     const clientIds = [...new Set(normalized.map((n) => n.clientId))]
     const [foundEmp, foundCli] = await Promise.all([
-      prisma.employee.findMany({ where: { id: { in: employeeIds } }, select: { id: true } }),
-      prisma.client.findMany({ where: { id: { in: clientIds } }, select: { id: true } }),
+      prisma.employee.findMany({ where: { id: { in: employeeIds }, userId }, select: { id: true } }),
+      prisma.client.findMany({ where: { id: { in: clientIds }, userId }, select: { id: true } }),
     ])
     const empSet = new Set(foundEmp.map((e) => e.id))
     const cliSet = new Set(foundCli.map((c) => c.id))
@@ -151,11 +151,11 @@ export async function POST(request: Request) {
       normalized.map((data) =>
         data.externalId
           ? prisma.workEntry.upsert({
-              where: { externalId: data.externalId },
-              create: data,
-              update: data,
+              where: { userId_externalId: { userId, externalId: data.externalId } },
+              create: { ...data, userId },
+              update: { ...data, userId },
             })
-          : prisma.workEntry.create({ data })
+          : prisma.workEntry.create({ data: { ...data, userId } })
       )
     )
 
@@ -169,11 +169,11 @@ export async function POST(request: Request) {
   try {
     const entry = result.data.externalId
       ? await prisma.workEntry.upsert({
-          where: { externalId: result.data.externalId },
-          create: result.data,
-          update: result.data,
+          where: { userId_externalId: { userId, externalId: result.data.externalId } },
+          create: { ...result.data, userId },
+          update: { ...result.data, userId },
         })
-      : await prisma.workEntry.create({ data: result.data })
+      : await prisma.workEntry.create({ data: { ...result.data, userId } })
     return ok({ entry: { ...entry, hours: entry.minutes / 60 } }, { status: 201 })
   } catch (e) {
     if (isForeignKeyConstraint(e)) return fail('Unknown employeeId or clientId', 400)

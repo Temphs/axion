@@ -1,4 +1,6 @@
+import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
+import { getCurrentUser } from '@/lib/auth'
 import { EntriesManager } from '@/components/dashboard/EntriesManager'
 
 const RANGE_LIMIT = 500
@@ -7,7 +9,10 @@ function isIso(v: unknown): v is string {
   return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
 }
 
-export default async function EntriesPage({ searchParams }: PageProps<'/[lang]/dashboard/entries'>) {
+export default async function EntriesPage({ params, searchParams }: PageProps<'/[lang]/dashboard/entries'>) {
+  const { lang } = await params
+  const user = await getCurrentUser()
+  if (!user) redirect(`/${lang}/login`)
   const sp = await searchParams
   const from = isIso(sp.from) ? sp.from : ''
   const to = isIso(sp.to) ? sp.to : ''
@@ -21,7 +26,7 @@ export default async function EntriesPage({ searchParams }: PageProps<'/[lang]/d
     end.setUTCHours(23, 59, 59, 999)
     dateFilter.lte = end
   }
-  const where = filtering ? { date: dateFilter } : {}
+  const where = filtering ? { userId: user.id, date: dateFilter } : { userId: user.id }
 
   const [entries, employees, clients] = await Promise.all([
     prisma.workEntry.findMany({
@@ -33,8 +38,8 @@ export default async function EntriesPage({ searchParams }: PageProps<'/[lang]/d
         client: { select: { id: true, name: true } },
       },
     }),
-    prisma.employee.findMany({ where: { active: true }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
-    prisma.client.findMany({ where: { active: true }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
+    prisma.employee.findMany({ where: { active: true, userId: user.id }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
+    prisma.client.findMany({ where: { active: true, userId: user.id }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
   ])
 
   const data = entries.map((e) => ({

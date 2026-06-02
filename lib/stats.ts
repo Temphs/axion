@@ -85,11 +85,11 @@ export function parseStatsFilter(searchParams: URLSearchParams): { filter: Stats
   return { filter }
 }
 
-export async function buildStats(filter: StatsFilter): Promise<Stats> {
-  const settings = await getSettings()
+export async function buildStats(userId: string, filter: StatsFilter): Promise<Stats> {
+  const settings = await getSettings(userId)
   const hpm = hoursPerMonth(settings)
 
-  const where: Record<string, unknown> = {}
+  const where: Record<string, unknown> = { userId }
   if (filter.employeeId) where.employeeId = filter.employeeId
   if (filter.clientId) where.clientId = filter.clientId
   const dateFilter: Record<string, Date> = {}
@@ -103,8 +103,8 @@ export async function buildStats(filter: StatsFilter): Promise<Stats> {
   const [pairGroups, bounds, employeeRows, clientRows] = await Promise.all([
     prisma.workEntry.groupBy({ by: ['employeeId', 'clientId'], where, _sum: { minutes: true } }),
     prisma.workEntry.aggregate({ where, _min: { date: true }, _max: { date: true }, _count: { _all: true } }),
-    prisma.employee.findMany({ select: { id: true, name: true, monthlyCost: true } }),
-    prisma.client.findMany({ select: { id: true, name: true, billable: true, monthlyRevenue: true } }),
+    prisma.employee.findMany({ where: { userId }, select: { id: true, name: true, monthlyCost: true } }),
+    prisma.client.findMany({ where: { userId }, select: { id: true, name: true, billable: true, monthlyRevenue: true } }),
   ])
   const empInfo = new Map(employeeRows.map((e) => [e.id, e]))
   const cliInfo = new Map(clientRows.map((c) => [c.id, c]))
@@ -182,7 +182,7 @@ export async function buildStats(filter: StatsFilter): Promise<Stats> {
   const summaryCost = summaryClients.reduce((s, c) => s + c.cost, 0)
   const summaryRevenue = summaryClients.reduce((s, c) => s + c.revenue, 0)
 
-  const activeEmployees = await prisma.employee.count({ where: { active: true } })
+  const activeEmployees = await prisma.employee.count({ where: { active: true, userId } })
   const capacityHours = activeEmployees * hpm * (months || 0)
 
   const summary: StatsSummary = {
@@ -250,15 +250,15 @@ export type EmployeeOverview = {
 }
 
 // Per-employee headline metrics for the cards grid. Aggregated in the database.
-export async function getEmployeesOverview(): Promise<EmployeeOverview[]> {
-  const settings = await getSettings()
+export async function getEmployeesOverview(userId: string): Promise<EmployeeOverview[]> {
+  const settings = await getSettings(userId)
   const hpm = hoursPerMonth(settings)
 
   const [employees, dayGroups, clientGroups, clients] = await Promise.all([
-    prisma.employee.findMany({ orderBy: { name: 'asc' } }),
-    prisma.workEntry.groupBy({ by: ['employeeId', 'date'], _sum: { minutes: true } }),
-    prisma.workEntry.groupBy({ by: ['employeeId', 'clientId'], _sum: { minutes: true } }),
-    prisma.client.findMany({ select: { id: true, billable: true } }),
+    prisma.employee.findMany({ where: { userId }, orderBy: { name: 'asc' } }),
+    prisma.workEntry.groupBy({ by: ['employeeId', 'date'], where: { userId }, _sum: { minutes: true } }),
+    prisma.workEntry.groupBy({ by: ['employeeId', 'clientId'], where: { userId }, _sum: { minutes: true } }),
+    prisma.client.findMany({ where: { userId }, select: { id: true, billable: true } }),
   ])
   const billableOf = new Map(clients.map((c) => [c.id, c.billable]))
 
@@ -342,19 +342,19 @@ export type EmployeeDetail = {
 }
 
 // Full breakdown for one employee's detail page.
-export async function getEmployeeDetail(id: string): Promise<EmployeeDetail | null> {
-  const settings = await getSettings()
+export async function getEmployeeDetail(userId: string, id: string): Promise<EmployeeDetail | null> {
+  const settings = await getSettings(userId)
   const hpm = hoursPerMonth(settings)
 
-  const employee = await prisma.employee.findUnique({ where: { id } })
+  const employee = await prisma.employee.findFirst({ where: { id, userId } })
   if (!employee) return null
 
-  const where = { employeeId: id }
+  const where = { employeeId: id, userId }
   const [dayGroups, typeGroups, clientGroups, clientRows] = await Promise.all([
     prisma.workEntry.groupBy({ by: ['date'], where, _sum: { minutes: true }, _count: { _all: true } }),
     prisma.workEntry.groupBy({ by: ['workType'], where, _sum: { minutes: true } }),
     prisma.workEntry.groupBy({ by: ['clientId'], where, _sum: { minutes: true }, _count: { _all: true } }),
-    prisma.client.findMany({ select: { id: true, name: true, billable: true } }),
+    prisma.client.findMany({ where: { userId }, select: { id: true, name: true, billable: true } }),
   ])
   const cliInfo = new Map(clientRows.map((c) => [c.id, c]))
 
@@ -436,14 +436,14 @@ export type ClientStatsRow = { hours: number; cost: number }
 // Per-client AVERAGE hours and salary cost per active month. Cost is weighted by
 // which employee did the work (sum of hours * that employee's cost/hour), then
 // divided by the number of distinct months the client had any activity.
-export async function getClientsStats(): Promise<Map<string, ClientStatsRow>> {
-  const settings = await getSettings()
+export async function getClientsStats(userId: string): Promise<Map<string, ClientStatsRow>> {
+  const settings = await getSettings(userId)
   const hpm = hoursPerMonth(settings)
 
   const [costGroups, monthGroups, employees] = await Promise.all([
-    prisma.workEntry.groupBy({ by: ['clientId', 'employeeId'], _sum: { minutes: true } }),
-    prisma.workEntry.groupBy({ by: ['clientId', 'date'], _sum: { minutes: true } }),
-    prisma.employee.findMany({ select: { id: true, monthlyCost: true } }),
+    prisma.workEntry.groupBy({ by: ['clientId', 'employeeId'], where: { userId }, _sum: { minutes: true } }),
+    prisma.workEntry.groupBy({ by: ['clientId', 'date'], where: { userId }, _sum: { minutes: true } }),
+    prisma.employee.findMany({ where: { userId }, select: { id: true, monthlyCost: true } }),
   ])
   const costPerHour = new Map(employees.map((e) => [e.id, hpm > 0 ? e.monthlyCost / hpm : 0]))
 
@@ -477,19 +477,19 @@ export async function getClientsStats(): Promise<Map<string, ClientStatsRow>> {
 }
 
 // Compact all-time snapshot for the sidebar widget.
-export async function getSidebarSummary(): Promise<{
+export async function getSidebarSummary(userId: string): Promise<{
   hours: number
   cost: number
   clientCount: number
   employeeCount: number
 }> {
-  const settings = await getSettings()
+  const settings = await getSettings(userId)
   const hpm = hoursPerMonth(settings)
   const [grp, employees, clientCount, employeeCount] = await Promise.all([
-    prisma.workEntry.groupBy({ by: ['employeeId'], _sum: { minutes: true } }),
-    prisma.employee.findMany({ select: { id: true, monthlyCost: true } }),
-    prisma.client.count({ where: { active: true } }),
-    prisma.employee.count({ where: { active: true } }),
+    prisma.workEntry.groupBy({ by: ['employeeId'], where: { userId }, _sum: { minutes: true } }),
+    prisma.employee.findMany({ where: { userId }, select: { id: true, monthlyCost: true } }),
+    prisma.client.count({ where: { active: true, userId } }),
+    prisma.employee.count({ where: { active: true, userId } }),
   ])
   const cph = new Map(employees.map((e) => [e.id, hpm > 0 ? e.monthlyCost / hpm : 0]))
   let hours = 0
@@ -524,19 +524,19 @@ export type ClientDetail = {
 }
 
 // Full breakdown for one client's profile page.
-export async function getClientDetail(id: string): Promise<ClientDetail | null> {
-  const settings = await getSettings()
+export async function getClientDetail(userId: string, id: string): Promise<ClientDetail | null> {
+  const settings = await getSettings(userId)
   const hpm = hoursPerMonth(settings)
 
-  const client = await prisma.client.findUnique({ where: { id } })
+  const client = await prisma.client.findFirst({ where: { id, userId } })
   if (!client) return null
 
-  const where = { clientId: id }
+  const where = { clientId: id, userId }
   const [dayGroups, empGroups, typeGroups, employees] = await Promise.all([
     prisma.workEntry.groupBy({ by: ['date'], where, _sum: { minutes: true }, _count: { _all: true } }),
     prisma.workEntry.groupBy({ by: ['employeeId'], where, _sum: { minutes: true } }),
     prisma.workEntry.groupBy({ by: ['workType'], where, _sum: { minutes: true } }),
-    prisma.employee.findMany({ select: { id: true, name: true, monthlyCost: true } }),
+    prisma.employee.findMany({ where: { userId }, select: { id: true, name: true, monthlyCost: true } }),
   ])
   const empInfo = new Map(employees.map((e) => [e.id, e]))
 

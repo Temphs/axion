@@ -1,18 +1,21 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft, Clock, CalendarDays, Hourglass, Gauge, Wallet } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
 import { Donut, ProgressBar } from '@/components/axion/charts'
 import { MonthlyHoursChart } from '@/components/dashboard/MonthlyHoursChart'
 import { EmployeeClientsTable } from '@/components/dashboard/EmployeeClientsTable'
 import { EmployeeEditPanel } from '@/components/dashboard/EmployeeEditPanel'
+import { getCurrentUser } from '@/lib/auth'
 import { getEmployeeDetail } from '@/lib/stats'
 import { getSettings, hoursPerMonth } from '@/lib/settings'
 import { eur, hrs, num, pct } from '@/lib/format'
 
 export default async function EmployeeDetailPage({ params }: PageProps<'/[lang]/dashboard/employees/[id]'>) {
   const { lang, id } = await params
-  const [d, settings] = await Promise.all([getEmployeeDetail(id), getSettings()])
+  const user = await getCurrentUser()
+  if (!user) redirect(`/${lang}/login`)
+  const [d, settings] = await Promise.all([getEmployeeDetail(user.id, id), getSettings(user.id)])
   if (!d) notFound()
 
   const hpm = hoursPerMonth(settings)

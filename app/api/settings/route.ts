@@ -3,15 +3,15 @@ import { ok, fail, readJson, authed } from '@/lib/api'
 import { getSettings, hoursPerMonth } from '@/lib/settings'
 
 export async function GET() {
-  const { res } = await authed()
+  const { user, res } = await authed()
   if (res) return res
 
-  const settings = await getSettings()
+  const settings = await getSettings(user.id)
   return ok({ settings: { ...settings, hoursPerMonth: hoursPerMonth(settings) } })
 }
 
 export async function PATCH(request: Request) {
-  const { res } = await authed()
+  const { user, res } = await authed()
   if (res) return res
 
   const body = await readJson<{
@@ -36,8 +36,8 @@ export async function PATCH(request: Request) {
   }
   if (body.includeOverhead !== undefined) data.includeOverhead = !!body.includeOverhead
 
-  // Ensure the singleton exists, then apply the update.
-  await getSettings()
-  const settings = await prisma.settings.update({ where: { id: 1 }, data })
+  // Ensure this account's settings row exists, then apply the update.
+  await getSettings(user.id)
+  const settings = await prisma.settings.update({ where: { userId: user.id }, data })
   return ok({ settings: { ...settings, hoursPerMonth: hoursPerMonth(settings) } })
 }

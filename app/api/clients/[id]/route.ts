@@ -2,20 +2,23 @@ import { prisma } from '@/lib/db'
 import { ok, fail, readJson, authed, isUniqueViolation, isNotFound, isForeignKeyConstraint } from '@/lib/api'
 
 export async function GET(_req: Request, ctx: RouteContext<'/api/clients/[id]'>) {
-  const { res } = await authed()
+  const { user, res } = await authed()
   if (res) return res
 
   const { id } = await ctx.params
-  const client = await prisma.client.findUnique({ where: { id } })
+  const client = await prisma.client.findFirst({ where: { id, userId: user.id } })
   if (!client) return fail('Client not found', 404)
   return ok({ client })
 }
 
 export async function PATCH(request: Request, ctx: RouteContext<'/api/clients/[id]'>) {
-  const { res } = await authed()
+  const { user, res } = await authed()
   if (res) return res
 
   const { id } = await ctx.params
+  const owned = await prisma.client.findFirst({ where: { id, userId: user.id }, select: { id: true } })
+  if (!owned) return fail('Client not found', 404)
+
   const body = await readJson<{
     name?: string
     billable?: boolean
@@ -52,10 +55,13 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/clients/[i
 }
 
 export async function DELETE(_req: Request, ctx: RouteContext<'/api/clients/[id]'>) {
-  const { res } = await authed()
+  const { user, res } = await authed()
   if (res) return res
 
   const { id } = await ctx.params
+  const owned = await prisma.client.findFirst({ where: { id, userId: user.id }, select: { id: true } })
+  if (!owned) return fail('Client not found', 404)
+
   try {
     await prisma.client.delete({ where: { id } })
     return ok({ ok: true })
