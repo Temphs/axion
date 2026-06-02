@@ -6,11 +6,21 @@ import { randomUUID } from "crypto"
 import { s3 } from "@/lib/s3"
 import { turso } from "@/lib/turso"
 import { getAwsEnv } from "@/lib/env"
+import { getCurrentUser } from "@/lib/auth"
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
 
 export async function POST(req: NextRequest) {
+  console.log("Upload URL route started")
+
   try {
+    // Require an authenticated session before issuing a presigned upload URL or
+    // writing any DB rows — this endpoint must never be reachable anonymously.
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const body = await req.json()
     const { filename, contentType, fileSize } = body
 
@@ -24,10 +34,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "fileSize must be a positive number up to 10 MB" }, { status: 400 })
     }
 
-    // TODO: Replace mock auth with real session/auth logic before going to production.
-    // Read the authenticated user from the session (e.g. via next-auth or a custom session cookie).
-    const userId = "user_demo_1"
-    const companyId = "company_demo_1"
+    console.log("Request body validated", { filename, contentType, fileSize })
+
+    // Scope the upload to the authenticated user. There is no separate company
+    // entity yet, so the user's id namespaces their invoices.
+    const userId = user.id
+    const companyId = user.id
 
     const invoiceId = randomUUID()
     const now = new Date()
@@ -35,22 +47,27 @@ export async function POST(req: NextRequest) {
     const month = String(now.getUTCMonth() + 1).padStart(2, "0")
     const s3Key = `invoices/${companyId}/${year}/${month}/${invoiceId}.pdf`
 
+    console.log("IDs and S3 key generated", { invoiceId, s3Key, companyId })
+
     const { S3_BUCKET_NAME } = getAwsEnv()
 
-    await turso.execute({
-      sql: `INSERT INTO invoices
-              (id, company_id, uploaded_by, s3_bucket, s3_key, original_filename, content_type, file_size_bytes, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [invoiceId, companyId, userId, S3_BUCKET_NAME, s3Key, filename, contentType, fileSize, "uploaded"],
-    })
+    console.log("Creating invoice row in Turso")
+    await turso.execute(
+      `INSERT INTO invoices
+         (id, company_id, uploaded_by, s3_bucket, s3_key, original_filename, content_type, file_size_bytes, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [invoiceId, companyId, userId, S3_BUCKET_NAME, s3Key, filename, contentType, fileSize, "uploaded"],
+    )
 
-    await turso.execute({
-      sql: `INSERT INTO audit_logs
-              (id, company_id, user_id, action, entity_type, entity_id)
-            VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [randomUUID(), companyId, userId, "invoice_upload_url_created", "invoice", invoiceId],
-    })
+    console.log("Creating audit log row in Turso")
+    await turso.execute(
+      `INSERT INTO audit_logs
+         (id, company_id, user_id, action, entity_type, entity_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [randomUUID(), companyId, userId, "invoice_upload_url_created", "invoice", invoiceId],
+    )
 
+    console.log("Generating S3 pre-signed URL")
     const command = new PutObjectCommand({
       Bucket: S3_BUCKET_NAME,
       Key: s3Key,
@@ -59,9 +76,14 @@ export async function POST(req: NextRequest) {
 
     const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 300 })
 
+    console.log("Upload URL created successfully", { invoiceId, s3Key })
     return NextResponse.json({ invoiceId, s3Key, uploadUrl })
   } catch (error) {
-    console.error("Failed to create invoice upload URL", error)
+    console.error("Failed to create invoice upload URL", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      name: error instanceof Error ? error.name : "UnknownError",
+      stack: error instanceof Error ? error.stack : undefined,
+    })
     return NextResponse.json({ error: "Could not create invoice upload URL" }, { status: 500 })
   }
 }
