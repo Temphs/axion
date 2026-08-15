@@ -23,16 +23,16 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
       <div className="mx-auto flex max-w-[1440px] gap-6 px-4 py-6 lg:px-8">
 
         {/* ── Desktop sidebar ─────────────────────────────────── */}
-        <aside className="sticky top-6 hidden h-[calc(100vh-3rem)] w-64 shrink-0 flex-col justify-between rounded-3xl border border-white/10 bg-white/[0.07] p-4 shadow-[0_1px_3px_rgba(0,0,40,0.15),0_24px_48px_-16px_rgba(0,0,40,0.4)] backdrop-blur-md lg:flex">
+        <aside className="sticky top-6 hidden h-[calc(100vh-3rem)] w-64 shrink-0 flex-col justify-between rounded-3xl border border-white/40 bg-white/95 p-4 shadow-[0_1px_3px_rgba(0,0,40,0.12),0_24px_48px_-16px_rgba(0,0,40,0.35)] backdrop-blur-md lg:flex">
           {/* Brand */}
           <div>
             <div className="mb-7 flex items-center gap-3 px-2 pt-1">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 text-lg font-bold text-white shadow-md shadow-blue-900/40">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-lg font-bold text-white shadow-md shadow-blue-900/30">
                 A
               </span>
               <div className="leading-tight">
-                <div className="font-display text-[1.1rem] font-bold tracking-tight text-white">Axion</div>
-                <div className="text-[10px] uppercase tracking-[0.16em] text-blue-200/60">Financial Intelligence</div>
+                <div className="font-display text-[1.1rem] font-bold tracking-tight text-slate-900">Axion</div>
+                <div className="text-[10px] uppercase tracking-[0.16em] text-slate-400">Financial Intelligence</div>
               </div>
             </div>
 
@@ -42,8 +42,8 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
           {/* Bottom section */}
           <div className="space-y-3">
             {/* Summary card */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-sm">
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-200/50">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                 Σύνοψη
               </p>
               <div className="space-y-2.5">
@@ -55,14 +55,14 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
             </div>
 
             {/* User row */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3 backdrop-blur-sm">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 text-xs font-bold text-white shadow-sm">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white shadow-sm">
                   {initials}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-white">{user.name ?? 'Διαχειριστής'}</p>
-                  <p className="truncate text-[11px] text-blue-200/60">{user.email}</p>
+                  <p className="truncate text-sm font-semibold text-slate-900">{user.name ?? 'Διαχειριστής'}</p>
+                  <p className="truncate text-[11px] text-slate-400">{user.email}</p>
                 </div>
               </div>
               <div className="mt-2.5">
@@ -75,22 +75,22 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
         {/* ── Main content ────────────────────────────────────── */}
         <main className="min-w-0 flex-1">
           {/* Mobile header */}
-          <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-3 shadow-sm backdrop-blur-md lg:hidden">
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-white/40 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-md lg:hidden">
             <span className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500 text-sm font-bold text-white shadow-sm">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-bold text-white shadow-sm">
                 A
               </span>
-              <span className="font-display text-base font-bold tracking-tight text-white">Axion</span>
+              <span className="font-display text-base font-bold tracking-tight text-slate-900">Axion</span>
             </span>
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 text-[11px] font-bold text-white">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-[11px] font-bold text-blue-700">
                 {initials}
               </span>
               <LogoutButton />
             </div>
           </div>
           {/* Mobile nav */}
-          <div className="mb-4 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.06] shadow-sm backdrop-blur-md lg:hidden">
+          <div className="mb-4 overflow-hidden rounded-2xl border border-white/40 bg-white/95 p-2 shadow-sm backdrop-blur-md lg:hidden">
             <Nav lang={lang} orientation="horizontal" />
           </div>
 
@@ -104,8 +104,8 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
-      <span className="text-xs text-blue-100/50">{label}</span>
-      <span className="font-display text-sm font-bold tabular-nums text-white">{value}</span>
+      <span className="text-xs text-slate-500">{label}</span>
+      <span className="font-display text-sm font-bold tabular-nums text-slate-900">{value}</span>
     </div>
   )
 }

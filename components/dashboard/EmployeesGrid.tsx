@@ -5,9 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowUpRight, Plus, Clock, CalendarDays } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
-import { ProgressBar } from '@/components/axion/charts'
 import { api } from '@/components/dashboard/api'
-import { eur, hrs, pct } from '@/lib/format'
+import { eur, hrs } from '@/lib/format'
 
 type EmployeeOverview = {
   id: string
@@ -22,13 +21,6 @@ type EmployeeOverview = {
   utilization: number | null
   billablePct: number | null
   cost: number
-}
-
-function utilColor(u: number | null): string {
-  if (u === null) return '#94a3b8'
-  if (u >= 0.8) return '#10b981'
-  if (u >= 0.5) return '#2563EB'
-  return '#f59e0b'
 }
 
 export function EmployeesGrid({
@@ -63,8 +55,8 @@ export function EmployeesGrid({
     <div className="space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-white">Εργαζόμενοι</h1>
-          <p className="text-sm text-blue-200/90">Επιλέξτε εργαζόμενο για αναλυτικά στοιχεία παραγωγικότητας</p>
+          <h2 className="font-display text-xl font-semibold tracking-tight text-white">Διαχείριση εργαζομένων</h2>
+          <p className="text-sm text-blue-200/90">Επιλέξτε εργαζόμενο για αναλυτικά στοιχεία ή προσθέστε νέο</p>
         </div>
         <button
           onClick={() => setAdding((v) => !v)}
@@ -115,22 +107,16 @@ export function EmployeesGrid({
                   <ArrowUpRight size={18} className="shrink-0 text-slate-300 transition group-hover:text-blue-500" />
                 </div>
 
-                <div className="mb-4 grid grid-cols-2 gap-3">
-                  <Metric icon={<Clock size={14} />} label="Ώρες / ημέρα" value={hrs(e.avgPerDay)} />
-                  <Metric icon={<CalendarDays size={14} />} label="Ώρες / μήνα" value={hrs(e.avgPerMonth)} />
+                {/* Lifetime facts only. Period metrics (utilization, contribution)
+                    live in the performance table above, so the two never disagree. */}
+                <div className="grid grid-cols-2 gap-3">
+                  <Metric icon={<CalendarDays size={14} />} label="Ώρες συνολικά" value={hrs(e.hours)} />
+                  <Metric icon={<Clock size={14} />} label="Κόστος / ώρα" value={eur(e.costPerHour, true)} />
                 </div>
 
-                <div className="mb-3">
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Αξιοποίηση μήνα</span>
-                    <span className="font-semibold text-slate-700">{pct(e.utilization)}</span>
-                  </div>
-                  <ProgressBar value={Math.min(100, (e.utilization ?? 0) * 100)} color={utilColor(e.utilization)} />
-                </div>
-
-                <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
-                  <span>Χρεώσιμες: <span className="font-medium text-slate-700">{pct(e.billablePct)}</span></span>
-                  <span>{eur(e.costPerHour, true)}/ώρα</span>
+                <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
+                  <span>Μισθός: <span className="font-medium text-slate-700">{eur(e.monthlyCost)}/μήνα</span></span>
+                  <span className="text-blue-600 group-hover:underline">Αναλυτικά</span>
                 </div>
                 {!e.active && (
                   <span className="mt-2 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">Ανενεργός</span>

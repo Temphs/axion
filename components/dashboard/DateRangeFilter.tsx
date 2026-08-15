@@ -17,17 +17,24 @@ export function DateRangeFilter() {
   const from = params.get('from') ?? ''
   const to = params.get('to') ?? ''
 
-  function apply(nextFrom: string, nextTo: string) {
+  function apply(nextFrom: string, nextTo: string, range?: 'all') {
     const q = new URLSearchParams()
+    if (range) q.set('range', range)
     if (nextFrom) q.set('from', nextFrom)
     if (nextTo) q.set('to', nextTo)
     const qs = q.toString()
     router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
   }
 
-  function preset(kind: 'thisMonth' | 'lastMonth' | 'ytd' | 'all') {
+  function preset(kind: 'thisWeek' | 'thisMonth' | 'lastMonth' | 'quarter' | 'ytd' | 'all') {
     const now = new Date()
-    if (kind === 'all') return apply('', '')
+    // "Όλα" = the full span of recorded entries (first → last), skipping
+    // months without data; resolved server-side.
+    if (kind === 'all') return apply('', '', 'all')
+    if (kind === 'thisWeek') {
+      const day = (now.getDay() + 6) % 7 // Monday-based
+      return apply(iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - day)), iso(now))
+    }
     if (kind === 'thisMonth') {
       return apply(iso(new Date(now.getFullYear(), now.getMonth(), 1)), iso(now))
     }
@@ -36,6 +43,10 @@ export function DateRangeFilter() {
       const end = new Date(now.getFullYear(), now.getMonth(), 0)
       return apply(iso(start), iso(end))
     }
+    if (kind === 'quarter') {
+      const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1)
+      return apply(iso(qStart), iso(now))
+    }
     return apply(iso(new Date(now.getFullYear(), 0, 1)), iso(now)) // ytd
   }
 
@@ -43,19 +54,28 @@ export function DateRangeFilter() {
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-white text-sm">
         {([
+          ['thisWeek', 'Εβδομάδα'],
           ['thisMonth', 'Μήνας'],
           ['lastMonth', 'Προηγ.'],
+          ['quarter', 'Τρίμηνο'],
           ['ytd', 'Έτος'],
           ['all', 'Όλα'],
-        ] as const).map(([k, label]) => (
-          <button
-            key={k}
-            onClick={() => preset(k)}
-            className="border-r border-slate-100 px-3 py-2 font-medium text-slate-600 transition last:border-0 hover:bg-slate-50 hover:text-blue-600"
-          >
-            {label}
-          </button>
-        ))}
+        ] as const).map(([k, label]) => {
+          const active = k === 'all' && params.get('range') === 'all'
+          return (
+            <button
+              key={k}
+              onClick={() => preset(k)}
+              title={k === 'all' ? 'Όλο το ιστορικό εγγραφών (χωρίς κενούς μήνες)' : undefined}
+              className={
+                'border-r border-slate-100 px-3 py-2 font-medium transition last:border-0 ' +
+                (active ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-blue-600')
+              }
+            >
+              {label}
+            </button>
+          )
+        })}
       </div>
       <div className="flex items-center gap-1.5 text-sm">
         <DateField value={from} onCommit={(v) => apply(v, to)} ariaLabel="Από" inputClassName={dateInputCls} />

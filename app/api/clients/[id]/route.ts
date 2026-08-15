@@ -23,6 +23,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/clients/[i
     name?: string
     billable?: boolean
     monthlyRevenue?: number
+    plannedMonthlyHours?: number | null
     notes?: string | null
     active?: boolean
   }>(request)
@@ -39,6 +40,20 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/clients/[i
       return fail('monthlyRevenue must be a non-negative number')
     }
     data.monthlyRevenue = body.monthlyRevenue
+  }
+  if (body.plannedMonthlyHours !== undefined) {
+    if (body.plannedMonthlyHours === null) {
+      data.plannedMonthlyHours = null
+    } else if (
+      typeof body.plannedMonthlyHours !== 'number' ||
+      !Number.isFinite(body.plannedMonthlyHours) ||
+      body.plannedMonthlyHours < 0 ||
+      body.plannedMonthlyHours > 10_000
+    ) {
+      return fail('plannedMonthlyHours must be a non-negative number or null')
+    } else {
+      data.plannedMonthlyHours = body.plannedMonthlyHours
+    }
   }
   if (body.billable !== undefined) data.billable = !!body.billable
   if (body.notes !== undefined) data.notes = body.notes?.toString().trim() || null

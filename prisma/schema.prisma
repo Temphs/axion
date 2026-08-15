@@ -24,6 +24,10 @@ model User {
   entries      WorkEntry[]
   apiKeys      ApiKey[]
   settings     Settings?
+  invoices        Invoice[]
+  aadeConnection  AadeConnection?
+  vatSyncLogs     VatSyncLog[]
+  categoryAudits  CategoryAuditEvent[]
 }
 
 model Session {
@@ -64,6 +68,13 @@ model Employee {
   monthlyCost Float       @default(0)
   notes       String?
   active      Boolean     @default(true)
+  // Contracted working hours per month. Falls back to the account-wide
+  // Settings value when unset; drives availability and cost per hour.
+  contractHoursPerMonth     Float?
+  // Management targets (all optional; metrics hide when unset).
+  targetUtilizationPct      Float? // billable utilization target, 0–100
+  targetMonthlyHours        Float?
+  targetMonthlyContribution Float? // €/month
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   entries     WorkEntry[]
@@ -80,6 +91,8 @@ model Client {
   name           String
   billable       Boolean     @default(true)
   monthlyRevenue Float       @default(0)
+  // Hours budgeted per month for this client (planned-vs-actual, overrun alerts).
+  plannedMonthlyHours Float?
   notes          String?
   active         Boolean     @default(true)
   createdAt      DateTime    @default(now())
@@ -113,6 +126,119 @@ model WorkEntry {
   @@index([userId])
   @@index([employeeId])
   @@index([clientId])
+}
+
+// --- VAT / myDATA domain ---------------------------------------------------
+
+// Per-tenant AADE myDATA credentials. Both secrets are stored AES-256-GCM
+// encrypted (see lib/crypto.ts); plaintext never leaves the server.
+model AadeConnection {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  environment           String   @default("sandbox") // sandbox | production
+  entityVatNumber       String?
+  aadeUserIdCipher      String
+  subscriptionKeyCipher String
+  lastSyncedAt          DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// One invoice/document, either fetched from myDATA or entered manually.
+// All monetary values are integer cents; vatRateBps is basis points (2400 = 24%).
+model Invoice {
+  id                     String    @id @default(cuid())
+  userId                 String
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  aadeMark               String? // myDATA registration number (ΜΑΡΚ)
+  aadeUid                String?
+  invoiceType            String? // myDATA document type, e.g. "1.1", "2.1", "13.1"
+  documentNumber         String? // series + number
+  direction              String // income | expense
+
+  issuerVatNumber        String?
+  issuerName             String?
+  counterpartyVatNumber  String?
+  counterpartyName       String?
+
+  issueDate              DateTime
+  transmissionDate       DateTime?
+
+  netCents               Int
+  vatCents               Int
+  grossCents             Int
+  currency               String    @default("EUR")
+  vatRateBps             Int?
+  vatCategoryCode        Int? // myDATA vatCategory 1..10
+
+  aadeClassificationCategory String?
+  aadeClassificationType     String?
+
+  // standard | exempt | zero_rated | reverse_charge | intra_community | out_of_scope
+  vatTreatment           String    @default("standard")
+  vatDeductible          Boolean   @default(true)
+  deductiblePct          Int       @default(100) // partial deductibility, 0..100
+  nonDeductibleReason    String?
+
+  predictedCategory      String?
+  categoryConfidence     Float?
+  categoryExplanation    String?
+  manualCategory         String? // accountant override — always wins
+
+  needsReview            Boolean   @default(false)
+  reviewReason           String?
+
+  description            String?
+  source                 String    @default("aade") // aade | manual | import
+  rawPayload             String? // raw AADE record (JSON) kept for audit/debug
+  syncedAt               DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  audits                 CategoryAuditEvent[]
+
+  @@unique([userId, aadeMark]) // duplicate-sync guard (NULL marks allowed for manual docs)
+  @@index([userId, issueDate])
+  @@index([userId, direction])
+  @@index([userId, needsReview])
+}
+
+// One myDATA sync attempt. errorCode is a sanitized machine code — never raw
+// upstream messages, which could echo credentials or PII.
+model VatSyncLog {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  environment String
+  status      String    @default("running") // running | success | error
+  fetched     Int       @default(0)
+  imported    Int       @default(0)
+  duplicates  Int       @default(0)
+  errorCode   String?
+  startedAt   DateTime  @default(now())
+  finishedAt  DateTime?
+
+  @@index([userId, startedAt])
+}
+
+// Audit trail for manual category/deductibility overrides.
+model CategoryAuditEvent {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoiceId           String
+  invoice             Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  previousCategory    String?
+  newCategory         String?
+  previousDeductible  Boolean?
+  newDeductible       Boolean?
+  note                String?
+  createdAt           DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([invoiceId])
 }
 
 // Single-row global config. Always id = 1. hoursPerMonth = hoursPerDay * daysPerMonth.
