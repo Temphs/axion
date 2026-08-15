@@ -1,25 +1,55 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ArrowLeft, Clock, CalendarDays, Hourglass, Gauge, Wallet } from 'lucide-react'
+import {
+  ArrowLeft,
+  Clock,
+  CalendarDays,
+  CircleDollarSign,
+  Gauge,
+  Hourglass,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react'
 import { Card } from '@/components/axion/ui'
 import { Donut, ProgressBar } from '@/components/axion/charts'
 import { MonthlyHoursChart } from '@/components/dashboard/MonthlyHoursChart'
 import { EmployeeClientsTable } from '@/components/dashboard/EmployeeClientsTable'
 import { EmployeeEditPanel } from '@/components/dashboard/EmployeeEditPanel'
+import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter'
+import { KpiCard } from '@/components/workforce/KpiCard'
+import { TargetsCard } from '@/components/workforce/TargetsCard'
 import { getCurrentUser } from '@/lib/auth'
 import { getEmployeeDetail } from '@/lib/stats'
+import { buildWorkforce } from '@/lib/workforce'
 import { getSettings, hoursPerMonth } from '@/lib/settings'
 import { eur, hrs, num, pct } from '@/lib/format'
 
-export default async function EmployeeDetailPage({ params }: PageProps<'/[lang]/dashboard/employees/[id]'>) {
+export default async function EmployeeDetailPage({
+  params,
+  searchParams,
+}: PageProps<'/[lang]/dashboard/employees/[id]'>) {
   const { lang, id } = await params
   const user = await getCurrentUser()
   if (!user) redirect(`/${lang}/login`)
-  const [d, settings] = await Promise.all([getEmployeeDetail(user.id, id), getSettings(user.id)])
+  const sp = await searchParams
+  const from = typeof sp.from === 'string' && sp.from ? new Date(sp.from) : undefined
+  const to = typeof sp.to === 'string' && sp.to ? new Date(`${sp.to}T23:59:59.999Z`) : undefined
+  const all = sp.range === 'all'
+
+  const [d, settings, wf] = await Promise.all([
+    getEmployeeDetail(user.id, id),
+    getSettings(user.id),
+    buildWorkforce(user.id, { from, to, all }),
+  ])
   if (!d) notFound()
+  const row = wf.employees.find((e) => e.id === id)
 
   const hpm = hoursPerMonth(settings)
   const topTypes = d.workTypes.slice(0, 6)
+  const months = Math.max(wf.period.months, 0.01)
+  const periodLabel = new Intl.DateTimeFormat('el-GR', { month: 'long', year: 'numeric' }).format(
+    new Date(wf.period.from)
+  )
 
   return (
     <div className="space-y-6">
@@ -48,7 +78,76 @@ export default async function EmployeeDetailPage({ params }: PageProps<'/[lang]/
         <Card className="p-10 text-center text-slate-500">Δεν υπάρχουν ακόμη καταχωρήσεις για αυτόν τον εργαζόμενο.</Card>
       ) : (
         <>
-          {/* KPI cards */}
+          {/* ── Profitability, selected period ──────────────────── */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="font-display text-lg font-semibold text-white">
+              Κερδοφορία{' '}
+              <span className="font-normal text-blue-200/70">
+                · {all ? 'όλο το ιστορικό' : from || to ? 'επιλεγμένη περίοδος' : periodLabel}
+              </span>
+            </h2>
+            <DateRangeFilter />
+          </div>
+          {row && (
+            <section className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                <KpiCard
+                  icon={Hourglass}
+                  label="Ώρες"
+                  value={hrs(row.hours)}
+                  sub={`${hrs(row.billableHours)} χρεώσιμες${row.activeDays > 0 ? ` · μ.ο. ${hrs(row.hours / row.activeDays)}/ημέρα` : ''}`}
+                  tooltip="Σύνολο καταχωρημένων ωρών στην περίοδο. Ο μέσος όρος ανά ημέρα μετρά μόνο ημέρες με καταχωρήσεις."
+                />
+                <KpiCard
+                  icon={Gauge}
+                  label="Αξιοποίηση"
+                  value={pct(row.utilization)}
+                  sub={`από ${hrs(row.availableHours)} διαθέσιμες`}
+                  tooltip="Χρεώσιμες ώρες ÷ διαθέσιμες εργάσιμες ώρες περιόδου."
+                />
+                <KpiCard
+                  icon={TrendingUp}
+                  label="Έσοδα"
+                  value={eur(row.revenue)}
+                  tooltip="Έσοδα πελατών επιμερισμένα αναλογικά με τις ώρες του εργαζόμενου ανά πελάτη και μήνα."
+                />
+                <KpiCard
+                  icon={Wallet}
+                  label="Κόστος εργασίας"
+                  value={eur(row.laborCost)}
+                  tooltip="Ώρες × πλήρες ωριαίο κόστος."
+                />
+                <KpiCard
+                  icon={CircleDollarSign}
+                  label="Συνεισφορά"
+                  value={eur(row.contribution)}
+                  tone={row.contribution >= 0 ? 'pos' : 'neg'}
+                  sub={row.margin !== null ? `περιθώριο ${pct(row.margin)}` : undefined}
+                  tooltip="Επιμερισμένα έσοδα − κόστος εργασίας."
+                />
+                <KpiCard
+                  icon={Clock}
+                  label="€ / χρεώσιμη ώρα"
+                  value={row.revenuePerHour !== null ? eur(row.revenuePerHour, true) : '—'}
+                  sub={row.unbilledHours > 0 ? `${hrs(row.unbilledHours)} μη τιμολογημένες` : undefined}
+                  tooltip="Επιμερισμένα έσοδα ÷ χρεώσιμες ώρες."
+                />
+              </div>
+
+              <TargetsCard
+                employeeId={d.id}
+                targets={row.targets}
+                actuals={{
+                  utilization: row.utilization,
+                  monthlyHours: row.hours / months,
+                  monthlyContribution: row.contribution / months,
+                }}
+              />
+            </section>
+          )}
+
+          {/* ── All-time activity ───────────────────────────────── */}
+          <h2 className="font-display text-lg font-semibold text-white">Συνολική δραστηριότητα</h2>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Kpi icon={<Clock size={16} />} label="Ώρες / ημέρα" value={hrs(d.avgPerDay)} sub={`από ${settings.hoursPerDay}ω`} />
             <Kpi icon={<CalendarDays size={16} />} label="Ώρες / μήνα" value={hrs(d.avgPerMonth)} sub={`από ${num(hpm)}ω`} />
@@ -72,6 +171,7 @@ export default async function EmployeeDetailPage({ params }: PageProps<'/[lang]/
               {d.hours > 0 ? (
                 <Donut
                   className="w-36"
+                  immediate
                   centerLabel={pct(d.billablePct)}
                   centerSub="χρεώσιμες"
                   segments={[
@@ -100,14 +200,14 @@ export default async function EmployeeDetailPage({ params }: PageProps<'/[lang]/
                       {hrs(t.hours)} <span className="text-slate-400">({pct(t.pct)})</span>
                     </span>
                   </div>
-                  <ProgressBar value={t.pct * 100} />
+                  <ProgressBar value={t.pct * 100} immediate />
                 </div>
               ))}
             </div>
           </Card>
 
-          {/* clients (searchable) */}
-          <EmployeeClientsTable clients={d.clients} lang={lang} />
+          {/* employee → client breakdown for the period */}
+          {row && <EmployeeClientsTable clients={row.clients} lang={lang} />}
         </>
       )}
     </div>
@@ -128,8 +228,8 @@ function Kpi({ icon, label, value, sub, tone }: { icon: React.ReactNode; label: 
         <span className="text-blue-600">{icon}</span>
       </div>
       <p className={'font-display text-2xl font-semibold tracking-tight tabular-nums ' + (tone === 'pos' ? 'text-emerald-600' : tone === 'neg' ? 'text-amber-600' : 'text-stone-900')}>{value}</p>
-      <p className="text-xs font-medium text-slate-400">{label}</p>
-      {sub && <p className="mt-0.5 text-[10px] text-slate-400">{sub}</p>}
+      <p className="text-[13px] font-medium text-slate-500">{label}</p>
+      {sub && <p className="mt-0.5 text-[11px] text-slate-400">{sub}</p>}
     </Card>
   )
 }

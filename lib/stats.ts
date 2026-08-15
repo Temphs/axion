@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db'
 import { getSettings, hoursPerMonth } from '@/lib/settings'
+import { costPerHourFor, monthlyHoursFor } from '@/lib/profitability'
 
 const MS_PER_AVG_MONTH = 1000 * 60 * 60 * 24 * 30.4375
 
@@ -103,7 +104,7 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
   const [pairGroups, bounds, employeeRows, clientRows] = await Promise.all([
     prisma.workEntry.groupBy({ by: ['employeeId', 'clientId'], where, _sum: { minutes: true } }),
     prisma.workEntry.aggregate({ where, _min: { date: true }, _max: { date: true }, _count: { _all: true } }),
-    prisma.employee.findMany({ where: { userId }, select: { id: true, name: true, monthlyCost: true } }),
+    prisma.employee.findMany({ where: { userId }, select: { id: true, name: true, monthlyCost: true, contractHoursPerMonth: true } }),
     prisma.client.findMany({ where: { userId }, select: { id: true, name: true, billable: true, monthlyRevenue: true } }),
   ])
   const empInfo = new Map(employeeRows.map((e) => [e.id, e]))
@@ -114,7 +115,6 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
   const to = filter.to ?? bounds._max.date ?? null
   const months = from && to ? monthsBetween(from, to) : 0
 
-  const costPerHour = (monthlyCost: number) => (hpm > 0 ? monthlyCost / hpm : 0)
 
   const employeeMap = new Map<string, EmployeeStat>()
   const clientMap = new Map<string, ClientStat>()
@@ -127,7 +127,7 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
     const cli = cliInfo.get(g.clientId)
     if (!emp || !cli) continue
     const hours = (g._sum.minutes ?? 0) / 60
-    const cost = hours * costPerHour(emp.monthlyCost)
+    const cost = hours * costPerHourFor(emp, hpm)
     totalHours += hours
     if (cli.billable) billableHours += hours
     else nonBillableHours += hours
@@ -293,7 +293,7 @@ export async function getEmployeesOverview(userId: string): Promise<EmployeeOver
     const months = a?.months.size ?? 0
     const avgPerDay = days > 0 ? hours / days : 0
     const avgPerMonth = months > 0 ? hours / months : 0
-    const costPerHour = hpm > 0 ? e.monthlyCost / hpm : 0
+    const costPerHour = costPerHourFor(e, hpm)
     const billableHours = (a?.billable ?? 0) / 60
     const nonBillableHours = (a?.nonBillable ?? 0) / 60
     const totalBN = billableHours + nonBillableHours
@@ -309,7 +309,7 @@ export async function getEmployeesOverview(userId: string): Promise<EmployeeOver
       months,
       avgPerDay,
       avgPerMonth,
-      utilization: hpm > 0 ? avgPerMonth / hpm : null,
+      utilization: monthlyHoursFor(e, hpm) > 0 ? avgPerMonth / monthlyHoursFor(e, hpm) : null,
       billableHours,
       nonBillableHours,
       billablePct: totalBN > 0 ? billableHours / totalBN : null,
@@ -373,7 +373,7 @@ export async function getEmployeeDetail(userId: string, id: string): Promise<Emp
   const hours = totalMin / 60
   const avgPerDay = days > 0 ? hours / days : 0
   const avgPerMonth = months > 0 ? hours / months : 0
-  const costPerHour = hpm > 0 ? employee.monthlyCost / hpm : 0
+  const costPerHour = costPerHourFor(employee, hpm)
 
   let billableMin = 0
   let nonBillableMin = 0
@@ -419,7 +419,7 @@ export async function getEmployeeDetail(userId: string, id: string): Promise<Emp
     months,
     avgPerDay,
     avgPerMonth,
-    utilization: hpm > 0 ? avgPerMonth / hpm : null,
+    utilization: monthlyHoursFor(employee, hpm) > 0 ? avgPerMonth / monthlyHoursFor(employee, hpm) : null,
     cost: hours * costPerHour,
     entryCount,
     billableHours,
@@ -443,9 +443,9 @@ export async function getClientsStats(userId: string): Promise<Map<string, Clien
   const [costGroups, monthGroups, employees] = await Promise.all([
     prisma.workEntry.groupBy({ by: ['clientId', 'employeeId'], where: { userId }, _sum: { minutes: true } }),
     prisma.workEntry.groupBy({ by: ['clientId', 'date'], where: { userId }, _sum: { minutes: true } }),
-    prisma.employee.findMany({ where: { userId }, select: { id: true, monthlyCost: true } }),
+    prisma.employee.findMany({ where: { userId }, select: { id: true, monthlyCost: true, contractHoursPerMonth: true } }),
   ])
-  const costPerHour = new Map(employees.map((e) => [e.id, hpm > 0 ? e.monthlyCost / hpm : 0]))
+  const costPerHour = new Map(employees.map((e) => [e.id, costPerHourFor(e, hpm)]))
 
   const totalHours = new Map<string, number>()
   const totalCost = new Map<string, number>()
@@ -487,11 +487,11 @@ export async function getSidebarSummary(userId: string): Promise<{
   const hpm = hoursPerMonth(settings)
   const [grp, employees, clientCount, employeeCount] = await Promise.all([
     prisma.workEntry.groupBy({ by: ['employeeId'], where: { userId }, _sum: { minutes: true } }),
-    prisma.employee.findMany({ where: { userId }, select: { id: true, monthlyCost: true } }),
+    prisma.employee.findMany({ where: { userId }, select: { id: true, monthlyCost: true, contractHoursPerMonth: true } }),
     prisma.client.count({ where: { active: true, userId } }),
     prisma.employee.count({ where: { active: true, userId } }),
   ])
-  const cph = new Map(employees.map((e) => [e.id, hpm > 0 ? e.monthlyCost / hpm : 0]))
+  const cph = new Map(employees.map((e) => [e.id, costPerHourFor(e, hpm)]))
   let hours = 0
   let cost = 0
   for (const g of grp) {
@@ -536,7 +536,7 @@ export async function getClientDetail(userId: string, id: string): Promise<Clien
     prisma.workEntry.groupBy({ by: ['date'], where, _sum: { minutes: true }, _count: { _all: true } }),
     prisma.workEntry.groupBy({ by: ['employeeId'], where, _sum: { minutes: true } }),
     prisma.workEntry.groupBy({ by: ['workType'], where, _sum: { minutes: true } }),
-    prisma.employee.findMany({ where: { userId }, select: { id: true, name: true, monthlyCost: true } }),
+    prisma.employee.findMany({ where: { userId }, select: { id: true, name: true, monthlyCost: true, contractHoursPerMonth: true } }),
   ])
   const empInfo = new Map(employees.map((e) => [e.id, e]))
 
@@ -560,7 +560,7 @@ export async function getClientDetail(userId: string, id: string): Promise<Clien
   const employeesArr = empGroups
     .map((g) => {
       const info = empInfo.get(g.employeeId)
-      const cph = info && hpm > 0 ? info.monthlyCost / hpm : 0
+      const cph = info ? costPerHourFor(info, hpm) : 0
       const h = (g._sum.minutes ?? 0) / 60
       const c = h * cph
       totalCost += c

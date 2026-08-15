@@ -11,6 +11,7 @@ export function ClientEditPanel({
   name,
   billable,
   monthlyRevenue,
+  plannedMonthlyHours,
   notes,
   active,
 }: {
@@ -19,6 +20,7 @@ export function ClientEditPanel({
   name: string
   billable: boolean
   monthlyRevenue: number
+  plannedMonthlyHours?: number | null
   notes: string | null
   active: boolean
 }) {
@@ -27,6 +29,7 @@ export function ClientEditPanel({
   const [n, setN] = useState(name)
   const [bill, setBill] = useState(billable)
   const [rev, setRev] = useState(String(monthlyRevenue))
+  const [planned, setPlanned] = useState(plannedMonthlyHours != null ? String(plannedMonthlyHours) : '')
   const [note, setNote] = useState(notes ?? '')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -34,7 +37,13 @@ export function ClientEditPanel({
   async function save(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true); setError(null)
-    const r = await api('PATCH', `/api/clients/${id}`, { name: n, billable: bill, monthlyRevenue: Number(rev) || 0, notes: note })
+    const r = await api('PATCH', `/api/clients/${id}`, {
+      name: n,
+      billable: bill,
+      monthlyRevenue: Number(rev) || 0,
+      plannedMonthlyHours: planned.trim() === '' ? null : Number(planned) || 0,
+      notes: note,
+    })
     setBusy(false)
     if (!r.ok) return setError(r.data.error ?? 'Σφάλμα')
     setOpen(false); router.refresh()
@@ -74,6 +83,18 @@ export function ClientEditPanel({
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-slate-600">Μηνιαίο έσοδο (€)</span>
               <input className={inputCls} type="number" min="0" step="0.01" value={rev} onChange={(e) => setRev(e.target.value)} disabled={!bill} />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-600">Προγραμματισμένες ώρες / μήνα</span>
+              <input
+                className={inputCls}
+                type="number"
+                min="0"
+                step="0.5"
+                value={planned}
+                onChange={(e) => setPlanned(e.target.value)}
+                placeholder="π.χ. 40 (προαιρετικό)"
+              />
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-slate-600">Σημειώσεις</span>

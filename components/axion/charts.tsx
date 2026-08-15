@@ -231,47 +231,51 @@ export function Donut({
   className,
   centerLabel,
   centerSub,
+  immediate = false,
 }: {
   segments: { value: number; color: string }[]
   className?: string
   centerLabel?: string
   centerSub?: string
+  immediate?: boolean
 }) {
   const size = 160
   const stroke = 18
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
   const total = segments.reduce((s, x) => s + x.value, 0)
-  let offset = 0
+  // Arc length per segment plus the offset it starts at (prefix sum). Computed
+  // without mutation; segment counts are small, so the nested sum is fine.
+  const dashes = segments.map((seg) => (seg.value / total) * c)
+  const arcs = segments.map((seg, i) => ({
+    seg,
+    dash: dashes[i],
+    offset: dashes.slice(0, i).reduce((sum, d) => sum + d, 0),
+  }))
 
   return (
     <div className={cn('relative', className)}>
       <svg viewBox={`0 0 ${size} ${size}`} className="h-auto w-full -rotate-90">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
-        {segments.map((seg, i) => {
-          const frac = seg.value / total
-          const dash = frac * c
-          const el = (
-            <motion.circle
-              key={i}
-              cx={size / 2}
-              cy={size / 2}
-              r={r}
-              fill="none"
-              stroke={seg.color}
-              strokeWidth={stroke}
-              strokeLinecap="round"
-              strokeDasharray={`${dash} ${c - dash}`}
-              strokeDashoffset={-offset}
-              initial={{ opacity: 0, strokeDasharray: `0 ${c}` }}
-              whileInView={{ opacity: 1, strokeDasharray: `${dash} ${c - dash}` }}
-              viewport={viewport}
-              transition={{ duration: 0.9, delay: 0.2 + i * 0.12, ease: 'easeOut' }}
-            />
-          )
-          offset += dash
-          return el
-        })}
+        {arcs.map(({ seg, dash, offset }, i) => (
+          <motion.circle
+            key={i}
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke={seg.color}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={`${dash} ${c - dash}`}
+            strokeDashoffset={-offset}
+            initial={{ opacity: 0, strokeDasharray: `0 ${c}` }}
+            {...(immediate
+              ? { animate: { opacity: 1, strokeDasharray: `${dash} ${c - dash}` } }
+              : { whileInView: { opacity: 1, strokeDasharray: `${dash} ${c - dash}` }, viewport })}
+            transition={{ duration: 0.9, delay: 0.2 + i * 0.12, ease: 'easeOut' }}
+          />
+        ))}
       </svg>
       {centerLabel && (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -285,25 +289,31 @@ export function Donut({
 
 /* ─── Animated progress bar ──────────────────────────────────── */
 
+// `immediate` fills on mount instead of on scroll-into-view — dashboards show
+// data, so the bar must be visible even if the reveal observer never fires.
 export function ProgressBar({
   value,
   color = '#2563EB',
   className,
   delay = 0,
+  immediate = false,
 }: {
   value: number
   color?: string
   className?: string
   delay?: number
+  immediate?: boolean
 }) {
+  const reveal = immediate
+    ? { animate: { width: `${value}%` } }
+    : { whileInView: { width: `${value}%` }, viewport }
   return (
     <div className={cn('h-2 w-full overflow-hidden rounded-full bg-slate-100', className)}>
       <motion.div
         className="h-full rounded-full"
         style={{ background: color }}
         initial={{ width: 0 }}
-        whileInView={{ width: `${value}%` }}
-        viewport={viewport}
+        {...reveal}
         transition={{ duration: 1, delay, ease: [0.16, 1, 0.3, 1] }}
       />
     </div>
@@ -312,18 +322,25 @@ export function ProgressBar({
 
 /* ─── Sparkline (tiny inline trend) ──────────────────────────── */
 
+// `immediate` draws on mount instead of on scroll-into-view — used by dense
+// dashboard views where the chart is data, not a reveal effect.
 export function Sparkline({
   data,
   stroke = '#2563EB',
   className,
+  immediate = false,
 }: {
   data: number[]
   stroke?: string
   className?: string
+  immediate?: boolean
 }) {
   const W = 100
   const H = 32
   const pts = scale(data, W, H, 3)
+  const reveal = immediate
+    ? { animate: { pathLength: 1 } }
+    : { whileInView: { pathLength: 1 }, viewport }
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className={cn('h-8 w-full', className)} fill="none" preserveAspectRatio="none">
       <motion.path
@@ -332,8 +349,7 @@ export function Sparkline({
         strokeWidth="2"
         strokeLinecap="round"
         initial={{ pathLength: 0 }}
-        whileInView={{ pathLength: 1 }}
-        viewport={viewport}
+        {...reveal}
         transition={{ duration: 0.9 }}
       />
     </svg>

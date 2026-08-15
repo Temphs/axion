@@ -8,6 +8,7 @@ export default async function ClientsPage({ params }: PageProps<'/[lang]/dashboa
   const { lang } = await params
   const user = await getCurrentUser()
   if (!user) redirect(`/${lang}/login`)
+
   const [clients, stats] = await Promise.all([
     prisma.client.findMany({ where: { userId: user.id }, orderBy: { name: 'asc' }, include: { _count: { select: { entries: true } } } }),
     getClientsStats(user.id),

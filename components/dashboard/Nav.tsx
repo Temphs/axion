@@ -6,6 +6,7 @@ import {
   LayoutGrid,
   Users,
   Briefcase,
+  Table2,
   Clock,
   KeyRound,
   Settings,
@@ -24,12 +25,13 @@ const PRODUCTS = [
 
 /* ── MyEmployee sub-nav ───────────────────────────────────────── */
 const EMP_NAV = [
-  { seg: '',          label: 'Επισκόπηση',    icon: LayoutGrid },
-  { seg: 'employees', label: 'Εργαζόμενοι',   icon: Users },
-  { seg: 'clients',   label: 'Πελάτες',        icon: Briefcase },
-  { seg: 'entries',   label: 'Καταχωρήσεις',  icon: Clock },
-  { seg: 'api-keys',  label: 'API Keys',       icon: KeyRound },
-  { seg: 'settings',  label: 'Ρυθμίσεις',     icon: Settings },
+  { seg: '',              label: 'Επισκόπηση',      icon: LayoutGrid },
+  { seg: 'employees',     label: 'Εργαζόμενοι',     icon: Users },
+  { seg: 'clients',       label: 'Πελάτες',          icon: Briefcase },
+  { seg: 'clients/board', label: 'Πίνακας πελατών', icon: Table2 },
+  { seg: 'entries',       label: 'Καταχωρήσεις',    icon: Clock },
+  { seg: 'api-keys',      label: 'API Keys',         icon: KeyRound },
+  { seg: 'settings',      label: 'Ρυθμίσεις',       icon: Settings },
 ]
 
 export function Nav({
@@ -47,8 +49,16 @@ export function Nav({
   const isCfo  = pathname.startsWith(`${base}/mycfo`)
   const isEmp  = !isVat && !isCfo
 
-  const activeLinkCls  = 'bg-white/[0.92] text-blue-700 shadow-sm'
-  const passiveLinkCls = 'text-blue-100/70 hover:bg-white/10 hover:text-white'
+  // Length of the most specific sub-nav href matching the current path.
+  const longestMatch = EMP_NAV.reduce((longest, { seg }) => {
+    if (!seg) return longest
+    const href = `${base}/${seg}`
+    return pathname.startsWith(href) && href.length > longest ? href.length : longest
+  }, 0)
+
+  // White panel: dark text, and a simple "glass" highlight on the selection.
+  const activeLinkCls  = 'bg-blue-500/10 text-blue-700 ring-1 ring-inset ring-blue-200/70 shadow-sm backdrop-blur-sm'
+  const passiveLinkCls = 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
 
   return (
     <div className={cn('flex gap-1', h ? 'flex-col' : 'flex-col')}>
@@ -81,18 +91,20 @@ export function Nav({
           className={cn(
             'flex gap-1',
             h
-              ? 'flex-row overflow-x-auto border-t border-white/10 pt-2 mt-1'
-              : 'flex-col mt-3 border-t border-white/10 pt-3',
+              ? 'flex-row overflow-x-auto border-t border-slate-100 pt-2 mt-1'
+              : 'flex-col mt-3 border-t border-slate-100 pt-3',
           )}
         >
           {!h && (
-            <span className="mb-1 px-3.5 text-[9px] font-bold uppercase tracking-[0.18em] text-blue-200/40">
+            <span className="mb-1 px-3.5 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">
               Εργαλεία
             </span>
           )}
           {EMP_NAV.map(({ seg, label, icon: Icon }) => {
             const href   = seg ? `${base}/${seg}` : base
-            const active = seg ? pathname.startsWith(href) : pathname === base
+            // Longest matching entry wins, so /clients/board highlights itself
+            // rather than also lighting up /clients.
+            const active = seg ? pathname.startsWith(href) && href.length === longestMatch : pathname === base
             return (
               <Link
                 key={seg || 'overview'}

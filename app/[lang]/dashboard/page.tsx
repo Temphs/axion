@@ -1,23 +1,24 @@
 import Link from 'next/link'
-import {
-  Clock,
-  Wallet,
-  TrendingUp,
-  CircleDollarSign,
-  Activity,
-  ChevronRight,
-  Info,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { redirect } from 'next/navigation'
+import { Activity, ChevronRight, CircleDollarSign, Info, TrendingUp, Wallet } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
-import { Donut, ProgressBar } from '@/components/axion/charts'
+import { ProgressBar } from '@/components/axion/charts'
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter'
-import { OverviewClientsTable } from '@/components/dashboard/OverviewClientsTable'
+import { KpiCard } from '@/components/workforce/KpiCard'
+import { ProfitTrendChart } from '@/components/workforce/ProfitTrendChart'
+import { AlertsPanel } from '@/components/workforce/AlertsPanel'
 import { getCurrentUser } from '@/lib/auth'
-import { buildStats, parseStatsFilter } from '@/lib/stats'
+import { buildWorkforce } from '@/lib/workforce'
+import { parseStatsFilter, getSidebarSummary } from '@/lib/stats'
 import { eur, hrs, num, pct } from '@/lib/format'
 
+function delta(current: number, previous: number | undefined | null): number | null {
+  if (previous === undefined || previous === null || previous === 0) return null
+  return (current - previous) / Math.abs(previous)
+}
+
+// Overview: a calm general picture. The detailed tables live in the
+// Employees and Clients pages.
 export default async function DashboardOverview({ params, searchParams }: PageProps<'/[lang]/dashboard'>) {
   const { lang } = await params
   const user = await getCurrentUser()
@@ -26,35 +27,63 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
   const usp = new URLSearchParams()
   for (const [k, v] of Object.entries(sp)) if (typeof v === 'string') usp.set(k, v)
   const parsed = parseStatsFilter(usp)
-  const stats = await buildStats(user.id, 'error' in parsed ? {} : parsed.filter)
+  const filter = 'error' in parsed ? {} : parsed.filter
+  const allRange = usp.get('range') === 'all'
 
-  const { summary, clients, employees } = stats
-  const empty = summary.entryCount === 0
-  const topClients = clients.slice(0, 6)
-  const maxHours = topClients[0]?.hours || 1
+  const [wf, allTime] = await Promise.all([
+    buildWorkforce(user.id, { from: filter.from, to: filter.to, all: allRange }),
+    getSidebarSummary(user.id),
+  ])
+  const { summary, previousSummary: prev } = wf
+  const empty = summary.hours === 0 && wf.trend.every((t) => t.laborCost === 0 && t.revenue === 0)
+
+  // Ranked by contribution so the ordering matches the bars beside them.
+  const topClients = wf.clients
+    .filter((c) => c.billable)
+    .sort((a, b) => b.contribution - a.contribution)
+    .slice(0, 5)
+  // Every active employee shows up, even with zero hours in the period.
+  const topEmployees = [...wf.employees]
+    .filter((e) => e.active || e.hours > 0)
+    .sort((a, b) => b.contribution - a.contribution || b.hours - a.hours)
+    .slice(0, 5)
+
+  const periodName = new Intl.DateTimeFormat('el-GR', { month: 'long', year: 'numeric' }).format(new Date(wf.period.from))
+  const hasCustomRange = !!(filter.from || filter.to)
+  const periodChip = wf.period.all
+    ? `Όλο το ιστορικό · ${wf.period.months} μήνες με δεδομένα`
+    : hasCustomRange
+      ? 'Επιλεγμένη περίοδος'
+      : `Αναλυτικά στοιχεία: ${periodName}`
+  const avgPerDay = summary.activeDays > 0 ? summary.hours / summary.activeDays : null
+  const maxClientContribution = Math.max(...topClients.map((c) => Math.max(0, c.contribution)), 1)
 
   return (
     <div className="space-y-5">
       {/* ── Header ──────────────────────────────────────────────── */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            Επισκόπηση
-          </h1>
-          <p className="mt-0.5 text-sm text-blue-200/80">
-            Παραγωγικότητα &amp; κερδοφορία ανά πελάτη και εργαζόμενο
-          </p>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">Επισκόπηση</h1>
+          <p className="mt-0.5 text-sm text-blue-200/80">Η γενική εικόνα της επιχείρησης</p>
         </div>
         <DateRangeFilter />
       </header>
 
+      {/* ── All-time business snapshot ─────────────────────────── */}
+      <Card className="flex flex-wrap items-center gap-x-8 gap-y-3 px-5 py-4">
+        <Snapshot label="Σύνολο ωρών" value={hrs(allTime.hours)} />
+        <Snapshot label="Συνολικό κόστος μισθών" value={eur(allTime.cost)} />
+        <Snapshot label="Ενεργοί πελάτες" value={num(allTime.clientCount)} />
+        <Snapshot label="Ενεργοί εργαζόμενοι" value={num(allTime.employeeCount)} />
+        <span className="ml-auto rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{periodChip}</span>
+      </Card>
+
       {empty ? (
-        /* ── Empty state ────────────────────────────────────────── */
         <Card className="p-10 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50">
             <Activity className="h-7 w-7 text-blue-600" />
           </div>
-          <p className="text-lg font-semibold text-slate-900">Δεν υπάρχουν ακόμη καταχωρήσεις εργασίας</p>
+          <p className="text-lg font-semibold text-slate-900">Δεν υπάρχουν καταχωρήσεις εργασίας στην περίοδο</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
             Προσθέστε εργαζόμενους και πελάτες, και συνδέστε την εφαρμογή καταγραφής χρόνου μέσω API key ή καταχωρήστε χειροκίνητα.
           </p>
@@ -72,13 +101,12 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
         </Card>
       ) : (
         <>
-          {/* ── Revenue notice ───────────────────────────────────── */}
-          {summary.revenue === 0 && (
+          {summary.revenue === 0 && summary.hours > 0 && (
             <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
               <div className="text-sm">
-                <span className="font-semibold text-amber-800">Τα μηνιαία έσοδα δεν έχουν οριστεί.</span>{' '}
-                <span className="text-amber-700">Προσθέστε τα στη σελίδα Πελάτες για να βλέπετε κέρδη και ROI.</span>
+                <span className="font-semibold text-amber-800">Τα μηνιαία έσοδα πελατών δεν έχουν οριστεί.</span>{' '}
+                <span className="text-amber-700">Χωρίς αυτά δεν υπολογίζονται συνεισφορά και περιθώρια.</span>
               </div>
               <Link href={`/${lang}/dashboard/clients`} className="ml-auto shrink-0 rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 transition hover:bg-amber-200">
                 Πελάτες →
@@ -86,205 +114,191 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
             </div>
           )}
 
-          {/* ── KPI grid ────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <Stat icon={Clock} label="Ώρες εργασίας" value={hrs(summary.hours)} sub={`${num(employees.length)} εργαζόμενοι`} />
-            <Stat icon={Wallet} label="Κόστος μισθών" value={eur(summary.cost)} />
-            <Stat icon={TrendingUp} label="Έσοδα" value={eur(summary.revenue)} tone={summary.revenue > 0 ? 'pos' : 'neutral'} />
-            <Stat icon={CircleDollarSign} label="Κέρδος" value={eur(summary.profit)} tone={summary.profit >= 0 ? 'pos' : 'neg'} />
-            <Stat
+          {/* ── Four headline numbers ───────────────────────────── */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <KpiCard
+              icon={TrendingUp}
+              label="Έσοδα"
+              value={eur(summary.revenue)}
+              sub={`${summary.clientCount} πελάτες με δραστηριότητα`}
+              delta={delta(summary.revenue, prev?.revenue)}
+              spark={wf.trend.map((t) => t.revenue)}
+              tooltip="Μηνιαία έσοδα πελατών, αναλογικά για την περίοδο — μόνο για μήνες με καταγεγραμμένη εργασία."
+            />
+            <KpiCard
+              icon={Wallet}
+              label="Κόστος εργασίας"
+              value={eur(summary.laborCost)}
+              sub={`${hrs(summary.hours)} εργασίας${avgPerDay !== null ? ` · μ.ο. ${hrs(avgPerDay)}/ημέρα` : ''}`}
+              delta={delta(summary.laborCost, prev?.laborCost)}
+              invert
+              spark={wf.trend.map((t) => t.laborCost)}
+              tooltip="Ώρες εργασίας × πλήρες ωριαίο κόστος κάθε εργαζόμενου."
+            />
+            <KpiCard
+              icon={CircleDollarSign}
+              label="Συνεισφορά"
+              value={eur(summary.contribution)}
+              tone={summary.contribution >= 0 ? 'pos' : 'neg'}
+              sub={summary.margin !== null ? `περιθώριο ${pct(summary.margin)}` : undefined}
+              delta={delta(summary.contribution, prev?.contribution)}
+              spark={wf.trend.map((t) => t.contribution)}
+              tooltip="Έσοδα − κόστος εργασίας."
+            />
+            <KpiCard
               icon={Activity}
               label="Αξιοποίηση"
               value={pct(summary.utilization)}
-              className="col-span-2 lg:col-span-1"
+              sub={summary.unbilledHours > 0 ? `${hrs(summary.unbilledHours)} μη τιμολογημένες` : 'όλες οι ώρες χρεώσιμες'}
+              delta={
+                summary.utilization !== null && prev?.utilization != null && prev.utilization !== 0
+                  ? (summary.utilization - prev.utilization) / prev.utilization
+                  : null
+              }
+              tooltip="Χρεώσιμες ώρες ÷ διαθέσιμες εργάσιμες ώρες της ομάδας."
             />
           </div>
 
-          {/* ── Charts row ──────────────────────────────────────── */}
+          {/* ── Trend + alerts ──────────────────────────────────── */}
           <div className="grid gap-4 lg:grid-cols-3">
             <Card className="p-5 lg:col-span-2">
-              <SectionHead
-                title="Ώρες ανά πελάτη"
-                sub="Top 6 · τρέχουσα περίοδος"
-                action={
-                  <Link href={`/${lang}/dashboard/clients`} className="flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:underline">
-                    Όλοι <ChevronRight className="h-3.5 w-3.5" />
-                  </Link>
-                }
-              />
-              <div className="mt-5 space-y-4">
-                {topClients.map((c) => (
-                  <div key={c.id}>
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <Link
-                        href={`/${lang}/dashboard/clients/${c.id}`}
-                        className="truncate pr-3 text-sm font-medium text-slate-700 hover:text-blue-600"
-                      >
-                        {c.name}
-                      </Link>
-                      <span className="shrink-0 text-xs tabular-nums text-slate-500">{hrs(c.hours)}</span>
-                    </div>
-                    <ProgressBar value={(c.hours / maxHours) * 100} />
-                  </div>
-                ))}
-              </div>
+              <h2 className="text-sm font-semibold text-slate-900">Πορεία κερδοφορίας</h2>
+              <p className="mb-4 text-xs text-slate-400">
+                {wf.period.all ? 'Μήνες με δραστηριότητα (έως 12)' : 'Τελευταίοι 6 μήνες'}
+              </p>
+              <ProfitTrendChart data={wf.trend} />
             </Card>
-
-            <Card className="flex flex-col p-5">
-              <SectionHead title="Χρεώσιμες vs Overhead" />
-              <div className="flex flex-1 flex-col items-center justify-center pt-2">
-                <Donut
-                  className="w-36"
-                  centerLabel={num(summary.billableHours + summary.nonBillableHours)}
-                  centerSub="ώρες"
-                  segments={[
-                    { value: summary.billableHours, color: '#2563EB' },
-                    { value: summary.nonBillableHours || 0.0001, color: '#f59e0b' },
-                  ]}
-                />
-                <div className="mt-5 flex gap-5 text-xs">
-                  <Legend color="#2563EB" label="Χρεώσιμες" value={hrs(summary.billableHours)} />
-                  <Legend color="#f59e0b" label="Overhead" value={hrs(summary.nonBillableHours)} />
-                </div>
-              </div>
-            </Card>
+            <AlertsPanel insights={wf.insights.slice(0, 4)} lang={lang} />
           </div>
 
-          {/* ── Clients table ───────────────────────────────────── */}
-          <OverviewClientsTable clients={clients} lang={lang} />
+          {/* ── Top lists ───────────────────────────────────────── */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card className="p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-900">Κορυφαίοι πελάτες</h2>
+                <Link href={`/${lang}/dashboard/clients`} className="flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:underline">
+                  Αναλυτικά <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+              <ul className="space-y-3">
+                {topClients.map((c) => (
+                  <li key={c.id}>
+                    <Link href={`/${lang}/dashboard/clients/${c.id}`} className="group block">
+                      <div className="mb-1.5 flex items-center justify-between gap-3">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <HealthDot health={c.health} />
+                          <span className="truncate text-sm font-medium text-slate-700 transition group-hover:text-blue-600">
+                            {c.name}
+                          </span>
+                        </span>
+                        <span className="flex shrink-0 items-center gap-3 tabular-nums">
+                          <span className="text-xs text-slate-400">{hrs(c.hours)}</span>
+                          <span className={`text-sm font-semibold ${c.contribution >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                            {eur(c.contribution)}
+                          </span>
+                        </span>
+                      </div>
+                      <ProgressBar
+                        value={maxClientContribution > 0 ? (Math.max(0, c.contribution) / maxClientContribution) * 100 : 0}
+                        color={c.contribution >= 0 ? '#2563EB' : '#ef4444'}
+                        immediate
+                      />
+                    </Link>
+                  </li>
+                ))}
+                {topClients.length === 0 && <li className="py-6 text-center text-xs text-slate-400">Καμία δραστηριότητα στην περίοδο</li>}
+              </ul>
+            </Card>
 
-          {/* ── Employees grid ──────────────────────────────────── */}
-          <Card>
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <h2 className="text-sm font-semibold text-slate-900">Εργαζόμενοι</h2>
-              <Link href={`/${lang}/dashboard/employees`} className="flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:underline">
-                Διαχείριση <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-            <div className="grid gap-2.5 p-4 sm:grid-cols-2 xl:grid-cols-3">
-              {employees.map((e) => (
-                <EmployeeCard key={e.name} name={e.name} hours={e.hours} cost={e.cost} clientCount={e.clients.length} />
-              ))}
-            </div>
-          </Card>
+            <Card className="p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-900">Εργαζόμενοι</h2>
+                <Link href={`/${lang}/dashboard/employees`} className="flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:underline">
+                  Αναλυτικά <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+              <ul className="space-y-3">
+                {topEmployees.map((e) => (
+                  <li key={e.id}>
+                    <Link href={`/${lang}/dashboard/employees/${e.id}`} className="group block">
+                      <div className="mb-1.5 flex items-center justify-between gap-3">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <Avatar name={e.name} />
+                          <span className="truncate text-sm font-medium text-slate-700 transition group-hover:text-blue-600">
+                            {e.name}
+                          </span>
+                        </span>
+                        <span className="flex shrink-0 items-center gap-3 tabular-nums">
+                          <span className="text-xs text-slate-400">{hrs(e.hours)}</span>
+                          <span className={`text-sm font-semibold ${e.contribution >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                            {eur(e.contribution)}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <ProgressBar
+                            value={e.utilization !== null ? Math.min(100, e.utilization * 100) : 0}
+                            color={utilColor(e.utilization, e.targets.utilizationPct)}
+                            immediate
+                          />
+                        </div>
+                        <span className="w-11 shrink-0 text-right text-[11px] tabular-nums text-slate-400">
+                          {pct(e.utilization)}
+                        </span>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+                {topEmployees.length === 0 && <li className="py-6 text-center text-xs text-slate-400">Καμία δραστηριότητα στην περίοδο</li>}
+              </ul>
+            </Card>
+          </div>
         </>
       )}
     </div>
   )
 }
 
-/* ── Sub-components ────────────────────────────────────────────── */
-
-const STAT_COLORS: Record<string, string> = {
-  pos: 'text-emerald-600',
-  neg: 'text-red-500',
-  neutral: 'text-stone-900',
-}
-
-const ICON_BG: Record<string, string> = {
-  pos: 'bg-emerald-50 text-emerald-600',
-  neg: 'bg-red-50 text-red-500',
-  neutral: 'bg-blue-50 text-blue-600',
-}
-
-function Stat({
-  icon: Icon,
-  label,
-  value,
-  tone = 'neutral',
-  sub,
-  className,
-}: {
-  icon: LucideIcon
-  label: string
-  value: string
-  tone?: 'pos' | 'neg' | 'neutral'
-  sub?: string
-  className?: string
-}) {
-  return (
-    <Card className={`p-4 sm:p-5 ${className ?? ''}`}>
-      <span className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${ICON_BG[tone]}`}>
-        <Icon className="h-4.5 w-4.5" strokeWidth={2} size={18} />
-      </span>
-      <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">{label}</p>
-      <p className={`font-display mt-1 text-2xl font-bold tabular-nums tracking-tight ${STAT_COLORS[tone]}`}>
-        {value}
-      </p>
-      {sub && <p className="mt-0.5 text-xs text-stone-400">{sub}</p>}
-    </Card>
-  )
-}
-
-function SectionHead({
-  title,
-  sub,
-  action,
-}: {
-  title: string
-  sub?: string
-  action?: React.ReactNode
-}) {
-  return (
-    <div className="flex items-start justify-between gap-2">
-      <div>
-        <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-        {sub && <p className="mt-0.5 text-xs text-slate-400">{sub}</p>}
-      </div>
-      {action}
-    </div>
-  )
-}
-
-function Legend({ color, label, value }: { color: string; label: string; value: string }) {
-  return (
-    <span className="flex items-center gap-1.5 text-slate-500">
-      <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
-      {label}
-      <span className="font-semibold text-slate-700">{value}</span>
-    </span>
-  )
+// Utilization bar colour: green at/above target, blue when close, amber below.
+function utilColor(utilization: number | null, targetPct: number | null): string {
+  if (utilization === null) return '#cbd5e1'
+  const target = (targetPct ?? 75) / 100
+  if (utilization >= target) return '#10b981'
+  if (utilization >= target * 0.8) return '#2563EB'
+  return '#f59e0b'
 }
 
 const AVATAR_COLORS = ['#2563EB', '#7c3aed', '#059669', '#d97706', '#dc2626', '#0891b2']
 
-function EmployeeCard({
-  name,
-  hours,
-  cost,
-  clientCount,
-}: {
-  name: string
-  hours: number
-  cost: number
-  clientCount: number
-}) {
+function Avatar({ name }: { name: string }) {
   const initials = name
     .trim()
     .split(/\s+/)
     .map((w) => w[0]?.toUpperCase() ?? '')
     .slice(0, 2)
     .join('')
-  const color = AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
-
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-3 transition hover:border-blue-200 hover:bg-blue-50/30">
-      <span
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-        style={{ background: color }}
-      >
-        {initials}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-slate-900">{name}</p>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
-          <span>{hrs(hours)}</span>
-          <span className="text-slate-300">·</span>
-          <span>{eur(cost)}</span>
-          <span className="text-slate-300">·</span>
-          <span>{clientCount} πελάτες</span>
-        </div>
-      </div>
-    </div>
+    <span
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+      style={{ background: AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length] }}
+    >
+      {initials}
+    </span>
   )
+}
+
+function Snapshot({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="flex flex-col">
+      <span className="text-xs text-slate-400">{label}</span>
+      <span className="font-display text-lg font-semibold tabular-nums tracking-tight text-slate-900">{value}</span>
+    </span>
+  )
+}
+
+function HealthDot({ health }: { health: string }) {
+  const color =
+    health === 'healthy' ? 'bg-emerald-500' : health === 'watch' ? 'bg-amber-400' : health === 'critical' ? 'bg-red-500' : 'bg-slate-300'
+  return <span className={`h-2 w-2 shrink-0 rounded-full ${color}`} />
 }

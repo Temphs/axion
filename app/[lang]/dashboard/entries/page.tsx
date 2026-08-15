@@ -16,7 +16,8 @@ export default async function EntriesPage({ params, searchParams }: PageProps<'/
   const sp = await searchParams
   const from = isIso(sp.from) ? sp.from : ''
   const to = isIso(sp.to) ? sp.to : ''
-  const filtering = Boolean(from || to)
+  const employeeId = typeof sp.employeeId === 'string' ? sp.employeeId : ''
+  const filtering = Boolean(from || to || employeeId)
 
   // Entries are stored at UTC midnight; match the calendar range inclusively.
   const dateFilter: Record<string, Date> = {}
@@ -26,7 +27,11 @@ export default async function EntriesPage({ params, searchParams }: PageProps<'/
     end.setUTCHours(23, 59, 59, 999)
     dateFilter.lte = end
   }
-  const where = filtering ? { userId: user.id, date: dateFilter } : { userId: user.id }
+  const where = {
+    userId: user.id,
+    ...(from || to ? { date: dateFilter } : {}),
+    ...(employeeId ? { employeeId } : {}),
+  }
 
   const [entries, employees, clients] = await Promise.all([
     prisma.workEntry.findMany({
@@ -38,8 +43,9 @@ export default async function EntriesPage({ params, searchParams }: PageProps<'/
         client: { select: { id: true, name: true } },
       },
     }),
-    prisma.employee.findMany({ where: { active: true, userId: user.id }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
-    prisma.client.findMany({ where: { active: true, userId: user.id }, orderBy: { name: 'asc' }, select: { id: true, name: true } }),
+    // Inactive people still appear in history, so the picker must list them too.
+    prisma.employee.findMany({ where: { userId: user.id }, orderBy: { name: 'asc' }, select: { id: true, name: true, active: true } }),
+    prisma.client.findMany({ where: { userId: user.id }, orderBy: { name: 'asc' }, select: { id: true, name: true, active: true } }),
   ])
 
   const data = entries.map((e) => ({
@@ -59,6 +65,7 @@ export default async function EntriesPage({ params, searchParams }: PageProps<'/
       clients={clients}
       from={from}
       to={to}
+      employeeId={employeeId}
       truncated={filtering && entries.length === RANGE_LIMIT}
     />
   )

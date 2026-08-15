@@ -30,6 +30,10 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/employees/
     monthlyCost?: number
     notes?: string | null
     active?: boolean
+    contractHoursPerMonth?: number | null
+    targetUtilizationPct?: number | null
+    targetMonthlyHours?: number | null
+    targetMonthlyContribution?: number | null
   }>(request)
   if (!body) return fail('Invalid JSON body')
 
@@ -47,6 +51,25 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/employees/
   }
   if (body.notes !== undefined) data.notes = body.notes?.toString().trim() || null
   if (body.active !== undefined) data.active = !!body.active
+
+  // Optional numeric fields: a value within range, or null to clear.
+  const targetFields = [
+    ['contractHoursPerMonth', 1, 744], // 744 = hours in the longest month
+    ['targetUtilizationPct', 0, 100],
+    ['targetMonthlyHours', 0, 1000],
+    ['targetMonthlyContribution', -1_000_000, 10_000_000],
+  ] as const
+  for (const [field, min, max] of targetFields) {
+    const value = body[field]
+    if (value === undefined) continue
+    if (value === null) {
+      data[field] = null
+    } else if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
+      return fail(`${field} must be a number between ${min} and ${max}, or null`)
+    } else {
+      data[field] = value
+    }
+  }
 
   try {
     const employee = await prisma.employee.update({ where: { id }, data })
