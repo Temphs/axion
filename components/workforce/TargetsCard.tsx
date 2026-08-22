@@ -11,7 +11,7 @@ export type TargetsCardProps = {
   employeeId: string
   targets: { utilizationPct: number | null; monthlyHours: number | null; monthlyContribution: number | null }
   // Period actuals normalized per month so they compare against monthly targets.
-  actuals: { utilization: number | null; monthlyHours: number; monthlyContribution: number }
+  actuals: { billableShare: number | null; monthlyHours: number; monthlyContribution: number }
 }
 
 // Targets vs actuals with inline editing. Persisted on the Employee record.
@@ -45,12 +45,12 @@ export function TargetsCard({ employeeId, targets, actuals }: TargetsCardProps) 
 
   const rows: Array<{ label: string; target: string | null; actual: string; progress: number | null }> = [
     {
-      label: 'Αξιοποίηση',
+      label: 'Χρεώσιμες ώρες',
       target: targets.utilizationPct != null ? `${targets.utilizationPct}%` : null,
-      actual: pct(actuals.utilization),
+      actual: pct(actuals.billableShare),
       progress:
-        targets.utilizationPct != null && actuals.utilization !== null
-          ? actuals.utilization / (targets.utilizationPct / 100)
+        targets.utilizationPct != null && actuals.billableShare !== null
+          ? actuals.billableShare / (targets.utilizationPct / 100)
           : null,
     },
     {
@@ -88,7 +88,7 @@ export function TargetsCard({ employeeId, targets, actuals }: TargetsCardProps) 
       {editing ? (
         <form onSubmit={save} className="grid gap-3 sm:grid-cols-3">
           <label className="text-xs text-slate-600">
-            Στόχος αξιοποίησης (%)
+            Στόχος χρεώσιμων ωρών (%)
             <input
               value={utilization}
               onChange={(e) => setUtilization(e.target.value)}
