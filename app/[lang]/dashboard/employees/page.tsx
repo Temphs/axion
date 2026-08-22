@@ -5,8 +5,8 @@ import { getSettings, hoursPerMonth } from '@/lib/settings'
 import { buildWorkforce } from '@/lib/workforce'
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter'
 import { EmployeesGrid } from '@/components/dashboard/EmployeesGrid'
-import { EmployeePerformanceTable } from '@/components/workforce/EmployeePerformanceTable'
-import { CapacityPanel } from '@/components/workforce/CapacityPanel'
+import { TeamOverviewTable } from '@/components/workforce/TeamOverviewTable'
+import { EntryCompletenessCard } from '@/components/workforce/EntryCompletenessPanel'
 
 export default async function EmployeesPage({ params, searchParams }: PageProps<'/[lang]/dashboard/employees'>) {
   const { lang } = await params
@@ -30,14 +30,15 @@ export default async function EmployeesPage({ params, searchParams }: PageProps<
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">Εργαζόμενοι</h1>
-          <p className="mt-0.5 text-sm text-blue-200/80">Απόδοση, κερδοφορία και διαθεσιμότητα της ομάδας</p>
+          <p className="mt-0.5 text-sm text-blue-200/80">Φόρτος εργασίας και κόστος ανά άτομο</p>
         </div>
         <DateRangeFilter />
       </header>
 
-      <EmployeePerformanceTable employees={wf.employees} lang={lang} />
+      <TeamOverviewTable employees={wf.employees} lang={lang} />
 
-      <CapacityPanel capacity={wf.capacity} lang={lang} />
+      {/* "Can I trust these numbers?" — expected vs logged days per person. */}
+      <EntryCompletenessCard rows={wf.completenessByEmployee} completeness={wf.entryCompleteness} />
 
       <EmployeesGrid lang={lang} employees={employees} hoursPerMonth={hoursPerMonth(settings)} />
     </div>

@@ -2,38 +2,29 @@
 
 import { motion } from 'framer-motion'
 import {
-  LayoutGrid,
-  TrendingUp,
-  Wallet,
-  Users,
-  PieChart,
-  Settings,
-  ArrowUpRight,
-  ShieldCheck,
   Bell,
+  Briefcase,
+  ClipboardCheck,
+  Clock,
+  LayoutGrid,
+  Settings,
+  ShieldCheck,
+  TriangleAlert,
+  Users,
+  Wallet,
 } from 'lucide-react'
-import { ForecastChart, ProgressBar } from './charts'
 import { LogoMark } from './Logo'
 import { useI18n } from './i18n'
 
-const employees = [
-  { name: 'M. Papad…', util: 92, color: '#2563EB' },
-  { name: 'A. Nikol…', util: 78, color: '#3b82f6' },
-  { name: 'K. Georg…', util: 64, color: '#60a5fa' },
-]
-
-const railIcons = [LayoutGrid, TrendingUp, Wallet, Users, PieChart, Settings]
+// The first thing a firm owner sees. Every figure here is one the product
+// actually computes: hours, labor cost, fee, contribution, margin. No VAT, no
+// cash runway, no unlabelled employee percentage.
+const kpiIcons = [Clock, Wallet, Briefcase, ClipboardCheck]
+const railIcons = [LayoutGrid, Users, Briefcase, Clock, Settings]
 
 export function HeroDashboard() {
   const { dict } = useI18n()
   const t = dict.heroDashboard
-
-  const kpiMeta = [
-    { value: '€18,420', delta: '+4.2%', icon: Wallet, tone: 'text-blue-600' },
-    { value: '€92.4k', delta: '+11.8%', icon: TrendingUp, tone: 'text-emerald-600' },
-    { value: t.runway, delta: t.healthy, icon: ShieldCheck, tone: 'text-blue-600' },
-  ]
-  const kpis = kpiMeta.map((k, i) => ({ ...k, label: t.kpiLabels[i] }))
 
   return (
     <div className="relative">
@@ -68,7 +59,7 @@ export function HeroDashboard() {
               <div
                 key={i}
                 className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-                  i === 0 ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'
+                  i === 0 ? 'bg-blue-600 text-white' : 'text-slate-400'
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -77,77 +68,104 @@ export function HeroDashboard() {
           </div>
 
           {/* content */}
-          <div className="flex-1 space-y-3 p-3 sm:p-4">
-            {/* kpis */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
-              {kpis.map((k, i) => (
-                <motion.div
-                  key={k.label}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.5 + i * 0.1 }}
-                  className="rounded-xl border border-slate-100 bg-white p-2.5 sm:p-3"
-                >
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <k.icon className={`h-4 w-4 ${k.tone}`} />
-                    <span className="hidden text-[10px] font-semibold text-emerald-600 sm:inline">
-                      {k.delta}
-                    </span>
-                  </div>
-                  <div className="text-sm font-bold tracking-tight text-slate-900 sm:text-lg">
-                    {k.value}
-                  </div>
-                  <div className="truncate text-[10px] text-slate-400">{k.label}</div>
-                </motion.div>
-              ))}
+          <div className="min-w-0 flex-1 space-y-3 p-3 sm:p-4">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[11px] font-semibold text-slate-900">{t.period}</span>
+              <span className="hidden text-[10px] text-slate-400 sm:inline">{t.vsPrevious}</span>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              {/* forecast */}
-              <div className="col-span-3 rounded-xl border border-slate-100 bg-white p-3 lg:col-span-2">
-                <div className="mb-1 flex items-center justify-between">
-                  <div>
-                    <div className="text-xs font-semibold text-slate-900">{t.forecastTitle}</div>
-                    <div className="text-[10px] text-slate-400">{t.forecastSub}</div>
-                  </div>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
-                    <ArrowUpRight className="h-3 w-3" /> 12.4%
-                  </span>
-                </div>
-                <ForecastChart data={[22, 28, 25, 34, 31, 42, 39, 48, 52]} splitAt={5} />
-                <div className="mt-1 flex items-center gap-3 text-[10px] text-slate-400">
-                  <span className="flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-blue-600" /> {t.actual}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-blue-300" /> {t.predicted}
-                  </span>
-                </div>
-              </div>
-
-              {/* employee profitability */}
-              <div className="col-span-3 rounded-xl border border-slate-100 bg-white p-3 lg:col-span-1">
-                <div className="mb-2 flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-blue-600" />
-                  <span className="text-xs font-semibold text-slate-900">{t.profitabilityShort}</span>
-                </div>
-                <div className="space-y-2.5">
-                  {employees.map((e, i) => (
-                    <div key={e.name}>
-                      <div className="mb-1 flex items-center justify-between text-[10px]">
-                        <span className="font-medium text-slate-600">{e.name}</span>
-                        <span className="font-semibold text-slate-900">{e.util}%</span>
-                      </div>
-                      <ProgressBar value={e.util} color={e.color} delay={0.7 + i * 0.15} />
+            {/* KPIs */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-2.5 lg:grid-cols-4">
+              {t.kpis.map((k, i) => {
+                const Icon = kpiIcons[i]
+                return (
+                  <motion.div
+                    key={k.label}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.5 + i * 0.08 }}
+                    className="rounded-xl border border-slate-100 bg-white p-2.5"
+                  >
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <Icon className="h-3.5 w-3.5 text-blue-600" />
+                      {k.delta && (
+                        <span className="text-[9px] font-semibold text-slate-400">{k.delta}</span>
+                      )}
                     </div>
-                  ))}
-                </div>
-                <div className="mt-3 rounded-lg bg-blue-50/70 p-2">
-                  <div className="text-[10px] text-slate-500">{t.avgMargin}</div>
-                  <div className="text-sm font-bold text-blue-700">€142 / hr</div>
-                </div>
-              </div>
+                    <div className="text-sm font-bold tracking-tight text-slate-900 sm:text-base">
+                      {k.value}
+                    </div>
+                    <div className="truncate text-[10px] text-slate-400">{k.label}</div>
+                  </motion.div>
+                )
+              })}
             </div>
+
+            {/* client profitability */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.85 }}
+              className="overflow-hidden rounded-xl border border-slate-100"
+            >
+              <div className="flex items-baseline justify-between border-b border-slate-100 bg-slate-50/60 px-3 py-2">
+                <span className="text-xs font-semibold text-slate-900">{t.tableTitle}</span>
+                <span className="hidden text-[10px] text-slate-400 sm:inline">{t.tableSub}</span>
+              </div>
+
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-[9px] uppercase tracking-wide text-slate-400">
+                    {t.columns.map((c, i) => (
+                      <th
+                        key={c}
+                        className={`px-2 py-1.5 font-medium sm:px-3 ${i > 0 ? 'text-right' : ''} ${
+                          i === 2 || i === 3 ? 'hidden sm:table-cell' : ''
+                        }`}
+                      >
+                        {c}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {t.rows.map((r) => (
+                    <tr
+                      key={r.name}
+                      className={`border-t border-slate-50 ${r.watch ? 'bg-amber-50/60' : ''}`}
+                    >
+                      <td className="px-2 py-2 sm:px-3">
+                        <span className="flex items-center gap-1.5">
+                          <span className="truncate text-[11px] font-medium text-slate-800">{r.name}</span>
+                          {r.watch && <TriangleAlert className="h-3 w-3 shrink-0 text-amber-500" />}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 text-right text-[11px] tabular-nums text-slate-600 sm:px-3">
+                        {r.fee}
+                      </td>
+                      <td className="hidden px-3 py-2 text-right text-[11px] tabular-nums text-slate-500 sm:table-cell">
+                        {r.hours}
+                      </td>
+                      <td className="hidden px-3 py-2 text-right text-[11px] tabular-nums text-slate-500 sm:table-cell">
+                        {r.cost}
+                      </td>
+                      <td className="px-2 py-2 text-right text-[11px] font-semibold tabular-nums text-slate-900 sm:px-3">
+                        {r.contribution}
+                      </td>
+                      <td className="px-2 py-2 text-right sm:px-3">
+                        <span
+                          className={`inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                            r.watch ? 'bg-amber-100 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+                          }`}
+                        >
+                          {r.margin}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </motion.div>
           </div>
         </div>
       </motion.div>
@@ -161,15 +179,15 @@ export function HeroDashboard() {
           scale: { delay: 1, duration: 0.5 },
           y: { delay: 1.5, duration: 4, repeat: Infinity, ease: 'easeInOut' },
         }}
-        className="absolute -right-3 top-20 hidden rounded-xl border border-slate-200 bg-white/95 px-3 py-2 shadow-lg backdrop-blur sm:block"
+        className="absolute -right-3 top-24 hidden rounded-xl border border-slate-200 bg-white/95 px-3 py-2 shadow-lg backdrop-blur lg:block"
       >
         <div className="flex items-center gap-2">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100">
-            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            <Wallet className="h-4 w-4 text-emerald-600" />
           </span>
           <div>
-            <div className="text-[11px] font-semibold text-slate-900">{t.floatLiquidityTitle}</div>
-            <div className="text-[10px] text-slate-400">{t.floatLiquiditySub}</div>
+            <div className="text-[11px] font-semibold text-slate-900">{t.floatContributionTitle}</div>
+            <div className="text-[10px] text-slate-400">{t.floatContributionSub}</div>
           </div>
         </div>
       </motion.div>
@@ -182,15 +200,15 @@ export function HeroDashboard() {
           scale: { delay: 1.2, duration: 0.5 },
           y: { delay: 1.7, duration: 4.5, repeat: Infinity, ease: 'easeInOut' },
         }}
-        className="absolute -left-4 bottom-16 hidden rounded-xl border border-slate-200 bg-white/95 px-3 py-2 shadow-lg backdrop-blur sm:block"
+        className="absolute -left-4 bottom-12 hidden rounded-xl border border-slate-200 bg-white/95 px-3 py-2 shadow-lg backdrop-blur lg:block"
       >
         <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100">
-            <TrendingUp className="h-4 w-4 text-blue-600" />
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100">
+            <TriangleAlert className="h-4 w-4 text-amber-600" />
           </span>
           <div>
-            <div className="text-[11px] font-semibold text-slate-900">{t.floatForecastTitle}</div>
-            <div className="text-[10px] text-slate-400">{t.floatForecastSub}</div>
+            <div className="text-[11px] font-semibold text-slate-900">{t.floatMarginTitle}</div>
+            <div className="text-[10px] text-slate-400">{t.floatMarginSub}</div>
           </div>
         </div>
       </motion.div>

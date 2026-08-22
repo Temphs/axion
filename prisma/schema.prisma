@@ -75,6 +75,12 @@ model Employee {
   targetUtilizationPct      Float? // billable utilization target, 0–100
   targetMonthlyHours        Float?
   targetMonthlyContribution Float? // €/month
+  // Personal link to the entry terminal (/t/<token>). Null until the owner
+  // creates one; revoking sets it back to null and the URL dies immediately.
+  // Stored in the clear on purpose: the owner has to be able to re-copy the
+  // link. It grants nothing but "log time as this one employee".
+  accessToken   String?   @unique
+  accessTokenAt DateTime?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   entries     WorkEntry[]

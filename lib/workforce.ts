@@ -1,22 +1,29 @@
 import { prisma } from '@/lib/db'
 import { getSettings, hoursPerMonth } from '@/lib/settings'
+import { resolveEmployment, type EmploymentSource } from '@/lib/employment'
 import {
   allocateProRata,
-  capacityStatus,
+  billableShare,
+  buildDayLog,
   clientHealth,
-  computeInsights,
+  clientsNeedingAttention,
+  completenessOf,
   costPerHourFor,
-  findPricingOpportunities,
+  employmentStatusOf,
+  entryCompleteness,
+  expectedHoursFor,
+  expectedWorkingDaysFor,
+  isoDay,
   monthCoverage,
   monthKeyOf,
-  monthlyHoursFor,
   previousPeriodOf,
   safeRatio,
-  type CapacityRow,
+  workingDaysBetween,
+  type ClientAttention,
   type ClientRow,
+  type DayLogEntry,
   type EmployeeRow,
-  type Insight,
-  type PricingOpportunity,
+  type EmploymentStatus,
   type TrendPoint,
   type WorkforceSummary,
 } from '@/lib/profitability'
@@ -25,18 +32,51 @@ import {
 // the previous period (for deltas) and the 6-month trend. All business math
 // lives in lib/profitability.ts.
 
+// "Can I trust the data I am seeing for this employee?" — one row per person,
+// answering it with expected vs logged days and hours, plus the day-by-day
+// detail behind those numbers. Dates are ISO strings: this crosses to a client
+// component.
+export type EmployeeCompletenessRow = {
+  id: string
+  name: string
+  status: EmploymentStatus
+  employment: {
+    startedOn: string | null
+    endedOn: string | null
+    source: EmploymentSource
+    firstEntryOn: string | null
+    lastEntryOn: string | null
+  }
+  expectedWorkingDays: number
+  daysWithEntries: number
+  missingDays: number
+  expectedHours: number
+  loggedHours: number
+  completeness: number | null
+  days: DayLogEntry[]
+}
+
 export type Workforce = {
   period: { from: string; to: string; months: number; elapsedFraction: number; all: boolean }
   summary: WorkforceSummary
   previousSummary: WorkforceSummary | null
   employees: EmployeeRow[]
   clients: ClientRow[]
+  // Hours per client in the preceding period, for the "vs last month" hints.
+  previousClientHours: Map<string, number>
+  attention: ClientAttention[]
   trend: TrendPoint[]
-  insights: Insight[]
-  capacity: CapacityRow[]
-  pricing: PricingOpportunity[]
+  // How complete the time entries are, and how long tracking has been running.
+  entryCompleteness: number | null
+  // Per-employee breakdown behind that single percentage.
+  completenessByEmployee: EmployeeCompletenessRow[]
+  expectedWorkingDays: number
+  trackingSince: string | null
+  trackingDays: number
+  activeClientCount: number
   companyRevenuePerHour: number | null
   hoursPerMonth: number
+  hoursPerDay: number
 }
 
 type PairRow = { employeeId: string; clientId: string; date: Date; hours: number }
@@ -108,28 +148,23 @@ function computePeriodStats(
   } else {
     coverage = monthCoverage(from, to)
   }
-  let monthsF = 0
-  for (const f of coverage.values()) monthsF += f
   // Whole calendar months the period touches — used for month-granular budgets.
   const budgetMonths = coverage.size
 
   const empInfo = new Map(employees.map((e) => [e.id, e]))
   const cliInfo = new Map(clients.map((c) => [c.id, c]))
-  // Contracted hours drive both capacity and the hourly rate, so a part-timer
-  // is measured against their own contract, not the company-wide default.
-  const monthlyHoursOf = (e: EmployeeInfo) => monthlyHoursFor(e, hpm)
+  // Contracted hours drive the hourly rate, so a part-timer is priced against
+  // their own contract rather than the company-wide default.
   const rate = (e: EmployeeInfo) => costPerHourFor(e, hpm)
 
   // client → month → employee → hours (drives revenue attribution)
   const clientMonthEmp = new Map<string, Map<string, Map<string, number>>>()
   // employee → client → {hours, cost}
   const empClient = new Map<string, Map<string, { hours: number; cost: number }>>()
-  // distinct working days, overall and per employee (for avg hours/day)
+  // distinct working days, overall and per employee (for avg hours/day and
+  // for entry completeness)
   const allDays = new Set<number>()
   const empDays = new Map<string, Set<number>>()
-  // per-employee active months — in all-history mode each employee's
-  // available hours count only the months they actually worked
-  const empMonths = new Map<string, Set<string>>()
 
   for (const row of rows) {
     if (row.date < from || row.date > to) continue
@@ -144,9 +179,6 @@ function computePeriodStats(
     days.add(dayKey)
 
     const mk = monthKeyOf(row.date)
-    let months = empMonths.get(emp.id)
-    if (!months) empMonths.set(emp.id, (months = new Set()))
-    months.add(mk)
     let byMonth = clientMonthEmp.get(cli.id)
     if (!byMonth) clientMonthEmp.set(cli.id, (byMonth = new Map()))
     let byEmp = byMonth.get(mk)
@@ -214,10 +246,6 @@ function computePeriodStats(
       clientsOut.sort((a, b) => b.hours - a.hours)
     }
     const revenue = empRevenue.get(e.id) ?? 0
-    // All-history mode: each employee is measured against the months they
-    // actually worked, so joiners/leavers aren't diluted by company-wide span.
-    const monthsForEmployee = activeMonthsOnly ? (empMonths.get(e.id)?.size ?? 0) : monthsF
-    const available = monthlyHoursOf(e) * monthsForEmployee
     return {
       id: e.id,
       name: e.name,
@@ -228,8 +256,7 @@ function computePeriodStats(
       billableHours,
       nonBillableHours,
       unbilledHours,
-      availableHours: available,
-      utilization: safeRatio(billableHours, available),
+      billableShare: billableShare(billableHours, hours),
       revenue,
       laborCost,
       contribution: revenue - laborCost,
@@ -314,21 +341,12 @@ function computePeriodStats(
     },
     { hours: 0, billable: 0, nonBillable: 0, unbilled: 0, revenue: 0, cost: 0 }
   )
-  // Team availability is the sum of each active employee's own capacity, so
-  // differing contracts (and, in all-history mode, differing active months)
-  // are reflected instead of assuming everyone is full-time.
-  const activeIds = new Set(employees.filter((e) => e.active).map((e) => e.id))
-  const availableTotal = employeeRows
-    .filter((e) => activeIds.has(e.id))
-    .reduce((s, e) => s + e.availableHours, 0)
-
   const summary: WorkforceSummary = {
     hours: totals.hours,
     billableHours: totals.billable,
     nonBillableHours: totals.nonBillable,
     unbilledHours: totals.unbilled,
-    availableHours: availableTotal,
-    utilization: safeRatio(totals.billable, availableTotal),
+    billableShare: billableShare(totals.billable, totals.hours),
     revenue: totals.revenue,
     laborCost: totals.cost,
     contribution: totals.revenue - totals.cost,
@@ -484,39 +502,79 @@ export async function buildWorkforce(
     trend.push({ month: mk, label: monthLabel(mk), revenue, laborCost: cost, contribution: revenue - cost })
   }
 
-  /* capacity (active employees, current period) */
-  const capacity: CapacityRow[] = current.employees
-    .filter((e) => e.active)
+  const elapsedFraction = Math.max(0, Math.min(1, (now.getTime() - from.getTime()) / Math.max(1, to.getTime() - from.getTime())))
+
+  const previousClientHours = new Map(previousStats.clients.map((c) => [c.id, c.hours]))
+  const attention = clientsNeedingAttention({ clients: current.clients, previousHoursByClient: previousClientHours })
+
+  /* entry completeness: days each active employee logged vs working days so far */
+  const expectedWorkingDays = workingDaysBetween(from, to, now)
+  const daysLogged = current.employees.filter((e) => e.active).map((e) => e.activeDays)
+  const completeness = entryCompleteness(daysLogged, expectedWorkingDays)
+
+  /* per-employee completeness: hours per calendar day inside the period, the
+     span of that person's entries, and expected days limited to the time they
+     were actually employed */
+  const hoursByEmployeeDay = new Map<string, Map<string, number>>()
+  for (const row of rows) {
+    if (row.date < from || row.date > to) continue
+    let byDay = hoursByEmployeeDay.get(row.employeeId)
+    if (!byDay) hoursByEmployeeDay.set(row.employeeId, (byDay = new Map()))
+    const key = isoDay(row.date)
+    byDay.set(key, (byDay.get(key) ?? 0) + row.hours)
+  }
+
+  const entrySpans = await prisma.workEntry.groupBy({
+    by: ['employeeId'],
+    where: { userId },
+    _min: { date: true },
+    _max: { date: true },
+  })
+  const spanOf = new Map(entrySpans.map((s) => [s.employeeId, s]))
+
+  const completenessByEmployee: EmployeeCompletenessRow[] = employees
     .map((e) => {
-      const allocation = safeRatio(e.hours, e.availableHours)
+      const span = spanOf.get(e.id)
+      const employment = resolveEmployment(e, {
+        firstEntryOn: span?._min.date ?? null,
+        lastEntryOn: span?._max.date ?? null,
+      })
+      const byDay = hoursByEmployeeDay.get(e.id) ?? new Map<string, number>()
+      const days = buildDayLog(from, to, byDay, employment, settings.hoursPerDay, now)
+      const expectedDays = expectedWorkingDaysFor(from, to, employment, now)
+      const daysWithEntries = days.filter((d) => d.hours > 0).length
+      const loggedHours = [...byDay.values()].reduce((s, h) => s + h, 0)
       return {
         id: e.id,
         name: e.name,
-        availableHours: e.availableHours,
-        allocatedHours: e.hours,
-        remainingHours: Math.max(0, e.availableHours - e.hours),
-        allocation,
-        status: capacityStatus(allocation),
+        // An employee flagged inactive counts as former even before the
+        // leaving date exists as a column.
+        status: e.active ? employmentStatusOf(employment, now) : ('former' as const),
+        employment: {
+          startedOn: employment.startedOn ? employment.startedOn.toISOString() : null,
+          endedOn: employment.endedOn ? employment.endedOn.toISOString() : null,
+          source: employment.source,
+          firstEntryOn: employment.firstEntryOn ? employment.firstEntryOn.toISOString() : null,
+          lastEntryOn: employment.lastEntryOn ? employment.lastEntryOn.toISOString() : null,
+        },
+        expectedWorkingDays: expectedDays,
+        daysWithEntries,
+        missingDays: days.filter((d) => d.status === 'missing').length,
+        expectedHours: expectedHoursFor(expectedDays, settings.hoursPerDay),
+        loggedHours,
+        completeness: completenessOf(daysWithEntries, expectedDays),
+        days,
       }
     })
-    .sort((a, b) => (b.allocation ?? 0) - (a.allocation ?? 0))
+    // Former employees with nothing logged in the period are noise, not data.
+    .filter((r) => r.status === 'active' || r.loggedHours > 0)
+    .sort((a, b) => (a.completeness ?? 1) - (b.completeness ?? 1) || b.loggedHours - a.loggedHours)
 
-  const elapsedFraction = Math.max(0, Math.min(1, (now.getTime() - from.getTime()) / Math.max(1, to.getTime() - from.getTime())))
-
-  let insights = computeInsights({
-    employees: current.employees,
-    clients: current.clients,
-    previousClients: new Map(previousStats.clients.map((c) => [c.id, { margin: c.margin, hours: c.hours }])),
-    capacity,
-    companyRevenuePerHour: current.summary.revenuePerHour,
-    defaultUtilizationTarget: 0.75,
-    periodElapsedFraction: elapsedFraction,
-  })
-  // Utilization/capacity targets are monthly concepts — meaningless across
-  // a multi-year "all history" window.
-  if (allMode) insights = insights.filter((i) => i.kind !== 'utilization' && i.kind !== 'capacity')
-
-  const pricing = findPricingOpportunities(current.clients, current.summary.revenuePerHour)
+  const firstEntry = await prisma.workEntry.aggregate({ where: { userId }, _min: { date: true } })
+  const trackingSince = firstEntry._min.date ?? null
+  const trackingDays = trackingSince
+    ? Math.max(1, Math.round((now.getTime() - trackingSince.getTime()) / 86_400_000))
+    : 0
 
   let monthsF = 0
   if (allMode) {
@@ -533,75 +591,17 @@ export async function buildWorkforce(
     previousSummary: hasPrevious ? previousStats.summary : null,
     employees: current.employees,
     clients: current.clients,
+    previousClientHours,
+    attention,
     trend,
-    insights,
-    capacity,
-    pricing,
+    entryCompleteness: completeness,
+    completenessByEmployee,
+    expectedWorkingDays,
+    trackingSince: trackingSince ? trackingSince.toISOString() : null,
+    trackingDays,
+    activeClientCount: clients.filter((c) => c.active).length,
     companyRevenuePerHour: current.summary.revenuePerHour,
     hoursPerMonth: hpm,
+    hoursPerDay: settings.hoursPerDay,
   }
-}
-
-// Monthly profitability trend for a single client (client detail page).
-// With a from/to range: all calendar months intersecting it (max 12).
-// Without: the last 6 months up to now.
-export async function buildClientProfitTrend(
-  userId: string,
-  clientId: string,
-  opts: { from?: Date; to?: Date; all?: boolean } = {},
-  now = new Date()
-): Promise<TrendPoint[]> {
-  const settings = await getSettings(userId)
-  const hpm = hoursPerMonth(settings)
-
-  // Without an explicit range, anchor on the client's own latest activity so
-  // dormant/historical clients still show their last active months.
-  let anchor = opts.to
-  if (!anchor) {
-    const latest = await prisma.workEntry.aggregate({ where: { userId, clientId }, _max: { date: true } })
-    anchor = latest._max.date && latest._max.date < now ? latest._max.date : now
-  }
-  let months = opts.all ? 12 : 6
-  if (opts.from) {
-    const span =
-      (anchor.getUTCFullYear() - opts.from.getUTCFullYear()) * 12 + (anchor.getUTCMonth() - opts.from.getUTCMonth()) + 1
-    months = Math.max(1, Math.min(12, span))
-  }
-  const start = startOfUtcMonth(anchor, -(months - 1))
-
-  const [client, groups, employees] = await Promise.all([
-    prisma.client.findFirst({ where: { id: clientId, userId } }),
-    prisma.workEntry.groupBy({
-      by: ['employeeId', 'date'],
-      where: { userId, clientId, date: { gte: start } },
-      _sum: { minutes: true },
-    }),
-    prisma.employee.findMany({ where: { userId }, select: { id: true, monthlyCost: true, contractHoursPerMonth: true } }),
-  ])
-  if (!client) return []
-  const rate = new Map(employees.map((e) => [e.id, costPerHourFor(e, hpm)]))
-
-  const costByMonth = new Map<string, number>()
-  const activityByMonth = new Set<string>()
-  for (const g of groups) {
-    const mk = monthKeyOf(g.date)
-    const hours = (g._sum.minutes ?? 0) / 60
-    costByMonth.set(mk, (costByMonth.get(mk) ?? 0) + hours * (rate.get(g.employeeId) ?? 0))
-    activityByMonth.add(mk)
-  }
-
-  const out: TrendPoint[] = []
-  for (let i = months - 1; i >= 0; i--) {
-    const mStart = startOfUtcMonth(anchor, -i)
-    const mk = monthKeyOf(mStart)
-    const isCurrent = monthKeyOf(now) === mk
-    const fraction = isCurrent ? Math.min(1, now.getUTCDate() / endOfUtcMonth(mStart).getUTCDate()) : 1
-    const revenue =
-      client.billable && client.monthlyRevenue > 0 && activityByMonth.has(mk) ? client.monthlyRevenue * fraction : 0
-    const cost = costByMonth.get(mk) ?? 0
-    out.push({ month: mk, label: monthLabel(mk), revenue, laborCost: cost, contribution: revenue - cost })
-  }
-  // "All history": show only months where the client actually had activity.
-  if (opts.all) return out.filter((p) => p.revenue !== 0 || p.laborCost !== 0)
-  return out
 }

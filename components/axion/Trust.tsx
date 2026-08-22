@@ -1,10 +1,10 @@
 'use client'
 
-import { BrainCircuit, ShieldCheck, Activity } from 'lucide-react'
+import { CalendarDays, ClipboardCheck, EyeOff, ShieldCheck } from 'lucide-react'
 import { Reveal, RevealGroup, RevealItem } from './motion'
 import { useI18n } from './i18n'
 
-const indicatorIcons = [BrainCircuit, ShieldCheck, Activity]
+const indicatorIcons = [CalendarDays, ClipboardCheck, EyeOff]
 
 export function Trust() {
   const { dict } = useI18n()
