@@ -50,9 +50,11 @@ export function ClientEditPanel({
   }
 
   async function toggleActive() {
-    setBusy(true)
-    await api('PATCH', `/api/clients/${id}`, { active: !active })
-    setBusy(false); router.refresh()
+    setBusy(true); setError(null)
+    const r = await api('PATCH', `/api/clients/${id}`, { active: !active })
+    setBusy(false)
+    if (!r.ok) return setError(r.data.error ?? 'Σφάλμα')
+    router.refresh()
   }
 
   async function remove() {

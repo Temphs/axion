@@ -9,6 +9,22 @@ export function fail(message: string, status = 400): Response {
   return Response.json({ error: message }, { status })
 }
 
+export function tooManyRequests(retryAfterSeconds: number): Response {
+  return Response.json(
+    { error: 'Πολλές προσπάθειες — δοκιμάστε ξανά αργότερα' },
+    { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } }
+  )
+}
+
+// Best-effort source address for rate-limit bucketing. On Vercel the client
+// address arrives in x-forwarded-for; the value is attacker-controlled in
+// general, so it only ever widens a bucket, never grants access.
+export function clientIp(request: Request): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  if (forwarded) return forwarded.split(',')[0].trim() || 'unknown'
+  return request.headers.get('x-real-ip')?.trim() || 'unknown'
+}
+
 export async function readJson<T = Record<string, unknown>>(
   request: Request
 ): Promise<T | null> {

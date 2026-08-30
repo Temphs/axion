@@ -34,8 +34,12 @@ export function ApiKeysManager({ initial }: { initial: Key[] }) {
     router.refresh()
   }
 
+  // Revoking stops the companion time-tracking app from posting hours, and the
+  // token can't be recovered — so confirm before pulling it.
   async function revoke(k: Key) {
-    await api('DELETE', `/api/api-keys/${k.id}`)
+    if (!confirm(`Ανάκληση του κλειδιού «${k.name}»; Η εφαρμογή που το χρησιμοποιεί θα σταματήσει να στέλνει ώρες.`)) return
+    const r = await api('DELETE', `/api/api-keys/${k.id}`)
+    if (!r.ok) return setError(r.data.error ?? 'Σφάλμα')
     router.refresh()
   }
 

@@ -1,13 +1,18 @@
 import { prisma } from '@/lib/db'
 import { hashPassword, createSession } from '@/lib/auth'
-import { ok, fail, readJson } from '@/lib/api'
+import { ok, fail, readJson, clientIp, tooManyRequests } from '@/lib/api'
+import { rateLimit } from '@/lib/rateLimit'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export async function POST(request: Request) {
   // Self-service registration is open. Each new account gets its own isolated
   // workspace (all domain data is scoped by userId), so a new signup can never
-  // see or touch another account's data.
+  // see or touch another account's data. It is still capped per source address:
+  // without this anyone who finds the URL can mint accounts in a loop.
+  const limited = rateLimit(`signup:ip:${clientIp(request)}`, 5, 60 * 60_000)
+  if (!limited.ok) return tooManyRequests(limited.retryAfterSeconds)
+
   const body = await readJson<{ email?: string; password?: string; name?: string }>(request)
   if (!body) return fail('Invalid JSON body')
 

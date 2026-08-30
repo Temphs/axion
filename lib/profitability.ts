@@ -63,6 +63,12 @@ function daysInMonth(year: number, monthIndex: number): number {
   return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
 }
 
+// Whole UTC days since the epoch — lets an overlap be measured in calendar
+// days regardless of the time-of-day on either bound.
+function dayIndex(d: Date): number {
+  return Math.floor(d.getTime() / MS_PER_DAY)
+}
+
 // For each calendar month intersecting [from, to]: fraction of that month
 // covered by the period (by days). Sum of fractions = "months" in the period,
 // used to prorate monthly revenue, planned hours and available hours.
@@ -79,7 +85,12 @@ export function monthCoverage(from: Date, to: Date): Map<string, number> {
     const monthEnd = new Date(Date.UTC(y, m, dim, 23, 59, 59, 999))
     const overlapStart = from > monthStart ? from : monthStart
     const overlapEnd = to < monthEnd ? to : monthEnd
-    const overlapDays = Math.max(0, Math.round((overlapEnd.getTime() - overlapStart.getTime()) / MS_PER_DAY) + 1)
+    // Count calendar days inclusively. Rounding the raw millisecond span
+    // instead would let a month-to-date period ending at, say, 14:00 on the
+    // 30th round up to a full month, so a half-finished month claimed a whole
+    // month of revenue while the trend chart prorated the same month by
+    // elapsed days — the two disagreed on screen.
+    const overlapDays = Math.max(0, dayIndex(overlapEnd) - dayIndex(overlapStart) + 1)
     out.set(`${y}-${String(m + 1).padStart(2, '0')}`, Math.min(1, overlapDays / dim))
     m++
     if (m > 11) {

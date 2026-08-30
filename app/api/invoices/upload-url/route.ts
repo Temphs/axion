@@ -3,8 +3,8 @@ import { PutObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { randomUUID } from "crypto"
 
-import { s3 } from "@/lib/s3"
-import { turso } from "@/lib/turso"
+import { getS3 } from "@/lib/s3"
+import { getTurso } from "@/lib/turso"
 import { getAwsEnv } from "@/lib/env"
 import { getCurrentUser } from "@/lib/auth"
 
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     const { S3_BUCKET_NAME } = getAwsEnv()
 
     console.log("Creating invoice row in Turso")
-    await turso.execute(
+    await getTurso().execute(
       `INSERT INTO invoices
          (id, company_id, uploaded_by, s3_bucket, s3_key, original_filename, content_type, file_size_bytes, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     )
 
     console.log("Creating audit log row in Turso")
-    await turso.execute(
+    await getTurso().execute(
       `INSERT INTO audit_logs
          (id, company_id, user_id, action, entity_type, entity_id)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       ContentType: contentType,
     })
 
-    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 300 })
+    const uploadUrl = await getSignedUrl(getS3(), command, { expiresIn: 300 })
 
     console.log("Upload URL created successfully", { invoiceId, s3Key })
     return NextResponse.json({ invoiceId, s3Key, uploadUrl })

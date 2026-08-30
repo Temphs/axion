@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { getSidebarSummary } from '@/lib/stats'
+import { enabledModules } from '@/lib/modules'
 import { Nav } from '@/components/dashboard/Nav'
 import { LogoutButton } from '@/components/dashboard/LogoutButton'
 import { eur, hrs, num } from '@/lib/format'
@@ -11,6 +12,7 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
   if (!user) redirect(`/${lang}/login`)
 
   const summary = await getSidebarSummary(user.id)
+  const modules = enabledModules()
   const initials = (user.name ?? user.email)
     .trim()
     .split(/\s+/)
@@ -36,7 +38,7 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
               </div>
             </div>
 
-            <Nav lang={lang} />
+            <Nav lang={lang} modules={modules} />
           </div>
 
           {/* Bottom section */}
@@ -91,7 +93,7 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
           </div>
           {/* Mobile nav */}
           <div className="mb-4 overflow-hidden rounded-2xl border border-white/40 bg-white/95 p-2 shadow-sm backdrop-blur-md lg:hidden">
-            <Nav lang={lang} orientation="horizontal" />
+            <Nav lang={lang} modules={modules} orientation="horizontal" />
           </div>
 
           {children}

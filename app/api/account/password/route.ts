@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/db'
 import { hashPassword, verifyPassword } from '@/lib/auth'
-import { ok, fail, readJson, authed } from '@/lib/api'
+import { ok, fail, readJson, authed, tooManyRequests } from '@/lib/api'
 import { rateLimit } from '@/lib/rateLimit'
 
 const SESSION_COOKIE = 'axion_session'
@@ -13,12 +13,7 @@ export async function POST(request: Request) {
   if (res) return res
 
   const limited = rateLimit(`password-change:${user.id}`, 5, 15 * 60_000)
-  if (!limited.ok) {
-    return Response.json(
-      { error: 'Πολλές προσπάθειες — δοκιμάστε ξανά αργότερα' },
-      { status: 429, headers: { 'Retry-After': String(limited.retryAfterSeconds) } }
-    )
-  }
+  if (!limited.ok) return tooManyRequests(limited.retryAfterSeconds)
 
   const body = await readJson<{ currentPassword?: string; newPassword?: string }>(request)
   if (!body) return fail('Invalid JSON body')

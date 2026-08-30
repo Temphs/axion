@@ -3,6 +3,15 @@ import { ok, fail, readJson, authed, authedAny, isForeignKeyConstraint } from '@
 
 const MAX_LIMIT = 500
 const DEFAULT_LIMIT = 100
+// One ingestion call becomes one transaction, so the batch has to be bounded:
+// an unbounded array from a buggy or looping companion app would hold a write
+// transaction open against Turso until it timed out, blocking the dashboard.
+const MAX_BATCH = 1000
+// A day of slack for clock skew and timezones; beyond that a date is a typo
+// (a mistyped year lands hours in 2260 and silently distorts every average).
+const MAX_FUTURE_MS = 36 * 60 * 60 * 1000
+// 24h in minutes: nobody logs more than a day of work against one entry.
+const MAX_MINUTES = 24 * 60
 
 type EntryInput = {
   date?: string
@@ -33,12 +42,14 @@ function normalizeEntry(input: EntryInput): { data: NormalizedEntry } | { error:
 
   const date = new Date(input.date)
   if (Number.isNaN(date.getTime())) return { error: `invalid date: ${input.date}` }
+  if (date.getTime() > Date.now() + MAX_FUTURE_MS) return { error: `date is in the future: ${input.date}` }
 
   let minutes: number
   if (typeof input.minutes === 'number') minutes = Math.round(input.minutes)
   else if (typeof input.hours === 'number') minutes = Math.round(input.hours * 60)
   else return { error: 'minutes or hours is required' }
   if (!Number.isFinite(minutes) || minutes <= 0) return { error: 'minutes/hours must be a positive number' }
+  if (minutes > MAX_MINUTES) return { error: 'minutes/hours cannot exceed 24 hours for one entry' }
 
   return {
     data: {
@@ -118,6 +129,9 @@ export async function POST(request: Request) {
   if (isBatch) {
     const items = Array.isArray(body) ? body : (body as { entries: EntryInput[] }).entries
     if (!items.length) return fail('entries array is empty')
+    if (items.length > MAX_BATCH) {
+      return fail(`entries array is too large: ${items.length} (max ${MAX_BATCH} per request)`, 413)
+    }
 
     const normalized: NormalizedEntry[] = []
     const errors: { index: number; error: string }[] = []

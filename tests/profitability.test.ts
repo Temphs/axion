@@ -67,6 +67,19 @@ describe('monthCoverage / periods', () => {
     expect(cov.get('2026-06')).toBeCloseTo(0.5)
   })
 
+  it('counts a month-to-date period in elapsed calendar days, not a full month', () => {
+    // Month-to-date on the 30th at midday: 30 of August's 31 days have started.
+    // Rounding the raw millisecond span used to reach a full 1.0 here, so a
+    // half-finished month claimed a whole month of client revenue.
+    const cov = monthCoverage(new Date(Date.UTC(2026, 7, 1)), new Date(Date.UTC(2026, 7, 30, 14, 20)))
+    expect(cov.get('2026-08')).toBeCloseTo(30 / 31)
+  })
+
+  it('counts a single day as one day of its month', () => {
+    const cov = monthCoverage(new Date(Date.UTC(2026, 7, 5)), new Date(Date.UTC(2026, 7, 5, 23, 59, 59, 999)))
+    expect(cov.get('2026-08')).toBeCloseTo(1 / 31)
+  })
+
   it('previous period of a month-aligned range is the preceding months', () => {
     const prev = previousPeriodOf(new Date(Date.UTC(2026, 6, 1)), new Date(Date.UTC(2026, 6, 20)))
     expect(prev.from.toISOString().slice(0, 10)).toBe('2026-06-01')
@@ -121,6 +134,7 @@ function emp(over: Partial<EmployeeRow>): EmployeeRow {
     active: true,
     costPerHour: 20,
     hours: 100,
+    activeDays: 20,
     billableHours: 80,
     nonBillableHours: 20,
     unbilledHours: 20,

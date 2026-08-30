@@ -9,8 +9,10 @@ import {
   TrendingDown,
   Minus,
 } from 'lucide-react'
+import { notFound } from 'next/navigation'
 import { Card } from '@/components/axion/ui'
 import { BarChart } from '@/components/axion/charts'
+import { isModuleEnabled } from '@/lib/modules'
 
 const METRICS = [
   { label: 'Έσοδα',              value: '€48.200', trend: '+12%',         color: 'green' },
@@ -52,6 +54,10 @@ const FEATURES = [
 ]
 
 export default async function MyCfoPage() {
+  // Placeholder figures live on this page, so a deployment that hasn't enabled
+  // the module must not be able to reach them by URL.
+  if (!isModuleEnabled('mycfo')) notFound()
+
   return (
     <div className="space-y-5">
       {/* ── Header ──────────────────────────────────────────────── */}

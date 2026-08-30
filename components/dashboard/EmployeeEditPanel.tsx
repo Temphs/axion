@@ -38,9 +38,10 @@ export function EmployeeEditPanel({
   }
 
   async function toggleActive() {
-    setBusy(true)
-    await api('PATCH', `/api/employees/${id}`, { active: !active })
+    setBusy(true); setError(null)
+    const r = await api('PATCH', `/api/employees/${id}`, { active: !active })
     setBusy(false)
+    if (!r.ok) return setError(r.data.error ?? 'Σφάλμα')
     router.refresh()
   }
 

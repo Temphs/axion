@@ -17,6 +17,8 @@ import {
 import { cn } from '@/lib/utils'
 
 /* ── Product modules ──────────────────────────────────────────── */
+// `modules` comes from the server (lib/modules.ts) so a deployment running
+// MyEmployee only doesn't advertise tabs it can't serve.
 const PRODUCTS = [
   { id: 'myemployee', label: 'MyEmployee', icon: Users2 },
   { id: 'vat',        label: 'VAT Analysis', icon: BarChart3 },
@@ -36,15 +38,18 @@ const EMP_NAV = [
 
 export function Nav({
   lang,
+  modules,
   orientation = 'vertical',
 }: {
   lang: string
+  modules: string[]
   orientation?: 'vertical' | 'horizontal'
 }) {
   const pathname = usePathname()
   const base = `/${lang}/dashboard`
   const h = orientation === 'horizontal'
 
+  const products = PRODUCTS.filter((p) => modules.includes(p.id))
   const isVat  = pathname.startsWith(`${base}/vat`)
   const isCfo  = pathname.startsWith(`${base}/mycfo`)
   const isEmp  = !isVat && !isCfo
@@ -63,9 +68,10 @@ export function Nav({
   return (
     <div className={cn('flex gap-1', h ? 'flex-col' : 'flex-col')}>
 
-      {/* ── Product selector ──────────────────────────────────── */}
+      {/* ── Product selector (hidden when only one module is enabled) ── */}
+      {products.length > 1 && (
       <nav className={cn('flex gap-1', h ? 'flex-row overflow-x-auto' : 'flex-col')}>
-        {PRODUCTS.map(({ id, label, icon: Icon }) => {
+        {products.map(({ id, label, icon: Icon }) => {
           const href   = id === 'vat' ? `${base}/vat` : id === 'mycfo' ? `${base}/mycfo` : base
           const active = id === 'vat' ? isVat : id === 'mycfo' ? isCfo : isEmp
           return (
@@ -84,15 +90,20 @@ export function Nav({
           )
         })}
       </nav>
+      )}
 
       {/* ── MyEmployee sub-nav ────────────────────────────────── */}
       {isEmp && (
         <nav
           className={cn(
             'flex gap-1',
-            h
-              ? 'flex-row overflow-x-auto border-t border-slate-100 pt-2 mt-1'
-              : 'flex-col mt-3 border-t border-slate-100 pt-3',
+            products.length > 1
+              ? h
+                ? 'flex-row overflow-x-auto border-t border-slate-100 pt-2 mt-1'
+                : 'flex-col mt-3 border-t border-slate-100 pt-3'
+              : h
+                ? 'flex-row overflow-x-auto'
+                : 'flex-col',
           )}
         >
           {!h && (

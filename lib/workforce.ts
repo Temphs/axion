@@ -473,7 +473,11 @@ export async function buildWorkforce(
       if (row.date < mStart || row.date > mEnd) continue
       const emp = empInfo.get(row.employeeId)
       if (!emp) continue
-      cost += row.hours * (hpm > 0 ? emp.monthlyCost / hpm : 0)
+      // Same rate the KPI cards and tables use: an employee on their own
+      // contracted hours is costed against that contract, not the account
+      // default. Dividing by `hpm` here made the trend understate the cost of
+      // every part-timer and disagree with the "Κόστος εργασίας" card.
+      cost += row.hours * costPerHourFor(emp, hpm)
       activeClients.add(row.clientId)
     }
     let revenue = 0

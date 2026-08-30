@@ -70,10 +70,17 @@ export function ClientsManager({ initial, lang }: { initial: Client[]; lang: str
     reset(); router.refresh()
   }
   async function toggle(c: Client) {
-    await api('PATCH', `/api/clients/${c.id}`, { active: !c.active })
+    const r = await api('PATCH', `/api/clients/${c.id}`, { active: !c.active })
+    if (!r.ok) return setError(r.data.error ?? 'Σφάλμα')
     router.refresh()
   }
+  // Deletion is permanent and this button sits one row away from "Επεξεργασία",
+  // so it asks first — the same guard the client detail page already had.
   async function remove(c: Client) {
+    const warning = c.entryCount > 0
+      ? `Ο πελάτης «${c.name}» έχει ${c.entryCount} καταχωρήσεις εργασίας. Η διαγραφή δεν είναι αναστρέψιμη — συνέχεια;`
+      : `Οριστική διαγραφή του πελάτη «${c.name}»;`
+    if (!confirm(warning)) return
     const r = await api('DELETE', `/api/clients/${c.id}`)
     if (!r.ok) return setError(r.data.error ?? 'Σφάλμα')
     router.refresh()

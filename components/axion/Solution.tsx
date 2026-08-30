@@ -26,7 +26,7 @@ export function Solution() {
 
           <Reveal delay={0.1}>
             <ul className="space-y-5">
-              {t.items.map((item, i) => (
+              {t.items.map((item) => (
                 <li key={item.title} className="flex items-start gap-4">
                   <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600">
                     <Check className="h-3.5 w-3.5" strokeWidth={3} />

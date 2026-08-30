@@ -1,6 +1,10 @@
 import { prisma } from '@/lib/db'
 import { ok, fail, readJson, authed, isNotFound, isForeignKeyConstraint } from '@/lib/api'
 
+// Kept in step with the create path in ../route.ts.
+const MAX_FUTURE_MS = 36 * 60 * 60 * 1000
+const MAX_MINUTES = 24 * 60
+
 export async function GET(_req: Request, ctx: RouteContext<'/api/entries/[id]'>) {
   const { user, res } = await authed()
   if (res) return res
@@ -40,6 +44,9 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/entries/[i
   if (body.date !== undefined) {
     const d = new Date(body.date)
     if (Number.isNaN(d.getTime())) return fail(`invalid date: ${body.date}`)
+    // Mirrors the create path: a mistyped year would otherwise sit in the data
+    // set skewing every period average.
+    if (d.getTime() > Date.now() + MAX_FUTURE_MS) return fail(`date is in the future: ${body.date}`)
     data.date = d
   }
   if (body.employeeId !== undefined) data.employeeId = body.employeeId
@@ -49,6 +56,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/entries/[i
   if (body.minutes !== undefined || body.hours !== undefined) {
     const minutes = typeof body.minutes === 'number' ? Math.round(body.minutes) : Math.round((body.hours as number) * 60)
     if (!Number.isFinite(minutes) || minutes <= 0) return fail('minutes/hours must be a positive number')
+    if (minutes > MAX_MINUTES) return fail('minutes/hours cannot exceed 24 hours for one entry')
     data.minutes = minutes
   }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -52,12 +52,17 @@ export function DateField({
   placeholder?: string
 }) {
   const [text, setText] = useState(() => isoToDisplay(value))
+  const [lastValue, setLastValue] = useState(value)
   const nativeRef = useRef<HTMLInputElement>(null)
 
-  // Re-sync the visible text whenever the external value changes (clear, preset, navigation).
-  useEffect(() => {
+  // Re-sync the visible text whenever the external value changes (clear, preset,
+  // navigation). Adjusted during render rather than in an effect: React finishes
+  // this render before touching the DOM, so the field never paints the stale
+  // date first, and it doesn't trip the cascading-render lint rule.
+  if (value !== lastValue) {
+    setLastValue(value)
     setText(isoToDisplay(value))
-  }, [value])
+  }
 
   function handleChange(raw: string) {
     const formatted = autoFormat(raw)

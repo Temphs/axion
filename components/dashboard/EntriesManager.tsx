@@ -29,6 +29,14 @@ function isoDay(value: string): string {
   return value.slice(0, 10)
 }
 
+// A Greek keyboard types "1,5" for one and a half hours. Number() reads that as
+// NaN, which the add form used to send as 0 and the API rejected with an error
+// that didn't explain itself. Returns null for anything that isn't a number.
+function parseHours(value: string): number | null {
+  const n = Number(value.trim().replace(',', '.'))
+  return Number.isFinite(n) ? n : null
+}
+
 export function EntriesManager({
   entries,
   employees,
@@ -66,9 +74,12 @@ export function EntriesManager({
   async function submit(ev: React.FormEvent) {
     ev.preventDefault()
     if (!date) return setError('Η ημερομηνία είναι υποχρεωτική')
+    const parsedHours = parseHours(hours)
+    if (parsedHours === null || parsedHours <= 0) return setError('Οι ώρες πρέπει να είναι θετικός αριθμός')
+    if (date > today()) return setError('Η ημερομηνία δεν μπορεί να είναι μελλοντική')
     setSaving(true); setError(null)
     const r = await api('POST', '/api/entries', {
-      date, employeeId: newEmployeeId, clientId, hours: Number(hours) || 0, workType,
+      date, employeeId: newEmployeeId, clientId, hours: parsedHours, workType,
     })
     setSaving(false)
     if (!r.ok) return setError(r.data.error ?? 'Σφάλμα')
@@ -122,7 +133,10 @@ export function EntriesManager({
               </select>
             </Field>
             <Field label="Ώρες">
-              <input type="number" min="0" step="0.25" className={inputCls} value={hours} onChange={(e) => setHours(e.target.value)} placeholder="1.5" required />
+              {/* text, not number: a number input in a non-Greek browser locale
+                  drops a typed comma and hands back an empty string, so "1,5"
+                  silently became nothing. parseHours accepts either separator. */}
+              <input type="text" inputMode="decimal" className={inputCls} value={hours} onChange={(e) => setHours(e.target.value)} placeholder="1,5" required />
             </Field>
             <Field label="Είδος">
               <input className={inputCls} value={workType} onChange={(e) => setWorkType(e.target.value)} placeholder="Καταχώρηση" />
@@ -232,12 +246,14 @@ function EntryRow({ entry, employees, clients }: { entry: Entry; employees: Ref[
   }
 
   async function save() {
+    const parsedHours = parseHours(hours)
+    if (parsedHours === null || parsedHours <= 0) return setError('Οι ώρες πρέπει να είναι θετικός αριθμός')
     setBusy(true); setError(null)
     const r = await api('PATCH', `/api/entries/${entry.id}`, {
       date,
       employeeId,
       clientId,
-      hours: Number(hours.replace(',', '.')) || 0,
+      hours: parsedHours,
       workType,
     })
     setBusy(false)
@@ -307,9 +323,8 @@ function EntryRow({ entry, employees, clients }: { entry: Entry; employees: Ref[
       </td>
       <td className="px-5 py-2.5">
         <input
-          type="number"
-          min="0"
-          step="0.25"
+          type="text"
+          inputMode="decimal"
           className={`${rowInputCls} text-right`}
           value={hours}
           onChange={(e) => setHours(e.target.value)}
