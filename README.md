@@ -132,3 +132,7 @@ rejected.
   rather than a hard cap.
 - **No audit trail** on employee/client/entry edits, and deletes are permanent.
   Merging two clients is irreversible.
+- **A real account password was committed** in an early version of
+  `scripts/import-excel.mjs`. It has been replaced by `IMPORT_EMAIL` /
+  `IMPORT_PASSWORD` environment variables, but it remains in the git history —
+  rotate that password, and anywhere else it was reused.

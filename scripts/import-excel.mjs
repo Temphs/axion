@@ -1,12 +1,25 @@
 // Imports scripts/excel-data.json into the running app via its HTTP API.
-//   node scripts/import-excel.mjs            (defaults to http://localhost:3001)
-//   BASE=http://localhost:3000 node scripts/import-excel.mjs
+//   IMPORT_EMAIL=you@example.com IMPORT_PASSWORD=… node scripts/import-excel.mjs
+//   BASE=http://localhost:3000 IMPORT_EMAIL=… IMPORT_PASSWORD=… node scripts/import-excel.mjs
+//
+// Credentials come from the environment. They used to be literals in this file,
+// which put a real account password into the repository's history — if you are
+// reading this on an old checkout, that password needs rotating, because
+// removing it here does not remove it from earlier commits.
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const BASE = process.env.BASE ?? 'http://localhost:3001'
-const ACCOUNT = { email: 'astav2112004@gmail.com', password: 'Art123emis', name: 'Artemios' }
+const ACCOUNT = {
+  email: process.env.IMPORT_EMAIL,
+  password: process.env.IMPORT_PASSWORD,
+  name: process.env.IMPORT_NAME ?? 'Manager',
+}
+if (!ACCOUNT.email || !ACCOUNT.password) {
+  console.error('Set IMPORT_EMAIL and IMPORT_PASSWORD (the account to import into).')
+  process.exit(1)
+}
 
 const here = dirname(fileURLToPath(import.meta.url))
 const data = JSON.parse(readFileSync(join(here, 'excel-data.json'), 'utf8'))
