@@ -1,11 +1,12 @@
 import { prisma } from '@/lib/db'
-import { fail, ok, readJson } from '@/lib/api'
+import { clientIp, fail, ok, readJson, tooManyRequests } from '@/lib/api'
 import {
   EDIT_WINDOW_DAYS,
   isWithinEditWindow,
   loadTerminalData,
   parseDayParam,
   resolveTerminal,
+  terminalRateLimit,
 } from '@/lib/terminal'
 
 const MAX_HOURS_PER_ENTRY = 24
@@ -22,6 +23,9 @@ type Body = {
 // the body is ignored: the terminal cannot log time on someone else's behalf.
 export async function POST(request: Request, ctx: RouteContext<'/api/terminal/[token]/entries'>) {
   const { token } = await ctx.params
+  const limited = terminalRateLimit(clientIp(request), token)
+  if (!limited.ok) return tooManyRequests(limited.retryAfterSeconds)
+
   const session = await resolveTerminal(token)
   if (!session) return fail('Ο σύνδεσμος δεν ισχύει', 404)
 

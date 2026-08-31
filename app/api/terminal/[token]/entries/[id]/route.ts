@@ -1,11 +1,12 @@
 import { prisma } from '@/lib/db'
-import { fail, ok, readJson } from '@/lib/api'
+import { clientIp, fail, ok, readJson, tooManyRequests } from '@/lib/api'
 import {
   EDIT_WINDOW_DAYS,
   isWithinEditWindow,
   loadTerminalData,
   resolveTerminal,
   type TerminalSession,
+  terminalRateLimit,
 } from '@/lib/terminal'
 
 const MAX_HOURS_PER_ENTRY = 24
@@ -26,6 +27,9 @@ async function ownEditableEntry(session: TerminalSession, id: string) {
 
 export async function PATCH(request: Request, ctx: RouteContext<'/api/terminal/[token]/entries/[id]'>) {
   const { token, id } = await ctx.params
+  const limited = terminalRateLimit(clientIp(request), token)
+  if (!limited.ok) return tooManyRequests(limited.retryAfterSeconds)
+
   const session = await resolveTerminal(token)
   if (!session) return fail('Ο σύνδεσμος δεν ισχύει', 404)
 
@@ -58,8 +62,11 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/terminal/[
   return ok(await loadTerminalData(session, entry.date))
 }
 
-export async function DELETE(_request: Request, ctx: RouteContext<'/api/terminal/[token]/entries/[id]'>) {
+export async function DELETE(request: Request, ctx: RouteContext<'/api/terminal/[token]/entries/[id]'>) {
   const { token, id } = await ctx.params
+  const limited = terminalRateLimit(clientIp(request), token)
+  if (!limited.ok) return tooManyRequests(limited.retryAfterSeconds)
+
   const session = await resolveTerminal(token)
   if (!session) return fail('Ο σύνδεσμος δεν ισχύει', 404)
 

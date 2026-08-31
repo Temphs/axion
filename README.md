@@ -96,6 +96,28 @@ Note that `lib/stats.ts` is a second, older metrics implementation behind
 `lib/workforce.ts`, so the two disagree — treat the workforce numbers as
 authoritative.
 
+## Employee entry terminal
+
+Each employee can be given a personal link from their page in the dashboard:
+`/<lang>/t/<token>`. It opens a phone-sized screen with no account and no
+password — recent clients first, hour chips, optional task and note — and lets
+them correct their own entries for seven days.
+
+The token in that URL is the entire credential, so:
+
+- It only ever identifies one employee and can only touch that employee's own
+  entries. An `employeeId` in a request body is ignored.
+- Deactivating an employee closes their terminal immediately.
+- Regenerating the link from the dashboard cuts off an old phone; deleting it
+  removes terminal access without deleting the employee.
+- Terminal routes send `Referrer-Policy: no-referrer` and
+  `X-Robots-Tag: noindex`, so the token can't leak through a Referer header or
+  be indexed if a link is ever pasted somewhere public.
+- Requests are rate-limited per address and per token.
+
+Treat a terminal link like a password: send it to one person, and regenerate it
+if it goes astray.
+
 ## Companion app ingestion
 
 Create a key under *API Keys* (shown once, stored as a sha256 hash) and send it

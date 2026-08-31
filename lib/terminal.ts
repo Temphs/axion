@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { prisma } from '@/lib/db'
+import { rateLimit, type RateLimitResult } from '@/lib/rateLimit'
 
 // The entry terminal: a phone-sized screen an employee opens from a personal
 // link, with no account and no password. The token in that link is the whole
@@ -9,6 +10,20 @@ import { prisma } from '@/lib/db'
 // URL-safe, 144 bits of entropy, short enough to survive being pasted into Viber.
 export function generateAccessToken(): string {
   return randomBytes(18).toString('base64url')
+}
+
+// The terminal endpoints are the only ones reachable without a password, and
+// they are hit from phones on mobile networks. Two buckets:
+//   - per address, to cap someone walking the token space or hammering the
+//     endpoint (every request costs a database lookup even when the token is
+//     junk, which is the cheap way to burn the account's Turso quota);
+//   - per token, generous enough that nobody logging a real day of work will
+//     ever see it.
+// A 144-bit token is not guessable; this bounds the noise and the bill.
+export function terminalRateLimit(ip: string, token: string): RateLimitResult {
+  const byIp = rateLimit(`terminal:ip:${ip}`, 240, 60_000)
+  if (!byIp.ok) return byIp
+  return rateLimit(`terminal:token:${token}`, 120, 60_000)
 }
 
 export type TerminalSession = {

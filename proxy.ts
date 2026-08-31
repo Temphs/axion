@@ -24,6 +24,15 @@ function gatedModuleFor(pathname: string): ModuleId | null {
   return null
 }
 
+// The employee terminal carries its whole credential in the URL (/t/<token>),
+// which is what makes it openable from a text message with no password. Two
+// headers keep that token from travelling further than the phone it was sent
+// to: no Referer on outbound navigations, and no indexing if a link ever ends
+// up somewhere a crawler can reach it.
+function isTerminalPath(pathname: string): boolean {
+  return /^\/[^/]+\/t\/[^/]+/.test(pathname) || pathname.startsWith('/api/terminal/')
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -39,6 +48,18 @@ export function proxy(request: NextRequest) {
     return NextResponse.rewrite(new URL('/_not-found', request.url), { status: 404 })
   }
 
+  if (isTerminalPath(pathname)) {
+    const res = NextResponse.next()
+    res.headers.set('Referrer-Policy', 'no-referrer')
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow')
+    return res
+  }
+
+  // Only page paths get the locale prefix. An API route matched for one of the
+  // checks above must fall through untouched — redirecting /api/terminal/… to
+  // /el/api/terminal/… would break every request the terminal makes.
+  if (pathname.startsWith('/api/')) return
+
   const pathnameHasLocale = locales.some(
     (locale) => pathname === `/${locale}` || pathname.startsWith(`/${locale}/`)
   )
@@ -53,5 +74,5 @@ export const config = {
   // All paths except Next internals and files with an extension. API routes are
   // skipped for the locale redirect but /api/vat still needs the module gate,
   // so it is matched explicitly.
-  matcher: ['/((?!api|_next|favicon.ico|.*\\..*).*)', '/api/vat/:path*'],
+  matcher: ['/((?!api|_next|favicon.ico|.*\\..*).*)', '/api/vat/:path*', '/api/terminal/:path*'],
 }
