@@ -333,12 +333,15 @@ export type EmployeeDetail = {
   utilization: number | null
   cost: number
   entryCount: number
+  // Terminal link, so the profile can show/create/revoke it. Null = none yet.
+  accessToken: string | null
   billableHours: number
   nonBillableHours: number
   billablePct: number | null
   workTypes: { type: string; hours: number; pct: number }[]
   clients: { id: string; name: string; hours: number; cost: number; billable: boolean }[]
-  trend: { month: string; label: string; hours: number }[]
+  // Each month carries its billable/overhead split so the chart can stack it.
+  trend: { month: string; label: string; hours: number; billableHours: number; overheadHours: number }[]
 }
 
 // Full breakdown for one employee's detail page.
@@ -350,10 +353,12 @@ export async function getEmployeeDetail(userId: string, id: string): Promise<Emp
   if (!employee) return null
 
   const where = { employeeId: id, userId }
+  // Grouping by (client, date) rather than by client alone costs nothing extra
+  // and gives the monthly billable/overhead split the chart stacks.
   const [dayGroups, typeGroups, clientGroups, clientRows] = await Promise.all([
     prisma.workEntry.groupBy({ by: ['date'], where, _sum: { minutes: true }, _count: { _all: true } }),
     prisma.workEntry.groupBy({ by: ['workType'], where, _sum: { minutes: true } }),
-    prisma.workEntry.groupBy({ by: ['clientId'], where, _sum: { minutes: true }, _count: { _all: true } }),
+    prisma.workEntry.groupBy({ by: ['clientId', 'date'], where, _sum: { minutes: true } }),
     prisma.client.findMany({ where: { userId }, select: { id: true, name: true, billable: true } }),
   ])
   const cliInfo = new Map(clientRows.map((c) => [c.id, c]))
@@ -377,14 +382,31 @@ export async function getEmployeeDetail(userId: string, id: string): Promise<Emp
 
   let billableMin = 0
   let nonBillableMin = 0
-  const clients = clientGroups
-    .map((g) => {
-      const info = cliInfo.get(g.clientId)
-      const m = g._sum.minutes ?? 0
-      if (info?.billable) billableMin += m
-      else nonBillableMin += m
+  // clientId → minutes, and month → billable/overhead minutes
+  const perClient = new Map<string, number>()
+  const splitByMonth = new Map<string, { billable: number; overhead: number }>()
+  for (const g of clientGroups) {
+    const info = cliInfo.get(g.clientId)
+    const m = g._sum.minutes ?? 0
+    perClient.set(g.clientId, (perClient.get(g.clientId) ?? 0) + m)
+
+    const k = monthKey(g.date)
+    let split = splitByMonth.get(k)
+    if (!split) splitByMonth.set(k, (split = { billable: 0, overhead: 0 }))
+    if (info?.billable) {
+      billableMin += m
+      split.billable += m
+    } else {
+      nonBillableMin += m
+      split.overhead += m
+    }
+  }
+
+  const clients = [...perClient.entries()]
+    .map(([clientId, m]) => {
+      const info = cliInfo.get(clientId)
       return {
-        id: g.clientId,
+        id: clientId,
         name: info?.name ?? '—',
         hours: m / 60,
         cost: (m / 60) * costPerHour,
@@ -399,7 +421,15 @@ export async function getEmployeeDetail(userId: string, id: string): Promise<Emp
     .map((t) => ({ ...t, pct: hours > 0 ? t.hours / hours : 0 }))
 
   const trend = [...monthsMap.entries()]
-    .map(([month, min]) => ({ month, hours: min / 60 }))
+    .map(([month, min]) => {
+      const split = splitByMonth.get(month)
+      return {
+        month,
+        hours: min / 60,
+        billableHours: (split?.billable ?? 0) / 60,
+        overheadHours: (split?.overhead ?? 0) / 60,
+      }
+    })
     .sort((a, b) => a.month.localeCompare(b.month))
     .map((t) => ({ ...t, label: monthLabel(t.month) }))
 
@@ -422,6 +452,7 @@ export async function getEmployeeDetail(userId: string, id: string): Promise<Emp
     utilization: monthlyHoursFor(employee, hpm) > 0 ? avgPerMonth / monthlyHoursFor(employee, hpm) : null,
     cost: hours * costPerHour,
     entryCount,
+    accessToken: employee.accessToken,
     billableHours,
     nonBillableHours,
     billablePct: totalBN > 0 ? billableHours / totalBN : null,

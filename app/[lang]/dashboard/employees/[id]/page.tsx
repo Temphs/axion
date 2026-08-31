@@ -1,27 +1,18 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import {
-  ArrowLeft,
-  Clock,
-  CalendarDays,
-  CircleDollarSign,
-  Gauge,
-  Hourglass,
-  TrendingUp,
-  Wallet,
-} from 'lucide-react'
+import { ArrowLeft, Clock, CircleDollarSign, Gauge, Hourglass, TrendingUp, Wallet } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
 import { Donut, ProgressBar } from '@/components/axion/charts'
 import { MonthlyHoursChart } from '@/components/dashboard/MonthlyHoursChart'
 import { EmployeeClientsTable } from '@/components/dashboard/EmployeeClientsTable'
 import { EmployeeEditPanel } from '@/components/dashboard/EmployeeEditPanel'
+import { EmployeeAccessLink } from '@/components/dashboard/EmployeeAccessLink'
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter'
 import { KpiCard } from '@/components/workforce/KpiCard'
 import { TargetsCard } from '@/components/workforce/TargetsCard'
 import { getCurrentUser } from '@/lib/auth'
 import { getEmployeeDetail } from '@/lib/stats'
 import { buildWorkforce } from '@/lib/workforce'
-import { getSettings, hoursPerMonth } from '@/lib/settings'
 import { eur, hrs, num, pct } from '@/lib/format'
 
 export default async function EmployeeDetailPage({
@@ -36,15 +27,13 @@ export default async function EmployeeDetailPage({
   const to = typeof sp.to === 'string' && sp.to ? new Date(`${sp.to}T23:59:59.999Z`) : undefined
   const all = sp.range === 'all'
 
-  const [d, settings, wf] = await Promise.all([
+  const [d, wf] = await Promise.all([
     getEmployeeDetail(user.id, id),
-    getSettings(user.id),
     buildWorkforce(user.id, { from, to, all }),
   ])
   if (!d) notFound()
   const row = wf.employees.find((e) => e.id === id)
 
-  const hpm = hoursPerMonth(settings)
   const topTypes = d.workTypes.slice(0, 6)
   const months = Math.max(wf.period.months, 0.01)
   const periodLabel = new Intl.DateTimeFormat('el-GR', { month: 'long', year: 'numeric' }).format(
@@ -74,6 +63,10 @@ export default async function EmployeeDetailPage({
         <EmployeeEditPanel lang={lang} id={d.id} name={d.name} monthlyCost={d.monthlyCost} notes={d.notes} active={d.active} />
       </div>
 
+      {/* Outside the "no entries yet" branch on purpose: a brand-new employee
+          is exactly who needs the link. */}
+      <EmployeeAccessLink lang={lang} employeeId={d.id} employeeName={d.name} token={d.accessToken} />
+
       {d.entryCount === 0 ? (
         <Card className="p-10 text-center text-slate-500">Δεν υπάρχουν ακόμη καταχωρήσεις για αυτόν τον εργαζόμενο.</Card>
       ) : (
@@ -100,10 +93,10 @@ export default async function EmployeeDetailPage({
                 />
                 <KpiCard
                   icon={Gauge}
-                  label="Αξιοποίηση"
-                  value={pct(row.utilization)}
-                  sub={`από ${hrs(row.availableHours)} διαθέσιμες`}
-                  tooltip="Χρεώσιμες ώρες ÷ διαθέσιμες εργάσιμες ώρες περιόδου."
+                  label="Χρεώσιμες ώρες"
+                  value={pct(row.billableShare)}
+                  sub={`${hrs(row.billableHours)} από ${hrs(row.hours)}`}
+                  tooltip="Ποσοστό των ωρών που δουλεύτηκαν για χρεώσιμους πελάτες."
                 />
                 <KpiCard
                   icon={TrendingUp}
@@ -138,7 +131,7 @@ export default async function EmployeeDetailPage({
                 employeeId={d.id}
                 targets={row.targets}
                 actuals={{
-                  utilization: row.utilization,
+                  billableShare: row.billableShare,
                   monthlyHours: row.hours / months,
                   monthlyContribution: row.contribution / months,
                 }}
@@ -147,14 +140,15 @@ export default async function EmployeeDetailPage({
           )}
 
           {/* ── All-time activity ───────────────────────────────── */}
-          <h2 className="font-display text-lg font-semibold text-white">Συνολική δραστηριότητα</h2>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <Kpi icon={<Clock size={16} />} label="Ώρες / ημέρα" value={hrs(d.avgPerDay)} sub={`από ${settings.hoursPerDay}ω`} />
-            <Kpi icon={<CalendarDays size={16} />} label="Ώρες / μήνα" value={hrs(d.avgPerMonth)} sub={`από ${num(hpm)}ω`} />
-            <Kpi icon={<Hourglass size={16} />} label="Σύνολο ωρών" value={hrs(d.hours)} sub={`${d.days} ημέρες`} />
-            <Kpi icon={<Gauge size={16} />} label="Αξιοποίηση" value={pct(d.utilization)} tone={utilTone(d.utilization)} />
-            <Kpi icon={<Wallet size={16} />} label="Κόστος" value={eur(d.cost)} sub={`${d.entryCount} εγγραφές`} />
-          </div>
+          {/* The KPI row that used to sit here repeated the period cards above
+              (same hours, same cost) and showed a second, differently-defined
+              "Αξιοποίηση" next to the first one. One reading per number. */}
+          <h2 className="font-display text-lg font-semibold text-white">
+            Συνολική δραστηριότητα{' '}
+            <span className="font-normal text-blue-200/70">
+              · {num(d.days)} ημέρες με καταχωρήσεις · μ.ό. {hrs(d.avgPerDay)}/ημέρα
+            </span>
+          </h2>
 
           {/* trend + billable split */}
           <div className="grid gap-4 lg:grid-cols-3">
@@ -211,26 +205,6 @@ export default async function EmployeeDetailPage({
         </>
       )}
     </div>
-  )
-}
-
-function utilTone(u: number | null): 'pos' | 'neg' | undefined {
-  if (u === null) return undefined
-  if (u >= 0.8) return 'pos'
-  if (u < 0.5) return 'neg'
-  return undefined
-}
-
-function Kpi({ icon, label, value, sub, tone }: { icon: React.ReactNode; label: string; value: string; sub?: string; tone?: 'pos' | 'neg' }) {
-  return (
-    <Card className="p-4">
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-blue-600">{icon}</span>
-      </div>
-      <p className={'font-display text-2xl font-semibold tracking-tight tabular-nums ' + (tone === 'pos' ? 'text-emerald-600' : tone === 'neg' ? 'text-amber-600' : 'text-stone-900')}>{value}</p>
-      <p className="text-[13px] font-medium text-slate-500">{label}</p>
-      {sub && <p className="mt-0.5 text-[11px] text-slate-400">{sub}</p>}
-    </Card>
   )
 }
 

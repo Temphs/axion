@@ -66,6 +66,7 @@ export function EntriesManager({
   const [clientId, setClientId] = useState(activeClients[0]?.id ?? '')
   const [hours, setHours] = useState('')
   const [workType, setWorkType] = useState('')
+  const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -79,11 +80,11 @@ export function EntriesManager({
     if (date > today()) return setError('Η ημερομηνία δεν μπορεί να είναι μελλοντική')
     setSaving(true); setError(null)
     const r = await api('POST', '/api/entries', {
-      date, employeeId: newEmployeeId, clientId, hours: parsedHours, workType,
+      date, employeeId: newEmployeeId, clientId, hours: parsedHours, workType, notes,
     })
     setSaving(false)
     if (!r.ok) return setError(r.data.error ?? 'Σφάλμα')
-    setHours(''); setWorkType('')
+    setHours(''); setWorkType(''); setNotes('')
     router.refresh()
   }
 
@@ -141,6 +142,15 @@ export function EntriesManager({
             <Field label="Είδος">
               <input className={inputCls} value={workType} onChange={(e) => setWorkType(e.target.value)} placeholder="Καταχώρηση" />
             </Field>
+            <Field label="Σημείωση (προαιρετικό)" className="md:col-span-2 lg:col-span-5">
+              <input
+                className={inputCls}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                maxLength={500}
+                placeholder="Ό,τι αξίζει να θυμάστε για αυτή την καταχώρηση"
+              />
+            </Field>
             <button type="submit" disabled={saving} className="h-[42px] rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50">
               Προσθήκη
             </button>
@@ -193,20 +203,21 @@ export function EntriesManager({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[880px] text-sm">
             <thead>
               <tr className="text-left text-xs text-slate-400">
                 <th className="px-5 py-3 font-medium">Ημ/νία</th>
                 <th className="px-5 py-3 font-medium">Εργαζόμενος</th>
                 <th className="px-5 py-3 font-medium">Πελάτης</th>
                 <th className="px-5 py-3 font-medium">Είδος</th>
+                <th className="px-5 py-3 font-medium">Σημείωση</th>
                 <th className="px-5 py-3 text-right font-medium">Ώρες</th>
                 <th className="px-5 py-3"></th>
               </tr>
             </thead>
             <tbody>
               {entries.length === 0 && (
-                <tr><td colSpan={6} className="px-5 py-8 text-center text-slate-400">
+                <tr><td colSpan={7} className="px-5 py-8 text-center text-slate-400">
                   {filtering ? 'Καμία καταχώρηση με αυτά τα φίλτρα' : 'Καμία καταχώρηση ακόμη'}
                 </td></tr>
               )}
@@ -234,6 +245,7 @@ function EntryRow({ entry, employees, clients }: { entry: Entry; employees: Ref[
   const [clientId, setClientId] = useState(entry.client.id)
   const [hours, setHours] = useState(String(entry.minutes / 60))
   const [workType, setWorkType] = useState(entry.workType ?? '')
+  const [notes, setNotes] = useState(entry.notes ?? '')
 
   function startEdit() {
     setDate(isoDay(entry.date))
@@ -241,6 +253,7 @@ function EntryRow({ entry, employees, clients }: { entry: Entry; employees: Ref[
     setClientId(entry.client.id)
     setHours(String(entry.minutes / 60))
     setWorkType(entry.workType ?? '')
+    setNotes(entry.notes ?? '')
     setError(null)
     setEditing(true)
   }
@@ -255,6 +268,7 @@ function EntryRow({ entry, employees, clients }: { entry: Entry; employees: Ref[
       clientId,
       hours: parsedHours,
       workType,
+      notes,
     })
     setBusy(false)
     if (!r.ok) return setError(r.data.error ?? 'Η αποθήκευση απέτυχε')
@@ -278,6 +292,17 @@ function EntryRow({ entry, employees, clients }: { entry: Entry; employees: Ref[
         <td className="px-5 py-3 text-slate-800">{entry.employee.name}</td>
         <td className="px-5 py-3 text-slate-600">{entry.client.name}</td>
         <td className="px-5 py-3 text-slate-500">{entry.workType ?? '—'}</td>
+        {/* Notes come mostly from the employee terminal, so they are shown in
+            full on hover rather than silently cut off. */}
+        <td className="max-w-[220px] px-5 py-3 text-slate-500">
+          {entry.notes ? (
+            <span className="block truncate" title={entry.notes}>
+              {entry.notes}
+            </span>
+          ) : (
+            '—'
+          )}
+        </td>
         <td className="px-5 py-3 text-right tabular-nums text-slate-600">{hrs(entry.minutes / 60)}</td>
         <td className="px-5 py-3">
           <div className="flex items-center justify-end gap-1">
@@ -320,6 +345,15 @@ function EntryRow({ entry, employees, clients }: { entry: Entry; employees: Ref[
       </td>
       <td className="px-5 py-2.5">
         <input className={rowInputCls} value={workType} onChange={(e) => setWorkType(e.target.value)} placeholder="Είδος" />
+      </td>
+      <td className="px-5 py-2.5">
+        <input
+          className={rowInputCls}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          maxLength={500}
+          placeholder="Σημείωση"
+        />
       </td>
       <td className="px-5 py-2.5">
         <input
@@ -374,9 +408,17 @@ function rangeLabel(from: string, to: string): string {
   return ''
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+  className = '',
+}: {
+  label: string
+  children: React.ReactNode
+  className?: string
+}) {
   return (
-    <label className="block">
+    <label className={`block ${className}`}>
       <span className="mb-1.5 block text-xs font-medium text-slate-600">{label}</span>
       {children}
     </label>

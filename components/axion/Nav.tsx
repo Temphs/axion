@@ -10,7 +10,7 @@ import { AuthModal } from './AuthModal'
 import { useI18n } from './i18n'
 import { cn } from '@/lib/utils'
 
-const linkHrefs = ['#features', '#benefits', '#cta', '#contact']
+const linkHrefs = ['#problem', '#how-it-works', '#dashboard', '#lead']
 
 export function Nav() {
   const { lang, dict } = useI18n()

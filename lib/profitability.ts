@@ -145,14 +145,204 @@ export function clientHealth(margin: number | null, billable: boolean, hasRevenu
   return 'critical'
 }
 
-export type CapacityStatus = 'under' | 'healthy' | 'near' | 'over'
+/* ─── simple owner-facing ratios ─────────────────────────────── */
 
-export function capacityStatus(allocation: number | null): CapacityStatus | null {
-  if (allocation === null) return null
-  if (allocation < 0.5) return 'under'
-  if (allocation < 0.85) return 'healthy'
-  if (allocation <= 1) return 'near'
-  return 'over'
+// Share of logged time spent on billable clients. Deliberately *not* measured
+// against contracted availability: this answers "of the work that was done,
+// how much was for paying clients", which needs no assumptions.
+export function billableShare(billableHours: number, totalHours: number): number | null {
+  return safeRatio(billableHours, totalHours)
+}
+
+// Relative change between two periods; null when there is no comparable base.
+export function percentChange(current: number, previous: number | null | undefined): number | null {
+  if (previous === undefined || previous === null || previous === 0) return null
+  return (current - previous) / Math.abs(previous)
+}
+
+// Share of expected working days that actually have a time entry, averaged over
+// active employees. Approximate by design: it assumes a Mon–Fri week and does
+// not know about leave, so it flags "entries are lagging", not absenteeism.
+export function entryCompleteness(
+  daysWithEntriesPerEmployee: number[],
+  expectedWorkingDays: number
+): number | null {
+  if (expectedWorkingDays <= 0 || daysWithEntriesPerEmployee.length === 0) return null
+  const expectedTotal = expectedWorkingDays * daysWithEntriesPerEmployee.length
+  const actualTotal = daysWithEntriesPerEmployee.reduce((s, d) => s + Math.min(d, expectedWorkingDays), 0)
+  return safeRatio(actualTotal, expectedTotal)
+}
+
+// Mon–Fri days between two dates, inclusive, capped at `until`.
+export function workingDaysBetween(from: Date, to: Date, until = new Date()): number {
+  const end = to < until ? to : until
+  let count = 0
+  const cursor = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()))
+  while (cursor <= end) {
+    const day = cursor.getUTCDay()
+    if (day !== 0 && day !== 6) count++
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
+  return count
+}
+
+/* ─── employment window ──────────────────────────────────────── */
+
+// When someone actually worked here. Both ends are optional: an account that
+// has not recorded them is treated as "employed for the whole period", which
+// is the only assumption that cannot silently invent absences.
+// `endedOn` is the last day of employment (inclusive).
+export type EmploymentPeriod = {
+  startedOn: Date | null
+  endedOn: Date | null
+}
+
+export type EmploymentStatus = 'active' | 'former'
+
+export function employmentStatusOf(employment: EmploymentPeriod, now = new Date()): EmploymentStatus {
+  return employment.endedOn !== null && employment.endedOn < now ? 'former' : 'active'
+}
+
+// The slice of [from, to] the person was actually employed, capped at `until`
+// (today) so an unfinished period never expects hours that cannot exist yet.
+// Returns null when the two windows do not overlap at all.
+export function employedWindow(
+  from: Date,
+  to: Date,
+  employment: EmploymentPeriod,
+  until = new Date()
+): Period | null {
+  let start = from
+  let end = to < until ? to : until
+  if (employment.startedOn && employment.startedOn > start) start = employment.startedOn
+  if (employment.endedOn && employment.endedOn < end) end = employment.endedOn
+  return end < start ? null : { from: start, to: end }
+}
+
+// Mon–Fri days expected of this person in this period. Days before the hire
+// date or after the leaving date are not expected, so they never read as
+// "missing data".
+export function expectedWorkingDaysFor(
+  from: Date,
+  to: Date,
+  employment: EmploymentPeriod,
+  until = new Date()
+): number {
+  const window = employedWindow(from, to, employment, until)
+  return window ? workingDaysBetween(window.from, window.to, until) : 0
+}
+
+export function expectedHoursFor(workingDays: number, hoursPerDay: number): number {
+  return Math.max(0, workingDays) * Math.max(0, hoursPerDay)
+}
+
+// Days with a time entry ÷ days we expected one. Capped at 100%: logging on a
+// Saturday is not "more than complete".
+export function completenessOf(daysWithEntries: number, expectedWorkingDays: number): number | null {
+  if (expectedWorkingDays <= 0) return null
+  return Math.min(1, daysWithEntries / expectedWorkingDays)
+}
+
+/* ─── day-by-day log ─────────────────────────────────────────── */
+
+// 'ok' = a full day logged, 'short' = something logged but less than expected,
+// 'missing' = an expected working day with no entry at all.
+export type DayStatus = 'ok' | 'short' | 'missing'
+
+export type DayLogEntry = {
+  date: string // YYYY-MM-DD (UTC)
+  hours: number
+  expected: number
+  status: DayStatus
+}
+
+export function isoDay(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+}
+
+export function dayStatusOf(hours: number, expected: number): DayStatus {
+  if (hours <= 0) return expected > 0 ? 'missing' : 'ok'
+  if (expected > 0 && hours + 1e-9 < expected) return 'short'
+  return 'ok'
+}
+
+// One row per day inside the employment window. Weekends appear only when
+// something was logged on them — an empty Sunday is not missing data.
+export function buildDayLog(
+  from: Date,
+  to: Date,
+  hoursByDay: Map<string, number>,
+  employment: EmploymentPeriod,
+  hoursPerDay: number,
+  until = new Date()
+): DayLogEntry[] {
+  const window = employedWindow(from, to, employment, until)
+  if (!window) return []
+
+  const out: DayLogEntry[] = []
+  const cursor = new Date(
+    Date.UTC(window.from.getUTCFullYear(), window.from.getUTCMonth(), window.from.getUTCDate())
+  )
+  while (cursor <= window.to) {
+    const day = cursor.getUTCDay()
+    const weekend = day === 0 || day === 6
+    const key = isoDay(cursor)
+    const hours = hoursByDay.get(key) ?? 0
+    if (!weekend || hours > 0) {
+      const expected = weekend ? 0 : hoursPerDay
+      out.push({ date: key, hours, expected, status: dayStatusOf(hours, expected) })
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
+  return out
+}
+
+/* ─── billable / overhead split ──────────────────────────────── */
+
+export type HoursSplit = {
+  total: number
+  billableHours: number
+  overheadHours: number
+  billablePct: number | null
+  overheadPct: number | null
+}
+
+// Percentages are of the month's own total, so they always add up to 100%.
+// A month with no hours has no percentages at all rather than 0% / 0%.
+export function hoursSplit(billableHours: number, overheadHours: number): HoursSplit {
+  const total = billableHours + overheadHours
+  return {
+    total,
+    billableHours,
+    overheadHours,
+    billablePct: safeRatio(billableHours, total),
+    overheadPct: safeRatio(overheadHours, total),
+  }
+}
+
+/* ─── client payments ────────────────────────────────────────── */
+
+// Deliberately minimal: what was agreed, what was billed, what came in.
+// null means "not recorded", which is different from zero and must stay
+// visible as such in the UI.
+export type ClientPaymentInfo = {
+  invoiced: number | null
+  paid: number | null
+}
+
+export type PaymentStatus = 'paid' | 'partial' | 'outstanding' | 'unknown'
+
+export function outstandingAmount(invoiced: number | null, paid: number | null): number | null {
+  if (invoiced === null) return null
+  return Math.max(0, invoiced - (paid ?? 0))
+}
+
+export function paymentStatusOf(info: ClientPaymentInfo): PaymentStatus {
+  if (info.invoiced === null || info.paid === null) return 'unknown'
+  if (info.invoiced <= 0) return 'unknown'
+  if (info.paid >= info.invoiced) return 'paid'
+  if (info.paid > 0) return 'partial'
+  return 'outstanding'
 }
 
 /* ─── row shapes shared by builder + UI ──────────────────────── */
@@ -178,8 +368,9 @@ export type EmployeeRow = {
   billableHours: number
   nonBillableHours: number
   unbilledHours: number
-  availableHours: number
-  utilization: number | null // 0..1
+  // Billable hours ÷ hours worked. One clearly-defined percentage, rather than
+  // a second one measured against theoretical availability.
+  billableShare: number | null
   revenue: number
   laborCost: number
   contribution: number
@@ -226,8 +417,7 @@ export type WorkforceSummary = {
   billableHours: number
   nonBillableHours: number
   unbilledHours: number
-  availableHours: number
-  utilization: number | null
+  billableShare: number | null
   revenue: number
   laborCost: number
   contribution: number
@@ -246,179 +436,90 @@ export type TrendPoint = {
   contribution: number
 }
 
-export type CapacityRow = {
-  id: string
-  name: string
-  availableHours: number
-  allocatedHours: number
-  remainingHours: number
-  allocation: number | null // 0..∞
-  status: CapacityStatus | null
-}
 
-/* ─── deterministic insights ─────────────────────────────────── */
+/* ─── clients needing attention ──────────────────────────────── */
 
-export type Insight = {
-  severity: 'critical' | 'warning' | 'info'
-  kind: 'client_margin' | 'utilization' | 'budget_overrun' | 'pricing' | 'capacity'
-  message: string
-  href?: string // relative link target (client/employee page)
-}
-
-const pctF = (v: number) => `${Math.round(v * 100)}%`
-const eurF = (v: number) => `€${Math.round(v).toLocaleString('el-GR')}`
-
-export type InsightInputs = {
-  employees: EmployeeRow[]
-  clients: ClientRow[]
-  previousClients: Map<string, { margin: number | null; hours: number }>
-  capacity: CapacityRow[]
-  companyRevenuePerHour: number | null
-  defaultUtilizationTarget: number // fraction, e.g. 0.75
-  periodElapsedFraction: number // how much of the period has passed (1 for closed periods)
-}
-
-// Rule-based management alerts. Every message is backed by the numbers shown.
-export function computeInsights(input: InsightInputs): Insight[] {
-  const out: Insight[] = []
-
-  // Client margin deterioration vs previous period (≥10 percentage points).
-  for (const c of input.clients) {
-    if (!c.billable || c.revenue <= 0 || c.margin === null) continue
-    const prev = input.previousClients.get(c.id)
-    if (!prev || prev.margin === null) continue
-    const drop = prev.margin - c.margin
-    if (drop >= 0.1) {
-      const hoursChange = prev.hours > 0 ? (c.hours - prev.hours) / prev.hours : null
-      const cause =
-        hoursChange !== null && hoursChange > 0.1
-          ? ` — οι ώρες εργασίας αυξήθηκαν κατά ${pctF(hoursChange)}`
-          : ''
-      out.push({
-        severity: c.margin < 0.2 ? 'critical' : 'warning',
-        kind: 'client_margin',
-        message: `Το περιθώριο του «${c.name}» έπεσε από ${pctF(prev.margin)} σε ${pctF(c.margin)}${cause}.`,
-        href: `clients/${c.id}`,
-      })
-    }
-  }
-
-  // Utilization below target.
-  for (const e of input.employees) {
-    if (!e.active || e.utilization === null || e.hours === 0) continue
-    const target = e.targets.utilizationPct != null ? e.targets.utilizationPct / 100 : input.defaultUtilizationTarget
-    if (e.utilization < target * 0.8) {
-      out.push({
-        severity: 'warning',
-        kind: 'utilization',
-        message: `Η χρεώσιμη αξιοποίηση του/της ${e.name} είναι ${pctF(e.utilization)} έναντι στόχου ${pctF(target)}.`,
-        href: `employees/${e.id}`,
-      })
-    }
-  }
-
-  // Budget overruns (only meaningful while a period is running or closed).
-  for (const c of input.clients) {
-    if (c.plannedHours === null || c.plannedHours <= 0 || c.budgetConsumed === null) continue
-    if (c.budgetConsumed >= 1) {
-      out.push({
-        severity: 'critical',
-        kind: 'budget_overrun',
-        message: `Ο «${c.name}» έχει υπερβεί τις προγραμματισμένες ώρες: ${c.hours.toFixed(0)}ω έναντι ${c.plannedHours.toFixed(0)}ω (${pctF(c.budgetConsumed)}).`,
-        href: `clients/${c.id}`,
-      })
-    } else if (c.budgetConsumed >= 0.85 && input.periodElapsedFraction < 0.9) {
-      out.push({
-        severity: 'warning',
-        kind: 'budget_overrun',
-        message: `Ο «${c.name}» έχει καταναλώσει το ${pctF(c.budgetConsumed)} των προγραμματισμένων ωρών ενώ έχει διανυθεί το ${pctF(input.periodElapsedFraction)} της περιόδου.`,
-        href: `clients/${c.id}`,
-      })
-    }
-  }
-
-  // Pricing: revenue/hour far below company average.
-  if (input.companyRevenuePerHour !== null && input.companyRevenuePerHour > 0) {
-    for (const c of input.clients) {
-      if (!c.billable || c.hours < 5 || c.revenuePerHour === null) continue
-      if (c.revenuePerHour < input.companyRevenuePerHour * 0.6) {
-        out.push({
-          severity: 'info',
-          kind: 'pricing',
-          message: `Ο «${c.name}» αποδίδει ${eurF(c.revenuePerHour)}/ώρα έναντι μέσου όρου εταιρείας ${eurF(input.companyRevenuePerHour)}/ώρα.`,
-          href: `clients/${c.id}`,
-        })
-      }
-    }
-  }
-
-  // Capacity extremes.
-  const over = input.capacity.filter((c) => c.status === 'over' || c.status === 'near')
-  const under = input.capacity.filter((c) => c.status === 'under' && c.availableHours > 0)
-  for (const c of over) {
-    if (c.allocation === null) continue
-    const free = under[0]
-    out.push({
-      severity: c.status === 'over' ? 'warning' : 'info',
-      kind: 'capacity',
-      message:
-        `Ο/Η ${c.name} βρίσκεται στο ${pctF(c.allocation)} της διαθέσιμης χωρητικότητας` +
-        (free && free.allocation !== null
-          ? ` — ο/η ${free.name} έχει ${free.remainingHours.toFixed(0)}ω ελεύθερες.`
-          : '.'),
-      href: `employees/${c.id}`,
-    })
-  }
-
-  const order = { critical: 0, warning: 1, info: 2 }
-  return out.sort((a, b) => order[a.severity] - order[b.severity]).slice(0, 8)
-}
-
-/* ─── repricing candidates ───────────────────────────────────── */
-
-export type PricingOpportunity = {
+// A short, plainly-worded watch list. Each item states the rule that produced
+// it, so the owner can judge it without trusting a black box. Deliberately
+// capped and ordered so the dashboard never turns into an alert feed.
+export type ClientAttention = {
   clientId: string
   name: string
-  revenue: number
-  hours: number
-  revenuePerHour: number | null
-  companyRevenuePerHour: number | null
-  margin: number | null
-  reasons: string[]
+  reason: string
+  tone: 'neutral' | 'warn'
 }
 
-export function findPricingOpportunities(
-  clients: ClientRow[],
-  companyRevenuePerHour: number | null,
-  minHours = 5
-): PricingOpportunity[] {
-  const out: PricingOpportunity[] = []
-  for (const c of clients) {
-    if (!c.billable || c.hours < minHours) continue
-    const reasons: string[] = []
-    if (c.revenue <= 0) reasons.push('Δεν έχει οριστεί έσοδο παρότι καταναλώνει ώρες')
-    if (c.margin !== null && c.margin < 0.2) reasons.push(`Περιθώριο ${pctF(c.margin)}`)
-    if (
-      companyRevenuePerHour !== null &&
-      companyRevenuePerHour > 0 &&
-      c.revenuePerHour !== null &&
-      c.revenuePerHour < companyRevenuePerHour * 0.6
-    ) {
-      reasons.push(`${eurF(c.revenuePerHour)}/ώρα έναντι μ.ό. ${eurF(companyRevenuePerHour)}/ώρα`)
-    }
-    if (c.budgetConsumed !== null && c.budgetConsumed > 1) reasons.push('Υπέρβαση προγραμματισμένων ωρών')
-    if (reasons.length > 0) {
+export type AttentionInputs = {
+  clients: ClientRow[]
+  previousHoursByClient: Map<string, number>
+  // Margin below this fraction counts as "below target".
+  marginTarget?: number
+  minHours?: number
+  limit?: number
+}
+
+const pctLabel = (v: number) => `${Math.round(v * 100)}%`
+
+export function clientsNeedingAttention(input: AttentionInputs): ClientAttention[] {
+  const { clients, previousHoursByClient } = input
+  const marginTarget = input.marginTarget ?? 0.25
+  const minHours = input.minHours ?? 3
+  const limit = input.limit ?? 3
+
+  const billable = clients.filter((c) => c.billable && c.hours >= minHours)
+  if (billable.length === 0) return []
+
+  // Median, not mean: one very heavy client would otherwise drag the average
+  // up far enough to hide itself.
+  const sortedHours = billable.map((c) => c.hours).sort((a, b) => a - b)
+  const mid = Math.floor(sortedHours.length / 2)
+  const typicalHours =
+    sortedHours.length % 2 ? sortedHours[mid] : (sortedHours[mid - 1] + sortedHours[mid]) / 2
+
+  const out: Array<ClientAttention & { weight: number }> = []
+
+  for (const c of billable) {
+    // 1. Consumes far more time than a typical client.
+    if (typicalHours > 0 && c.hours >= typicalHours * 2) {
+      const factor = (c.hours / typicalHours).toFixed(1)
       out.push({
         clientId: c.id,
         name: c.name,
-        revenue: c.revenue,
-        hours: c.hours,
-        revenuePerHour: c.revenuePerHour,
-        companyRevenuePerHour,
-        margin: c.margin,
-        reasons,
+        reason: `${c.hours.toFixed(1)}ω αυτή την περίοδο — ${factor}× περισσότερες ώρες από τον τυπικό πελάτη`,
+        tone: 'warn',
+        weight: c.hours / typicalHours,
+      })
+      continue
+    }
+
+    // 2. Fee does not cover the work.
+    if (c.revenue > 0 && c.margin !== null && c.margin < marginTarget) {
+      out.push({
+        clientId: c.id,
+        name: c.name,
+        reason: `Περιθώριο ${pctLabel(c.margin)} — κάτω από τον στόχο του ${pctLabel(marginTarget)}`,
+        tone: 'warn',
+        weight: 2 + (marginTarget - c.margin),
+      })
+      continue
+    }
+
+    // 3. Hours climbing sharply against last period.
+    const previous = previousHoursByClient.get(c.id)
+    const change = percentChange(c.hours, previous)
+    if (change !== null && change >= 0.3) {
+      out.push({
+        clientId: c.id,
+        name: c.name,
+        reason: `Οι ώρες αυξήθηκαν ${pctLabel(change)} σε σχέση με την προηγούμενη περίοδο`,
+        tone: 'neutral',
+        weight: change,
       })
     }
   }
-  return out.sort((a, b) => (a.margin ?? -1) - (b.margin ?? -1)).slice(0, 6)
+
+  return out
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, limit)
+    .map((item) => ({ clientId: item.clientId, name: item.name, reason: item.reason, tone: item.tone }))
 }

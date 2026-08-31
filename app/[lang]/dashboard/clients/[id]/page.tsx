@@ -1,26 +1,15 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import {
-  ArrowLeft,
-  CircleDollarSign,
-  Clock,
-  Coins,
-  Gauge,
-  Hourglass,
-  Timer,
-  TrendingUp,
-  Wallet,
-} from 'lucide-react'
+import { ArrowLeft, CircleDollarSign, Gauge, Hourglass, Timer, TrendingUp, Wallet } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
 import { ProgressBar } from '@/components/axion/charts'
 import { MonthlyHoursChart } from '@/components/dashboard/MonthlyHoursChart'
 import { ClientEditPanel } from '@/components/dashboard/ClientEditPanel'
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter'
 import { KpiCard } from '@/components/workforce/KpiCard'
-import { ProfitTrendChart } from '@/components/workforce/ProfitTrendChart'
 import { getCurrentUser } from '@/lib/auth'
 import { getClientDetail } from '@/lib/stats'
-import { buildWorkforce, buildClientProfitTrend } from '@/lib/workforce'
+import { buildWorkforce } from '@/lib/workforce'
 import { eur, hrs, num, pct } from '@/lib/format'
 import type { ClientHealth } from '@/lib/profitability'
 
@@ -42,10 +31,9 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
   const all = sp.range === 'all'
   const hasRange = !!(from || to || all)
 
-  const [d, wf, profitTrend] = await Promise.all([
+  const [d, wf] = await Promise.all([
     getClientDetail(user.id, id),
     buildWorkforce(user.id, { from, to, all }),
-    buildClientProfitTrend(user.id, id, { from, to, all }),
   ])
   if (!d) notFound()
   const row = wf.clients.find((c) => c.id === id)
@@ -109,25 +97,40 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
           {row ? (
             <section className="space-y-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                {/* The monthly averages that used to sit in a second card row
+                    ride along as the grey sub-line of the number they belong
+                    to, so the page carries one row instead of two. */}
                 <KpiCard
                   icon={TrendingUp}
                   label="Έσοδα περιόδου"
                   value={row.billable ? eur(row.revenue) : '—'}
+                  sub={d.billable ? `μ.ό. ${eur(d.monthlyRevenue)}/μήνα` : undefined}
                   tooltip="Μηνιαίο έσοδο, αναλογικά για την περίοδο (μόνο μήνες με δραστηριότητα)."
                 />
                 <KpiCard
                   icon={Hourglass}
                   label="Ώρες ομάδας"
                   value={hrs(row.hours)}
-                  sub={`${row.employees.length} εργαζόμενοι`}
+                  sub={`${row.employees.length} εργαζόμενοι · μ.ό. ${hrs(d.avgPerMonth)}/μήνα`}
                 />
-                <KpiCard icon={Wallet} label="Κόστος εργασίας" value={eur(row.laborCost)} tooltip="Ώρες κάθε εργαζόμενου × το ωριαίο κόστος του." />
+                <KpiCard
+                  icon={Wallet}
+                  label="Κόστος εργασίας"
+                  value={eur(row.laborCost)}
+                  sub={`μ.ό. ${eur(d.avgMonthlyCost)}/μήνα`}
+                  tooltip="Ώρες κάθε εργαζόμενου × το ωριαίο κόστος του."
+                />
                 <KpiCard
                   icon={CircleDollarSign}
                   label="Συνεισφορά"
                   value={row.billable ? eur(row.contribution) : '—'}
                   tone={row.contribution >= 0 ? 'pos' : 'neg'}
-                  sub={row.margin !== null ? `περιθώριο ${pct(row.margin)}` : undefined}
+                  sub={[
+                    row.margin !== null ? `περιθώριο ${pct(row.margin)}` : null,
+                    d.billable ? `μ.ό. ${eur(d.profitPerMonth)}/μήνα` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                   tooltip="Έσοδα − κόστος εργασίας."
                 />
                 <KpiCard
@@ -173,39 +176,44 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
               )}
             </section>
           ) : (
-            <p className="rounded-2xl border border-amber-300/30 bg-amber-400/15 px-4 py-3 text-sm font-medium text-amber-100">
-              Χωρίς δραστηριότητα στην περίοδο — τα παρακάτω στοιχεία αφορούν το ιστορικό του πελάτη.
-            </p>
+            // Nothing in the period, so the cards above never rendered: the
+            // historical averages they normally carry are stated here instead.
+            <div className="rounded-2xl border border-amber-300/30 bg-amber-400/15 px-4 py-3 text-sm text-amber-100">
+              <p className="font-medium">Χωρίς δραστηριότητα στην περίοδο — τα παρακάτω αφορούν το ιστορικό του πελάτη.</p>
+              <p className="mt-1 text-xs text-amber-100/80">
+                {hrs(d.hours)} συνολικά · μ.ό. {hrs(d.avgPerMonth)}/μήνα · κόστος {eur(d.avgMonthlyCost)}/μήνα
+                {d.billable && ` · έσοδα ${eur(d.monthlyRevenue)}/μήνα · καθαρό ${eur(d.profitPerMonth)}/μήνα`}
+              </p>
+            </div>
           )}
-
-          {/* profitability trend */}
-          <Card className="p-5">
-            <h2 className="mb-1 text-sm font-semibold text-slate-900">Τάση κερδοφορίας</h2>
-            <p className="mb-4 text-xs text-slate-400">
-              {all
-                ? 'Μήνες με δραστηριότητα (έως 12)'
-                : hasRange
-                  ? 'Μήνες της επιλεγμένης περιόδου'
-                  : 'Τελευταίοι 6 μήνες δραστηριότητας'}{' '}
-              · έσοδα, κόστος και συνεισφορά του πελάτη
-            </p>
-            <ProfitTrendChart data={profitTrend} />
-          </Card>
-
-          {/* KPI cards (historical averages) */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <Kpi icon={<Clock size={16} />} label="Ώρες / μήνα" value={hrs(d.avgPerMonth)} sub={`${num(d.months)} μήνες`} />
-            <Kpi icon={<Hourglass size={16} />} label="Σύνολο ωρών" value={hrs(d.hours)} sub={`${d.entryCount} εγγραφές`} />
-            <Kpi icon={<Coins size={16} />} label="Κόστος μισθών / μήνα" value={eur(d.avgMonthlyCost)} />
-            <Kpi icon={<Wallet size={16} />} label="Έσοδα / μήνα" value={d.billable ? eur(d.monthlyRevenue) : '—'} />
-            <Kpi icon={<TrendingUp size={16} />} label="Καθαρό κέρδος / μήνα" value={d.billable ? eur(d.profitPerMonth) : '—'} tone={!d.billable ? undefined : d.profitPerMonth >= 0 ? 'pos' : 'neg'} />
-          </div>
 
           {/* monthly hours trend */}
           <Card className="p-5">
             <h2 className="mb-1 text-sm font-semibold text-slate-900">Ώρες ανά μήνα</h2>
-            <p className="mb-3 text-xs text-slate-400">{d.trend.length ? `${d.trend[0].label} → ${d.trend[d.trend.length - 1].label}` : '—'}</p>
+            <p className="mb-3 text-xs text-slate-400">
+              {d.trend.length ? `${d.trend[0].label} → ${d.trend[d.trend.length - 1].label}` : '—'}
+              {' · '}
+              {num(d.months)} μήνες · {num(d.entryCount)} εγγραφές
+            </p>
             <MonthlyHoursChart data={d.trend} />
+          </Card>
+
+          {/* What work is done here comes before who did it: the owner reads
+              the type of work first, then whose time it consumed. */}
+          <Card className="p-5">
+            <h2 className="mb-1 text-sm font-semibold text-slate-900">Τι εργασίες γίνονται συνήθως</h2>
+            <p className="mb-4 text-xs text-slate-400">Κατανομή ωρών ανά είδος εργασίας</p>
+            <div className="space-y-3">
+              {topTypes.map((t) => (
+                <div key={t.type}>
+                  <div className="mb-1 flex items-center justify-between text-sm">
+                    <span className="truncate pr-2 text-slate-700">{t.type}</span>
+                    <span className="shrink-0 text-slate-500">{hrs(t.hours)} <span className="text-slate-400">({pct(t.pct)})</span></span>
+                  </div>
+                  <ProgressBar value={t.pct * 100} immediate />
+                </div>
+              ))}
+            </div>
           </Card>
 
           {/* employees who worked on this client */}
@@ -244,37 +252,9 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
             </div>
           </Card>
 
-          {/* what tasks */}
-          <Card className="p-5">
-            <h2 className="mb-1 text-sm font-semibold text-slate-900">Τι εργασίες γίνονται συνήθως</h2>
-            <p className="mb-4 text-xs text-slate-400">Κατανομή ωρών ανά είδος εργασίας</p>
-            <div className="space-y-3">
-              {topTypes.map((t) => (
-                <div key={t.type}>
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="truncate pr-2 text-slate-700">{t.type}</span>
-                    <span className="shrink-0 text-slate-500">{hrs(t.hours)} <span className="text-slate-400">({pct(t.pct)})</span></span>
-                  </div>
-                  <ProgressBar value={t.pct * 100} immediate />
-                </div>
-              ))}
-            </div>
-          </Card>
         </>
       )}
     </div>
   )
 }
 
-function Kpi({ icon, label, value, sub, tone }: { icon: React.ReactNode; label: string; value: string; sub?: string; tone?: 'pos' | 'neg' }) {
-  return (
-    <Card className="p-4">
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-blue-600">{icon}</span>
-      </div>
-      <p className={'font-display text-2xl font-semibold tracking-tight tabular-nums ' + (tone === 'pos' ? 'text-emerald-600' : tone === 'neg' ? 'text-red-500' : 'text-stone-900')}>{value}</p>
-      <p className="text-[13px] font-medium text-slate-500">{label}</p>
-      {sub && <p className="mt-0.5 text-[11px] text-slate-400">{sub}</p>}
-    </Card>
-  )
-}

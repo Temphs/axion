@@ -53,10 +53,12 @@ export function KpiCard({
 
   return (
     <Card className="p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_2px_6px_rgba(15,23,42,0.06),0_24px_48px_-24px_rgba(37,99,235,0.3)]">
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-slate-500">
+      {/* Labels wrap rather than truncate: a half-shown metric name is worse
+          than a second line. */}
+      <div className="flex items-start justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium leading-tight text-slate-500">
           {Icon && <Icon size={15} className="shrink-0 text-slate-400" strokeWidth={2} />}
-          <span className="truncate">{label}</span>
+          <span>{label}</span>
           {tooltip && <InfoTip text={tooltip} />}
         </span>
         {deltaEl}

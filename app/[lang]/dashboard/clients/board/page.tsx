@@ -3,8 +3,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { parseStatsFilter } from '@/lib/stats'
 import { buildWorkforce } from '@/lib/workforce'
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter'
-import { ClientProfitabilityTable } from '@/components/workforce/ClientProfitabilityTable'
-import { PricingPanel } from '@/components/workforce/PricingPanel'
+import { ClientPaymentCards } from '@/components/workforce/ClientPaymentCards'
+import { resolveClientPayments } from '@/lib/payments'
 
 // Client profitability board — the analytical counterpart to the client
 // management list, reachable from its own sidebar entry.
@@ -30,14 +30,17 @@ export default async function ClientBoardPage({ params, searchParams }: PageProp
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">Πίνακας πελατών</h1>
-          <p className="mt-0.5 text-sm text-blue-200/80">Κερδοφορία, περιθώρια και ευκαιρίες ανατιμολόγησης</p>
+          <p className="mt-0.5 text-sm text-blue-200/80">Ώρες, κόστος εργασίας και περιθώριο για κάθε πελάτη</p>
         </div>
         <DateRangeFilter />
       </header>
 
-      <ClientProfitabilityTable clients={wf.clients} lang={lang} />
-
-      <PricingPanel pricing={wf.pricing} lang={lang} />
+      <ClientPaymentCards
+        clients={wf.clients}
+        payments={wf.clients.map((c) => resolveClientPayments(c.id, c.monthlyRevenue))}
+        attention={wf.attention}
+        lang={lang}
+      />
     </div>
   )
 }
