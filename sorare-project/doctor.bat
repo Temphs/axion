@@ -5,14 +5,14 @@ setlocal
 cd /d "%~dp0"
 
 set "REPORT=doctor-report.txt"
-echo Sorare schema check > "%REPORT%"
+echo Sorare schema check (build 2026-09-01.3) > "%REPORT%"
 echo Folder: %~dp0 >> "%REPORT%"
 echo Date:   %DATE% %TIME% >> "%REPORT%"
 echo. >> "%REPORT%"
 
 echo(
-echo Sorare schema check
-echo -------------------
+echo Sorare schema check   build 2026-09-01.3
+echo ----------------------------------------
 echo(
 
 REM Running straight out of the zip puts everything in a temp folder that

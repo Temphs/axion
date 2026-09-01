@@ -5,7 +5,7 @@ setlocal
 cd /d "%~dp0"
 
 echo.
-echo === Sorare Portfolio Terminal : setup ===
+echo === Sorare Portfolio Terminal : setup   build 2026-09-01.3 ===
 echo.
 
 REM Windows can "open" a zip without extracting it, running files from a
