@@ -42,9 +42,11 @@ if not exist ".env" (
 )
 
 echo.
-echo Setup finished.
-echo   1. Edit  .env  with your Sorare login.
-echo   2. Optional but recommended: run  update_sorare.bat doctor  once.
-echo   3. Run  update_sorare.bat
+echo Setup finished. Everything from here is a double-click:
+echo   1. edit_settings.bat   put in your Sorare login
+echo   2. doctor.bat          check the queries against Sorare's schema
+echo   3. update_sorare.bat   pull your data and build the workbook
+echo.
+echo (demo.bat builds a sample workbook if you want a look first.)
 echo.
 pause

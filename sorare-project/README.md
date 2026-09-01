@@ -49,9 +49,10 @@ Double-click it. It builds a private Python environment inside the folder,
 installs what it needs, and creates a `.env` file for your login. It does not
 touch anything else on your PC.
 
-### 4. Fill in `.env`
+### 4. Fill in your login
 
-Right-click `.env` -> Open with -> Notepad:
+Double-click **`edit_settings.bat`**. It creates the file if it isn't there yet
+and opens it in Notepad:
 
 ```
 SORARE_EMAIL=you@example.com
@@ -77,7 +78,7 @@ Download Sorare's schema (a public file, no login):
 - open <https://api.sorare.com/graphql/schema> in your browser
 - save it as `config\schema.graphql` inside this folder
 
-Then run `update_sorare.bat doctor`. It checks every query this project uses
+Then double-click **`doctor.bat`**. It checks every query this project uses
 against the real schema, prints OK / PARTIAL / FAILED per query, and lists the
 real field names for the areas Sorare does not document. Anything it cannot find
 is switched off automatically - the rest keeps working.
@@ -190,6 +191,9 @@ it. Delete the example row when you add your own.
 sorare-project\
   update_sorare.bat            the daily double-click
   setup.bat                    one-time install
+  edit_settings.bat            opens your login file in Notepad
+  doctor.bat                   checks the queries against Sorare's schema
+  demo.bat                     builds a sample workbook, no account needed
   enable_refresh_all.bat       optional: live Power Query tables
   .env                         your login (never shared, never committed)
   config\settings.yml          every assumption, mirrored on the Settings sheet
@@ -211,8 +215,8 @@ fast as the tape grows into the hundreds of thousands of rows.
 
 | What you see | What to do |
 |---|---|
-| `Authentication failed` | Run `update_sorare.bat` by hand; the 30-day token has expired, or 2FA needs a code. |
-| A module says `FAILED` with an unknown-field error | Re-download the schema and run `update_sorare.bat doctor`. Sorare changes fields roughly monthly; the doctor prints the real signature to fix. |
+| `Authentication failed` | Double-click `update_sorare.bat`; the 30-day token has expired, or 2FA needs a code. |
+| A module says `FAILED` with an unknown-field error | Re-download the schema and double-click `doctor.bat`. Sorare changes fields roughly monthly; the report prints the real signature to fix. |
 | `The workbook is open in Excel` | Close Excel, run the updater again. |
 | Holdings shows `LOW` confidence everywhere | The tape is still young. It fills in as the hourly runs accumulate sales. |
 | Fair value looks wrong for one player | Open the Player Terminal, look at the individual prints, and switch sale types off until it reflects the market you would actually sell into. |
