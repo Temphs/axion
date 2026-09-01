@@ -1,0 +1,15 @@
+# Auctions you won -> BUY / AUCTION transactions.
+query MyWonAuctions($cursor: String) {
+  currentUser {
+    wonTokenAuctions(after: $cursor) {
+      nodes {
+        id
+        endDate
+        currentPrice
+        bestBid { amounts { wei eur } }                # @opt TokenAuction.bestBid
+        anyCards { slug rarityTyped seasonYear serialNumber anyPlayer { slug displayName } }
+      }
+      pageInfo { endCursor hasNextPage }
+    }
+  }
+}

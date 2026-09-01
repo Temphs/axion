@@ -1,0 +1,3 @@
+# Probabilities are fractions and should sum to 1 across the four scenarios.
+player_slug,player_name,rarity,quantity,avg_entry,target_price,downside_price,thesis,catalyst,catalyst_date,status,bear_prob,bear_price,base_prob,base_price,bull_prob,bull_price,extreme_prob,extreme_price,notes
+example-player,Example Player,limited,3,12.00,30.00,8.00,Regains the starting goalkeeper role,New manager appointed,2025-03-01,OPEN,0.25,8.00,0.45,18.00,0.25,30.00,0.05,60.00,example row - delete me

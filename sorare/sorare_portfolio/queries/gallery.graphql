@@ -1,0 +1,39 @@
+# Your gallery, page by page. `cards` replaced `paginatedCards`, which Sorare
+# removed - see docs/ARCHITECTURE.md.
+#
+# Lines tagged "# @opt <Type>.<field>" are dropped automatically when the schema
+# doctor (or a live error) says the field is not available, so the core pull
+# keeps working when Sorare changes a peripheral field.
+query Gallery($cursor: String) {
+  currentUser {
+    cards(after: $cursor) {
+      nodes {
+        slug
+        assetId
+        rarityTyped
+        seasonYear
+        serialNumber
+        anyPositions
+        xp                                             # @opt Card.xp
+        grade                                          # @opt Card.grade
+        inSeasonEligible                               # @opt Card.inSeasonEligible
+        anyPlayer {
+          slug
+          displayName
+          age                                          # @opt Player.age
+          activeClub { slug name }                     # @opt Player.activeClub
+        }
+        anyTeam { slug name }                          # @opt Card.anyTeam
+        tokenOwner {
+          from
+          transferType                                 # @opt TokenOwner.transferType
+          amounts { wei eur }
+        }
+      }
+      pageInfo {
+        endCursor
+        hasNextPage
+      }
+    }
+  }
+}

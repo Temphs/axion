@@ -1,0 +1,18 @@
+# Your own listings that sold -> SELL / MANAGER_SALE.
+query MySoldSingleSaleOffers($cursor: String) {
+  currentUser {
+    soldSingleSaleTokenOffers(after: $cursor) {
+      nodes {
+        id
+        endDate                                        # @opt TokenOffer.endDate
+        acceptedAt                                     # @opt TokenOffer.acceptedAt
+        senderSide {
+          amounts { wei eur }
+          anyCards { slug rarityTyped seasonYear serialNumber anyPlayer { slug displayName } }
+        }
+        receiver { ... on User { slug nickname } }     # @opt TokenOffer.receiver
+      }
+      pageInfo { endCursor hasNextPage }
+    }
+  }
+}

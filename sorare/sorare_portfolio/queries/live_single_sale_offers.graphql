@@ -1,0 +1,23 @@
+# Live manager listings - the raw material for floor prices.
+query LiveSingleSaleOffers($cursor: String) {
+  tokens {
+    liveSingleSaleOffers(after: $cursor) {
+      nodes {
+        id
+        startDate
+        endDate
+        senderSide {
+          amounts { wei eur }
+          anyCards {
+            slug
+            rarityTyped
+            seasonYear
+            serialNumber
+            anyPlayer { slug displayName }
+          }
+        }
+      }
+      pageInfo { endCursor hasNextPage }
+    }
+  }
+}

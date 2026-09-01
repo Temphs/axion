@@ -1,0 +1,7 @@
+.env
+data/
+workbook/*.xlsx
+!workbook/.gitkeep
+.venv/
+__pycache__/
+*.pyc

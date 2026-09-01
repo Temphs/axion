@@ -1,0 +1,25 @@
+# Offers other managers sent you that ended - an accepted one is a sale by you
+# (accepted buy offer) or a trade.
+query MyEndedOffersReceived($cursor: String) {
+  currentUser {
+    endedTokenOffersReceived(after: $cursor) {
+      nodes {
+        id
+        type                                           # @opt TokenOffer.type
+        status                                         # @opt TokenOffer.status
+        acceptedAt                                     # @opt TokenOffer.acceptedAt
+        endDate                                        # @opt TokenOffer.endDate
+        senderSide {
+          amounts { wei eur }
+          anyCards { slug rarityTyped seasonYear serialNumber anyPlayer { slug displayName } }
+        }
+        receiverSide {
+          amounts { wei eur }
+          anyCards { slug rarityTyped seasonYear serialNumber anyPlayer { slug displayName } }
+        }
+        sender { ... on User { slug nickname } }       # @opt TokenOffer.sender
+      }
+      pageInfo { endCursor hasNextPage }
+    }
+  }
+}

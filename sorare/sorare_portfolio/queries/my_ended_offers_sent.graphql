@@ -1,0 +1,25 @@
+# Direct offers and buy offers you sent that ended (accepted ones are trades or
+# accepted buy offers, depending on their type).
+query MyEndedOffersSent($cursor: String) {
+  currentUser {
+    endedTokenOffersSent(after: $cursor) {
+      nodes {
+        id
+        type                                           # @opt TokenOffer.type
+        status                                         # @opt TokenOffer.status
+        acceptedAt                                     # @opt TokenOffer.acceptedAt
+        endDate                                        # @opt TokenOffer.endDate
+        senderSide {
+          amounts { wei eur }
+          anyCards { slug rarityTyped seasonYear serialNumber anyPlayer { slug displayName } }
+        }
+        receiverSide {
+          amounts { wei eur }
+          anyCards { slug rarityTyped seasonYear serialNumber anyPlayer { slug displayName } }
+        }
+        receiver { ... on User { slug nickname } }     # @opt TokenOffer.receiver
+      }
+      pageInfo { endCursor hasNextPage }
+    }
+  }
+}

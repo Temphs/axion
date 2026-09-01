@@ -1,0 +1,57 @@
+# Every assumption in the system lives here. The Settings sheet in Excel mirrors
+# these values, and the Excel formulas read the sheet - so nothing is hard-coded
+# in a cell formula. Change a value here, re-run the updater, refresh Excel.
+
+currency: EUR
+
+account:
+  # Your Sorare cash balance. Sorare's public API no longer exposes a stable
+  # balance field (the wallet is mid-migration to Base), so this is the one
+  # number worth keeping current by hand. You can edit it on the Excel Settings
+  # sheet instead - the updater reads that sheet back into this file.
+  cash_balance_eur: 321.5
+
+valuation:
+  # Quick-Sale Value = floor * (1 - quick_sale_discount)
+  quick_sale_discount: 0.07
+
+  # Default window (days) for the fair-value median shown on Holdings/Dashboard.
+  # 7, 30 and 90 are always computed; this picks which one is "the" number.
+  fair_value_window_days: 7
+
+  # Which completed-sale types count as fair value by default.
+  # Options: AUCTION, INSTANT_BUY, MANAGER_SALE, ACCEPTED_BUY_OFFER, DIRECT_OFFER
+  # Default favours genuine secondary-market prints, as requested.
+  fair_value_included_types: [AUCTION, INSTANT_BUY, MANAGER_SALE, ACCEPTED_BUY_OFFER]
+
+  # Statistic used for fair value. median is far more robust to outliers.
+  fair_value_statistic: median
+
+  # Minimum completed sales in the window before fair value is trusted.
+  # Below this we fall back to floor * floor_fallback_haircut and flag it LOW.
+  min_sales_for_fair_value: 3
+  floor_fallback_haircut: 0.95
+
+liquidity:
+  # Average completed sales per day, per position, for the band.
+  high_liquidity_min_daily_sales: 1
+  medium_liquidity_min_daily_sales: 0.25
+  # Flag a position when your holding is this share or more of recent volume.
+  market_impact_warning_share: 0.2
+  liquidity_window_days: 30
+
+essence:
+  # Your working assumption until the ledger has enough crafts to speak for
+  # itself. The Essence sheet reports your own empirical EUR per 1,000 next to
+  # these, so you can replace guesswork with your own numbers.
+  assumed_eur_per_1000_limited: 0
+  assumed_eur_per_1000_rare: 0
+
+ingest:
+  # Players whose price tape is collected every run. "owned" = every player you
+  # hold; extra slugs are added on top (watchlist / investment ideas).
+  track_players: owned
+  extra_player_slugs: []
+  # Safety valve so a scheduled run can never hammer the API.
+  max_api_calls_per_run: 900
+  raw_snapshot_retention_days: 30

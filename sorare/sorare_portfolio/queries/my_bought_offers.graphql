@@ -1,0 +1,18 @@
+# Cards you bought from another manager's listing -> BUY / MANAGER_SALE.
+query MyBoughtSingleSaleOffers($cursor: String) {
+  currentUser {
+    boughtSingleSaleTokenOffers(after: $cursor) {
+      nodes {
+        id
+        endDate                                        # @opt TokenOffer.endDate
+        acceptedAt                                     # @opt TokenOffer.acceptedAt
+        senderSide {
+          amounts { wei eur }
+          anyCards { slug rarityTyped seasonYear serialNumber anyPlayer { slug displayName } }
+        }
+        sender { ... on User { slug nickname } }       # @opt TokenOffer.sender
+      }
+      pageInfo { endCursor hasNextPage }
+    }
+  }
+}

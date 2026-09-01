@@ -1,0 +1,11 @@
+# Last public prices (auction or single-sale offer) for one player + rarity.
+# Sorare returns only the most recent handful, which is why the updater must run
+# often: the local tape is accumulated from these snapshots over time.
+query TokenPrices($playerSlug: String!, $rarity: Rarity!) {
+  tokenPrices(playerSlug: $playerSlug, rarity: $rarity) {
+    date
+    amounts { wei eur }
+    deal                                               # @opt TokenPrice.deal
+    card { slug seasonYear serialNumber }              # @opt TokenPrice.card
+  }
+}

@@ -244,3 +244,53 @@ Each phase ends with a workbook you can actually open, not a half-wired skeleton
 2. Open `Sorare_Portfolio.xlsx` → **Data ▸ Refresh All**.
 3. Everything on every sheet is current, and `_meta` tells you exactly how fresh each module is
    and which numbers are floor-derived rather than trade-derived.
+
+---
+
+## 9. What was actually built, and where it differs from this plan
+
+Three decisions changed once the code met reality. Each one is a deliberate
+trade, not a shortcut.
+
+**1. The workbook is rebuilt by the updater; Power Query is optional.**
+The plan was Power Query first. In practice, creating Power Query connections
+programmatically requires driving Excel itself through COM, which cannot be
+tested from anywhere but a Windows machine with Excel installed. So the default
+path is: the updater regenerates `Sorare_Portfolio.xlsx` from the exported CSVs
+on every run, which makes the workbook already-current when you open it - one
+step *fewer* than "press Refresh All". `enable_refresh_all.bat` converts every
+data block into a live Power Query table for anyone who prefers refreshing from
+inside Excel, and if that script fails, nothing is lost. The one cost of the
+default: the workbook must be closed while the updater runs, and the updater
+says so plainly in the log when it is not.
+
+**2. No dynamic-array formulas, despite Excel 365 being available.**
+`FILTER` and friends would make the Player Terminal shorter to write, but every
+statistic they would compute is already computed in Python and exported as a
+lookup table. Using INDEX/MATCH instead means the terminal is a handful of
+lookups rather than array formulas scanning a tape of tens of thousands of rows,
+it cannot half-spill, and it survives a Power Query refresh that resizes a table.
+
+**3. Settings sync runs in both directions.**
+The Settings sheet is the interface and `config/settings.yml` is the store. The
+updater reads the sheet back into the YAML before it does anything else, so an
+assumption changed in Excel is honoured by the very next run, and the comments in
+the YAML file survive because values are rewritten line by line rather than
+re-serialised.
+
+### Still open, pending the schema doctor's first run on your machine
+
+* **Player form (L5 / L10 / L40, starter %).** `queries/player_scores.graphql`
+  contains best-guess field names, all marked optional. Run the doctor and read
+  the `scores` line of its discovery report: it lists the real score-related
+  field names in your schema. The transform already derives L5/L10/L40 and
+  starter % from per-match scores as soon as anything populates `player_score`.
+* **Rewards.** The `reward` table, sheet and charts are built and wired. What is
+  missing is an ingest module, because the reward field names are undocumented -
+  the doctor's `rewards` discovery line names them.
+* **Cash balance and fiat cash flow.** Balance is a Settings cell; deposits and
+  withdrawals come from `manual/cash_flows.csv`. If the doctor's `balances`
+  discovery finds a usable field, that becomes a five-line ingest module.
+* **Essence.** Nothing in Sorare's public API, so the ledger is manual by design.
+  Everything downstream of it - EUR per 1,000, value by draw type, craft ROI -
+  is built and works off that ledger.

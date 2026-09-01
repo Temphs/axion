@@ -1,0 +1,3 @@
+# Every euro in and out of Sorare. direction is DEPOSIT or WITHDRAWAL.
+date,direction,amount_eur,method,notes
+2025-01-15,DEPOSIT,250.00,card,example row - delete me

@@ -1,0 +1,19 @@
+query LiveAuctions($cursor: String) {
+  tokens {
+    liveAuctions(after: $cursor) {
+      nodes {
+        id
+        currentPrice
+        endDate
+        minNextBid
+        anyCards {
+          slug
+          rarityTyped
+          seasonYear
+          anyPlayer { slug displayName }
+        }
+      }
+      pageInfo { endCursor hasNextPage }
+    }
+  }
+}
