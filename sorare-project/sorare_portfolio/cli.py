@@ -55,12 +55,12 @@ def command_update(args: argparse.Namespace) -> int:
     return 0
 
 
-def command_doctor(_: argparse.Namespace) -> int:
-    from .schema_doctor import format_report, run_doctor
+def command_doctor(args: argparse.Namespace) -> int:
+    from .schema_doctor import SchemaDownloadError, format_report, run_doctor
 
     try:
-        capabilities = run_doctor()
-    except FileNotFoundError as exc:
+        capabilities = run_doctor(refresh=getattr(args, "refresh", False))
+    except SchemaDownloadError as exc:
         print(exc)
         return 2
     print(format_report(capabilities))
@@ -120,9 +120,11 @@ def main(argv: list[str] | None = None) -> int:
     update.add_argument("--no-workbook", action="store_true", help="skip rebuilding the workbook")
     update.set_defaults(func=command_update)
 
-    subparsers.add_parser("doctor", help="check queries against config/schema.graphql").set_defaults(
-        func=command_doctor
+    doctor = subparsers.add_parser("doctor", help="check the queries against Sorare's schema")
+    doctor.add_argument(
+        "--refresh", action="store_true", help="re-download the schema even if it is already here"
     )
+    doctor.set_defaults(func=command_doctor)
     subparsers.add_parser("export", help="re-export and rebuild from stored data").set_defaults(
         func=command_export
     )

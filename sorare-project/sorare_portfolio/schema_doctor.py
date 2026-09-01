@@ -22,16 +22,57 @@ at query-render time.
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from typing import Iterable
 
+import requests
 from graphql import build_schema, parse, validate
 from graphql.error import GraphQLError
 
 from .paths import CAPABILITIES_FILE, CONFIG_DIR, QUERY_DIR
 
 SCHEMA_FILE = CONFIG_DIR / "schema.graphql"
+SCHEMA_URL = "https://api.sorare.com/graphql/schema"
+
+
+class SchemaDownloadError(RuntimeError):
+    pass
+
+
+def download_schema(destination=SCHEMA_FILE, *, timeout: int = 180) -> int:
+    """Fetch Sorare's published schema. No login needed - it is a public file.
+
+    Saving it from a browser is easy to get subtly wrong (Windows appends .txt,
+    or the page is saved as HTML), so the project fetches it itself.
+    """
+    headers = {"Accept": "text/plain"}
+    api_key = os.environ.get("SORARE_API_KEY", "").strip()
+    if api_key:
+        headers["APIKEY"] = api_key
+
+    try:
+        response = requests.get(SCHEMA_URL, headers=headers, timeout=timeout)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise SchemaDownloadError(
+            f"Could not download the schema from {SCHEMA_URL}: {exc}\n"
+            "Check your internet connection, or save that address in your browser as "
+            f"{destination} and run this again."
+        ) from exc
+
+    text = response.text
+    # A captive portal or an error page would happily return 200 and HTML.
+    if "type Query" not in text:
+        raise SchemaDownloadError(
+            f"{SCHEMA_URL} returned something that is not a GraphQL schema "
+            f"({len(text)} characters). Try again in a minute."
+        )
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(text, encoding="utf-8")
+    return len(text)
 
 OPT_PATTERN = re.compile(r"#\s*@opt\s+(?P<key>[\w.]+)\s*$")
 
@@ -172,14 +213,11 @@ def enum_values(schema_text: str, enum_name: str) -> list[str]:
     ]
 
 
-def run_doctor() -> dict:
-    if not SCHEMA_FILE.exists():
-        raise FileNotFoundError(
-            "config/schema.graphql not found.\n\n"
-            "Download it once (it is a public file, no login needed):\n"
-            "    curl -o config/schema.graphql https://api.sorare.com/graphql/schema\n"
-            "or open that URL in your browser and save it there."
-        )
+def run_doctor(*, refresh: bool = False) -> dict:
+    if refresh or not SCHEMA_FILE.exists():
+        print(f"Downloading Sorare's schema from {SCHEMA_URL} ...")
+        size = download_schema()
+        print(f"Saved {size:,} characters to {SCHEMA_FILE}\n")
 
     schema_text = SCHEMA_FILE.read_text(encoding="utf-8")
     schema = build_schema(schema_text, assume_valid_sdl=True)

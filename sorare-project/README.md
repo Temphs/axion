@@ -73,12 +73,8 @@ is the difference between a two-minute update and a ten-minute one.
 
 ### 5. Run the schema check once
 
-Download Sorare's schema (a public file, no login):
-
-- open <https://api.sorare.com/graphql/schema> in your browser
-- save it as `config\schema.graphql` inside this folder
-
-Then double-click **`doctor.bat`**. It checks every query this project uses
+Double-click **`doctor.bat`**. It downloads Sorare's schema itself (a public
+file, no login needed) and checks every query this project uses
 against the real schema, prints OK / PARTIAL / FAILED per query, and lists the
 real field names for the areas Sorare does not document. Anything it cannot find
 is switched off automatically - the rest keeps working.
@@ -219,7 +215,7 @@ fast as the tape grows into the hundreds of thousands of rows.
 | What you see | What to do |
 |---|---|
 | `Authentication failed` | Double-click `update_sorare.bat`; the 30-day token has expired, or 2FA needs a code. |
-| A module says `FAILED` with an unknown-field error | Re-download the schema and double-click `doctor.bat`. Sorare changes fields roughly monthly; the report prints the real signature to fix. |
+| A module says `FAILED` with an unknown-field error | Double-click `doctor.bat` again - it refreshes the schema when it is missing, and `update_sorare.bat doctor --refresh` forces a fresh copy. Sorare changes fields roughly monthly; the report prints the real signature to fix. |
 | `The workbook is open in Excel` | Close Excel, run the updater again. |
 | Holdings shows `LOW` confidence everywhere | The tape is still young. It fills in as the hourly runs accumulate sales. |
 | Fair value looks wrong for one player | Open the Player Terminal, look at the individual prints, and switch sale types off until it reflects the market you would actually sell into. |

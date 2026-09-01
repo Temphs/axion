@@ -221,3 +221,31 @@ def test_reward_cards_are_detected_but_never_valued_at_a_guess(tmp_path):
         assert row["card_slug"] == "free-card"           # the craft stays with Essence
         assert row["cash_eur"] == 0.0
         assert row["card_value_at_receipt"] is None      # never a guessed value
+
+
+def test_schema_download_writes_the_file_and_rejects_a_non_schema(tmp_path, monkeypatch):
+    """Saving the schema from a browser is easy to get wrong, so we fetch it.
+
+    The guard matters: a captive portal or an error page returns 200 with HTML,
+    and writing that to schema.graphql would break every later run in a way
+    that looks like Sorare changed their API.
+    """
+    from sorare_portfolio import schema_doctor
+
+    class Response:
+        def __init__(self, text):
+            self.text = text
+
+        def raise_for_status(self):
+            return None
+
+    schema_text = "type Query { currentUser: CurrentUser }\ntype CurrentUser { slug: String }\n"
+    monkeypatch.setattr(schema_doctor.requests, "get", lambda *a, **k: Response(schema_text))
+    target = tmp_path / "config" / "schema.graphql"
+    assert schema_doctor.download_schema(target) == len(schema_text)
+    assert "type Query" in target.read_text()
+
+    monkeypatch.setattr(schema_doctor.requests, "get", lambda *a, **k: Response("<html>nope</html>"))
+    with pytest.raises(schema_doctor.SchemaDownloadError, match="not a GraphQL schema"):
+        schema_doctor.download_schema(target)
+    assert "type Query" in target.read_text()      # the good copy is not clobbered

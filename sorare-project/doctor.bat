@@ -44,24 +44,8 @@ if not exist ".venv\Scripts\python.exe" (
     exit /b 1
 )
 
-if not exist "config\schema.graphql" (
-    echo PROBLEM: Sorare's schema file is missing.
-    echo(
-    echo Fix, in three steps:
-    echo   1. open this address in your browser:
-    echo        https://api.sorare.com/graphql/schema
-    echo   2. press Ctrl+S and save it into the  config  folder here,
-    echo      with the file name  schema.graphql
-    echo   3. run this file again.
-    echo(
-    echo This folder is: %~dp0config
-    echo PROBLEM: config\schema.graphql missing. >> "%REPORT%"
-    echo(
-    pause
-    exit /b 1
-)
-
-echo Checking every query against the schema. This takes a few seconds.
+echo Fetching Sorare's schema if needed, then checking every query
+echo against it. This takes a few seconds.
 echo(
 ".venv\Scripts\python.exe" -m sorare_portfolio doctor >> "%REPORT%" 2>&1
 set "RESULT=%ERRORLEVEL%"
