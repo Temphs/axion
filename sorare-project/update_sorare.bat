@@ -7,6 +7,23 @@ REM   update_sorare.bat build      rebuild the workbook from stored data
 setlocal
 cd /d "%~dp0"
 
+REM Windows can "open" a zip without extracting it, running files from a
+REM temporary copy that it later deletes. Nothing done there survives, so stop.
+echo %~dp0 | find /i "\AppData\Local\Temp\" >nul
+if not errorlevel 1 (
+    echo(
+    echo PROBLEM: this is running from inside the zip file.
+    echo(
+    echo Windows opened the zip as a preview and copied the file to a
+    echo temporary folder, so anything written here disappears.
+    echo(
+    echo Fix: right-click the zip, choose "Extract All", pick a real folder
+    echo such as Documents, and run this file from there instead.
+    echo(
+    pause
+    exit /b 1
+)
+
 if not exist ".venv\Scripts\python.exe" (
     echo The environment is missing. Run setup.bat first.
     pause

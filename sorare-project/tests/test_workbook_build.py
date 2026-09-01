@@ -145,3 +145,19 @@ def test_named_settings_resolve_to_the_settings_sheet(workbook):
     for _, _, formula in _formulas(workbook):
         used.update(re.findall(r"SET_[a-z_0-9]+", formula))
     assert used <= names, f"formulas use undefined settings names: {used - names}"
+
+
+def test_windows_scripts_keep_crlf_line_endings():
+    """cmd.exe misparses multi-line if-blocks written with Unix line endings.
+
+    The symptom is the worst kind: the console window opens and closes without
+    running anything and without an error. Caught here so it can never ship
+    again from a machine that writes LF by default.
+    """
+    root = Path(__file__).resolve().parent.parent
+    scripts = list(root.glob("*.bat")) + list(root.glob("**/*.ps1"))
+    assert scripts, "expected the Windows entry-point scripts to be present"
+    for script in scripts:
+        data = script.read_bytes()
+        bare_newlines = data.count(b"\n") - data.count(b"\r\n")
+        assert bare_newlines == 0, f"{script.name} has {bare_newlines} Unix line endings"
