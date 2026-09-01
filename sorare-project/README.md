@@ -163,8 +163,11 @@ can switch them on in Settings. When the tape is too thin to speak, the number
 falls back to the floor and is flagged `LOW` on Holdings so you always know
 which is which.
 
-Reward cards are counted at their value **when you received them**; their later
-appreciation is shown separately and never as cash. Card-for-card trades are
+Reward cards are detected automatically: a card that arrived with no purchase
+price is a reward, and it is dated and priced at today's market. Its value **at
+receipt** is left blank rather than guessed - fill it in if you know it - so a
+reward card can never inflate total rewards earned with a number nobody
+measured. Its later appreciation is shown separately and never as cash. Card-for-card trades are
 recorded but excluded from realised P/L - swapping two cards realises nothing.
 
 ---

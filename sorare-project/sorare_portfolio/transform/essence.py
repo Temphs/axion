@@ -11,7 +11,9 @@ from __future__ import annotations
 import pandas as pd
 
 
-def essence_tables(connection, positions: pd.DataFrame) -> dict[str, pd.DataFrame]:
+def essence_tables(
+    connection, positions: pd.DataFrame, settings: dict | None = None
+) -> dict[str, pd.DataFrame]:
     events = pd.read_sql_query("SELECT * FROM essence_event", connection)
     if events.empty:
         empty = pd.DataFrame(
@@ -34,8 +36,19 @@ def essence_tables(connection, positions: pd.DataFrame) -> dict[str, pd.DataFram
         )
     else:
         ledger["value_per_card_eur"] = pd.NA
-    ledger["card_value_eur"] = ledger["card_value"].fillna(ledger["value_per_card_eur"]).astype(float)
+    # to_numeric rather than astype: with no holdings yet there is nothing to
+    # price a crafted card against, and astype(float) chokes on the resulting
+    # missing values instead of leaving them missing.
+    ledger["card_value_eur"] = pd.to_numeric(
+        ledger["card_value"].fillna(ledger["value_per_card_eur"]), errors="coerce"
+    )
     ledger["total_craft_cost"] = ledger["base_cost"].fillna(0) + ledger["clue_cost"].fillna(0)
+
+    assumptions = (settings or {}).get("essence", {})
+    assumed = {
+        "LIMITED": float(assumptions.get("assumed_eur_per_1000_limited", 0) or 0),
+        "RARE": float(assumptions.get("assumed_eur_per_1000_rare", 0) or 0),
+    }
 
     spends = ledger[ledger["direction"] == "SPEND"]
     earns = ledger[ledger["direction"] == "EARN"]
@@ -58,7 +71,15 @@ def essence_tables(connection, positions: pd.DataFrame) -> dict[str, pd.DataFram
                 "eur_per_1000": round(value / essence_spent * 1000, 2) if essence_spent else None,
                 "avg_craft_value_eur": round(spent["card_value_eur"].mean(), 2) if len(spent) else None,
                 "median_craft_value_eur": round(spent["card_value_eur"].median(), 2) if len(spent) else None,
-                "roi_pct": None,
+                # Against your own assumption for what 1,000 Essence is worth:
+                # positive means your crafts beat what you assumed you were
+                # spending. Blank until you put a number on the Settings sheet.
+                "assumed_eur_per_1000": assumed.get(scarcity) or None,
+                "roi_pct": (
+                    round((value / essence_spent * 1000 / assumed[scarcity] - 1) * 100, 1)
+                    if essence_spent and assumed.get(scarcity)
+                    else None
+                ),
             }
         )
     summary = pd.DataFrame(rows)

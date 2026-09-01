@@ -191,3 +191,33 @@ def test_upserts_never_double_count(tmp_path):
         assert db.upsert_many(connection, "price_obs", [row], key="obs_key") == 1
         assert db.upsert_many(connection, "price_obs", [row], key="obs_key") == 0
         assert connection.execute("SELECT COUNT(*) FROM price_obs").fetchone()[0] == 1
+
+
+def test_reward_cards_are_detected_but_never_valued_at_a_guess(tmp_path):
+    """Zero-cost cards in the gallery are rewards - crafts and repeats are not."""
+    from sorare_portfolio.transform.rewards import derive_reward_cards
+
+    cards = [
+        {"slug": "free-card", "player_slug": None, "rarity": "limited", "acquired_at": "2026-01-02T00:00:00+00:00",
+         "acquisition_eur": 0.0, "acquisition_type": "REWARD_OR_CRAFT", "owned": 1},
+        {"slug": "bought-card", "player_slug": None, "rarity": "rare", "acquired_at": "2026-01-03T00:00:00+00:00",
+         "acquisition_eur": 42.0, "acquisition_type": "AUCTION", "owned": 1},
+        {"slug": "crafted-card", "player_slug": None, "rarity": "limited", "acquired_at": "2026-01-04T00:00:00+00:00",
+         "acquisition_eur": 0.0, "acquisition_type": "REWARD_OR_CRAFT", "owned": 1},
+    ]
+    with db.session(tmp_path / "test.db") as connection:
+        db.upsert_many(connection, "card", cards, key="slug")
+        db.upsert_many(
+            connection, "essence_event",
+            [{"event_key": "e1", "occurred_on": "2026-01-04", "direction": "SPEND", "scarcity": "LIMITED",
+              "amount": 1000.0, "card_slug": "crafted-card"}],
+            key="event_key",
+        )
+
+        assert derive_reward_cards(connection) == 1
+        assert derive_reward_cards(connection) == 0      # re-running never duplicates
+
+        row = connection.execute("SELECT * FROM reward").fetchone()
+        assert row["card_slug"] == "free-card"           # the craft stays with Essence
+        assert row["cash_eur"] == 0.0
+        assert row["card_value_at_receipt"] is None      # never a guessed value

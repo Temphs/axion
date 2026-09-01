@@ -285,9 +285,15 @@ re-serialised.
   the `scores` line of its discovery report: it lists the real score-related
   field names in your schema. The transform already derives L5/L10/L40 and
   starter % from per-match scores as soon as anything populates `player_score`.
-* **Rewards.** The `reward` table, sheet and charts are built and wired. What is
-  missing is an ingest module, because the reward field names are undocumented -
-  the doctor's `rewards` discovery line names them.
+* **Rewards.** Reward *cards* no longer wait on the API: any card that arrived
+  in your gallery with no purchase price is detected as a reward, dated, and
+  priced at today's market by the same engine as the rest of the portfolio
+  (`transform/rewards.py`). Its value at receipt is deliberately left empty
+  rather than guessed, so it can never inflate total rewards earned. Crafted
+  cards are excluded by cross-referencing the Essence ledger, so nothing is
+  counted twice. What still waits on the doctor is the reward *feed* - cash
+  amounts, gameweek, competition and lineup - because those field names are
+  undocumented; the doctor's `rewards` discovery line names them.
 * **Cash balance and fiat cash flow.** Balance is a Settings cell; deposits and
   withdrawals come from `manual/cash_flows.csv`. If the doctor's `balances`
   discovery finds a usable field, that becomes a five-line ingest module.

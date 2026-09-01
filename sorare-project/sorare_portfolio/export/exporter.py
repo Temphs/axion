@@ -19,6 +19,7 @@ from ..transform import essence as essence_transform
 from ..transform import investments as investments_transform
 from ..transform import liquidity as liquidity_transform
 from ..transform import pnl, positions as positions_transform, valuation
+from ..transform.rewards import derive_reward_cards
 
 log = logging.getLogger(__name__)
 
@@ -152,6 +153,10 @@ def export_all(connection) -> dict[str, int]:
         settings["valuation"]["fair_value_included_types"]
     )
 
+    # Reward cards are read out of the gallery before anything is valued, so
+    # they are priced by the same engine as the rest of the portfolio.
+    derive_reward_cards(connection)
+
     tape = valuation.load_tape(connection)
     grid = valuation.fair_value_grid(tape)
     floors = valuation.latest_floors(connection)
@@ -223,7 +228,7 @@ def export_all(connection) -> dict[str, int]:
     written["allocations"] = _write(_allocations(valued), "allocations")
     written["top_exposures"] = _write(_top_exposures(valued), "top_exposures")
 
-    essence_tables = essence_transform.essence_tables(connection, valued)
+    essence_tables = essence_transform.essence_tables(connection, valued, settings)
     for name, frame in essence_tables.items():
         written[name] = _write(frame, name)
 
