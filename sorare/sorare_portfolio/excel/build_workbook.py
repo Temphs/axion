@@ -84,6 +84,11 @@ DATE_COLUMNS = {"at", "date", "on"}
 # the ranges the charts and lookups point at.
 GROWTH_ROWS = 400
 
+# How far down each dataset's lookup ranges reach. The tape is the only one that
+# can plausibly run into six figures.
+DEFAULT_ROW_LIMIT = 20000
+ROW_LIMITS = {"price_tape": 250000}
+
 
 def _fmt_for(header: str) -> str | None:
     name = header.lower()
@@ -218,15 +223,19 @@ class Builder:
                 longest = max([len(str(column_name))] + [len(str(value)) for value in frame[column_name].head(60)])
                 worksheet.column_dimensions[letter].width = min(max(longest + 2, 10), 34)
 
-    def column_range(self, dataset: str, column: str, *, absolute: bool = True) -> str:
-        """A whole-column reference, so the range survives a refresh that resizes."""
+    def column_range(self, dataset: str, column: str) -> str:
+        """A bounded column reference: generous enough to absorb years of growth,
+        small enough that Excel is not scanning a million empty rows on every
+        lookup. Whole-column references work but make recalculation crawl once
+        there are hundreds of them.
+        """
         sheet_name, _ = PLACEMENTS[dataset]
         letter = self.columns.get(dataset, {}).get(column)
         if not letter:
             return '""'
         prefix = f"'{sheet_name}'!" if " " in sheet_name else f"{sheet_name}!"
-        marker = "$" if absolute else ""
-        return f"{prefix}{marker}{letter}:{marker}{letter}"
+        limit = ROW_LIMITS.get(dataset, DEFAULT_ROW_LIMIT)
+        return f"{prefix}${letter}$1:${letter}${limit}"
 
     def lookup(self, dataset: str, value_column: str, key_column: str, key_ref: str) -> str:
         return (
