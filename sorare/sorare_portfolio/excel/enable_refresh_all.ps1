@@ -26,7 +26,7 @@ $targets = @(
     @{ Name = "rewards";            Sheet = "Rewards";         Anchor = "A6" },
     @{ Name = "essence_summary";    Sheet = "Essence";         Anchor = "A6" },
     @{ Name = "essence_ledger";     Sheet = "Essence";         Anchor = "A14" },
-    @{ Name = "essence_by_draw";    Sheet = "Essence";         Anchor = "A38" },
+    @{ Name = "essence_by_draw";    Sheet = "Essence";         Anchor = "W6" },
     @{ Name = "investments";        Sheet = "Investments";     Anchor = "A6" },
     @{ Name = "price_tape";         Sheet = "Price History";   Anchor = "A6" },
     @{ Name = "kpis";               Sheet = "_data_kpis";      Anchor = "A1" },

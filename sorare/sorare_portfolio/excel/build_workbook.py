@@ -48,7 +48,7 @@ PLACEMENTS: dict[str, tuple[str, str]] = {
     "rewards": ("Rewards", "A6"),
     "essence_summary": ("Essence", "A6"),
     "essence_ledger": ("Essence", "A14"),
-    "essence_by_draw": ("Essence", "A38"),
+    "essence_by_draw": ("Essence", "W6"),
     "investments": ("Investments", "A6"),
     "price_tape": ("Price History", "A6"),
     "kpis": ("_data_kpis", "A1"),
@@ -64,6 +64,14 @@ PLACEMENTS: dict[str, tuple[str, str]] = {
     "meta": ("_data_meta", "A1"),
     "refresh_log": ("_data_refresh", "A1"),
     "settings": ("_data_settings", "A1"),
+}
+
+# Datasets whose height is bounded by their nature, and by how much. Only these
+# may sit above another block on the same sheet: everything else grows with your
+# data and must have the rest of the sheet below it.
+MAX_ROWS = {
+    "essence_summary": 6,     # one row per scarcity
+    "essence_by_draw": 40,    # scarcity x draw type
 }
 
 MONEY_COLUMNS = {
@@ -653,7 +661,8 @@ class Builder:
         )
         self.section(worksheet, 5, "SUMMARY BY SCARCITY")
         self.section(worksheet, 13, "LEDGER")
-        self.section(worksheet, 37, "BY DRAW TYPE")
+        worksheet["W5"] = "BY DRAW TYPE"
+        worksheet["W5"].font = t.SECTION_FONT
 
     def build_investments(self) -> None:
         worksheet = self.sheet("Investments")
@@ -958,15 +967,54 @@ class Builder:
         "Liquidity": (60, 24),
         "Transactions": (60, 36),
         "Rewards": (60, 40),
-        "Essence": (60, 22),
+        "Essence": (60, 36),
         "Investments": (60, 34),
         "Price History": (60, 8),
         "Settings": (40, 14),
         "Raw Data": (60, 12),
     }
 
+    def check_layout(self) -> None:
+        """Two tables on one sheet must not be able to grow into each other.
+
+        A table's height follows your data, so a block placed below another one
+        is a corruption waiting to happen. Blocks sharing a sheet must be side
+        by side; this fails the build rather than shipping a workbook that goes
+        wrong the day your ledger gets long.
+        """
+        by_sheet: dict[str, list[tuple[str, int, int, int]]] = {}
+        for name, (sheet_name, anchor) in PLACEMENTS.items():
+            frame = self.data.get(name)
+            if frame is None or frame.empty:
+                continue
+            letters = "".join(character for character in anchor if character.isalpha())
+            first_column = column_index_from_string(letters)
+            by_sheet.setdefault(sheet_name, []).append(
+                (name, int(anchor[len(letters):]), first_column, first_column + len(frame.columns) - 1)
+            )
+
+        for sheet_name, blocks in by_sheet.items():
+            for index, (name, row, first, last) in enumerate(blocks):
+                for other_name, other_row, other_first, other_last in blocks[index + 1:]:
+                    if not (first <= other_last and other_first <= last):
+                        continue  # side by side, they can never meet
+                    upper, lower = (name, other_name) if row < other_row else (other_name, name)
+                    upper_row, lower_row = min(row, other_row), max(row, other_row)
+                    ceiling = MAX_ROWS.get(upper)
+                    if ceiling is None:
+                        raise ValueError(
+                            f"{upper} grows without bound and {lower} sits below it on "
+                            f"'{sheet_name}'. Move one of them sideways."
+                        )
+                    if upper_row + ceiling + 1 > lower_row:
+                        raise ValueError(
+                            f"{upper} can reach row {upper_row + ceiling + 1} on '{sheet_name}', "
+                            f"where {lower} starts at row {lower_row}. Move {lower} down."
+                        )
+
     def build(self, path: Path = WORKBOOK_FILE) -> Path:
         self.load()
+        self.check_layout()
 
         for name in NAV_SHEETS:
             worksheet = self.sheet(name)
