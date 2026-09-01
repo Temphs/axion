@@ -187,7 +187,7 @@ it. Delete the example row when you add your own.
 ## Where everything lives
 
 ```
-sorare\
+sorare-project\
   update_sorare.bat            the daily double-click
   setup.bat                    one-time install
   enable_refresh_all.bat       optional: live Power Query tables

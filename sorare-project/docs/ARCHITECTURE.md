@@ -132,7 +132,7 @@ must "just work".
 ## 4. Folder structure
 
 ```
-sorare/
+sorare-project/
 ├─ update_sorare.bat              ← the daily double-click
 ├─ build_workbook.bat             ← one-time (and after any layout change)
 ├─ setup.bat                      ← one-time: venv + dependencies
