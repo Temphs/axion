@@ -9,20 +9,20 @@ account:
   # balance field (the wallet is mid-migration to Base), so this is the one
   # number worth keeping current by hand. You can edit it on the Excel Settings
   # sheet instead - the updater reads that sheet back into this file.
-  cash_balance_eur: 321.5
+  cash_balance_eur: 0.0
 
 valuation:
   # Quick-Sale Value = floor * (1 - quick_sale_discount)
-  quick_sale_discount: 0.07
+  quick_sale_discount: 0.05
 
   # Default window (days) for the fair-value median shown on Holdings/Dashboard.
   # 7, 30 and 90 are always computed; this picks which one is "the" number.
-  fair_value_window_days: 7
+  fair_value_window_days: 30
 
   # Which completed-sale types count as fair value by default.
   # Options: AUCTION, INSTANT_BUY, MANAGER_SALE, ACCEPTED_BUY_OFFER, DIRECT_OFFER
   # Default favours genuine secondary-market prints, as requested.
-  fair_value_included_types: [AUCTION, INSTANT_BUY, MANAGER_SALE, ACCEPTED_BUY_OFFER]
+  fair_value_included_types: [MANAGER_SALE, ACCEPTED_BUY_OFFER]
 
   # Statistic used for fair value. median is far more robust to outliers.
   fair_value_statistic: median

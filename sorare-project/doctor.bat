@@ -5,13 +5,13 @@ setlocal
 cd /d "%~dp0"
 
 set "REPORT=doctor-report.txt"
-echo Sorare schema check (build 2026-09-03.8) > "%REPORT%"
+echo Sorare schema check (build 2026-09-03.9) > "%REPORT%"
 echo Folder: %~dp0 >> "%REPORT%"
 echo Date:   %DATE% %TIME% >> "%REPORT%"
 echo. >> "%REPORT%"
 
 echo(
-echo Sorare schema check   build 2026-09-03.8
+echo Sorare schema check   build 2026-09-03.9
 echo ----------------------------------------
 echo(
 

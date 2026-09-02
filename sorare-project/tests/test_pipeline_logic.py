@@ -522,3 +522,22 @@ def test_essence_ledger_keeps_api_and_hand_typed_rows_apart(tmp_path):
         connection.execute("DELETE FROM essence_event WHERE event_key LIKE 'api-%'")
         remaining = [row["event_key"] for row in connection.execute("SELECT event_key FROM essence_event")]
         assert remaining == ["man-typed"]
+
+
+def test_shipped_settings_are_the_documented_defaults():
+    """The settings file that ships must not carry anyone's test values.
+
+    settings.yml is a working file - the updater rewrites it from the Settings
+    sheet on every run - so a value left in it during development ships to the
+    user and shows up on their dashboard as if it were their own money.
+    """
+    from sorare_portfolio.settings import DEFAULTS, load_settings
+
+    shipped = load_settings()
+    assert shipped["account"]["cash_balance_eur"] == 0.0, "a cash balance was left in settings.yml"
+    assert shipped["valuation"]["quick_sale_discount"] == DEFAULTS["valuation"]["quick_sale_discount"]
+    assert shipped["valuation"]["fair_value_window_days"] == DEFAULTS["valuation"]["fair_value_window_days"]
+    assert (
+        shipped["valuation"]["fair_value_included_types"]
+        == DEFAULTS["valuation"]["fair_value_included_types"]
+    )
