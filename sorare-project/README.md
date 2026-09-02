@@ -24,7 +24,7 @@ That's it. You never type in a card, a purchase price, or a sale.
 | **Transactions** | Every buy and sell, typed as Auction / Instant Buy / Manager Sale / Accepted Buy Offer / Direct Offer, with closed trades and their realised P/L alongside. |
 | **Trades** | Card-for-card swaps: what each card was worth **on the day you traded it**, what it is worth **now**, the cash on top, and whether the whole swap has aged well. |
 | **Rewards** | Cash, reward cards and Essence kept strictly apart, by competition, scarcity and month. |
-| **Essence** | Your Limited and Rare ledger, crafts by draw type, and your own empirical EUR per 1,000 Essence. |
+| **Essence** | Pulled from Sorare automatically - every credit and debit, Limited and Rare kept apart, with the source of each named (gameweek reward, craft pull, rejected craft, task). Plus crafts by draw type and your own empirical EUR per 1,000. |
 | **Investments** | Thesis, catalyst, four probability-weighted scenarios, expected price, expected profit and risk/reward. |
 | **Price History** | The last 180 days of completed sales for everything you hold. |
 | **Settings** | Every assumption, in amber cells. Change one, save, run the updater. |

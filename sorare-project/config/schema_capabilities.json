@@ -1,13 +1,7 @@
 {
   "schema_bytes": 861207,
-  "hints": {
-    "player_listings": [
-      "player: Player!"
-    ]
-  },
-  "unused": [
-    "player_listings"
-  ],
+  "hints": {},
+  "unused": [],
   "queries": {
     "balances": {
       "ok": true,
@@ -15,6 +9,16 @@
       "errors": []
     },
     "current_user": {
+      "ok": true,
+      "disabled": [],
+      "errors": []
+    },
+    "essence_chests": {
+      "ok": true,
+      "disabled": [],
+      "errors": []
+    },
+    "essence_history": {
       "ok": true,
       "disabled": [],
       "errors": []
@@ -53,13 +57,6 @@
       "ok": true,
       "disabled": [],
       "errors": []
-    },
-    "player_listings": {
-      "ok": false,
-      "disabled": [],
-      "errors": [
-        "Cannot query field 'player' on type 'Query'. Did you mean 'players' or 'anyPlayer'?"
-      ]
     },
     "player_scores": {
       "ok": true,

@@ -7,7 +7,7 @@ REM   update_sorare.bat build      rebuild the workbook from stored data
 setlocal
 cd /d "%~dp0"
 
-echo Sorare Portfolio Terminal   build 2026-09-03.7
+echo Sorare Portfolio Terminal   build 2026-09-03.8
 
 REM Windows can "open" a zip without extracting it, running files from a
 REM temporary copy that it later deletes. Nothing done there survives, so stop.

@@ -315,7 +315,13 @@ All 12 queries now validate against the real schema.
 * **The rewards feed** - cash, gameweek, competition, lineup. 126 reward-related
   fields exist; picking the right ones needs a live response to read, not just
   the schema. Reward *cards* are already detected from the gallery.
-* **The Essence ledger.** The shard fields are known and the sheet is built; the
-  ingest module is the remaining work.
+* ~~The Essence ledger~~ - **done.** `cardShardsHistoryTransactions` takes a
+  required `rarity`, so Limited and Rare separate at the source, and each
+  entry's GraphQL type names where the Essence came from or went (gameweek
+  reward, craft pull, rejected craft, task, bid). `cardShardsChests` gives the
+  current balance per rarity. What the API does not tie together is a craft and
+  the card it produced - that link stays a manual line if you want it, though
+  crafted cards arrive in the gallery marked SHARDS and are valued
+  automatically.
 * **Deposits and withdrawals.** `bankWithdrawals` and the deposit mutations
   exist; the read side needs the same live look as rewards.

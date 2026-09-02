@@ -1,0 +1,35 @@
+# Essence (Sorare calls it card shards) earned and spent.
+#
+# filterBy takes CREDIT or DEBIT, so the ledger is pulled in two passes. The
+# __typename of each entry names where the Essence came from or went - a
+# gameweek reward, a craft pull, a rejected craft, a task - which is the
+# "source" column on the Essence sheet.
+#
+# rarity is a required argument, so Limited and Rare are separated at the
+# source rather than having to be attributed afterwards.
+query EssenceHistory(
+  $cursor: String
+  $filterBy: CardShardsHistoryTransactionFilter
+  $rarity: Rarity!
+  $sport: Sport!
+) {
+  currentUser {
+    cardShardsHistoryTransactions(
+      after: $cursor
+      filterBy: $filterBy
+      rarity: $rarity
+      sport: $sport
+    ) {
+      nodes {
+        __typename
+        id
+        date
+        label
+        description
+        totalQuantity
+        quantityByFlavour { slug displayName count }
+      }
+      pageInfo { endCursor hasNextPage }
+    }
+  }
+}

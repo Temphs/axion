@@ -21,6 +21,7 @@ from .excel.build_workbook import build_workbook
 from .excel.settings_sync import sync_settings
 from .export.exporter import export_all
 from .ingest.balances import ingest_balance
+from .ingest.essence import ingest_essence
 from .ingest.floors import ingest_floors
 from .ingest.gallery import ingest_gallery
 from .ingest.manual import ingest_manual
@@ -32,7 +33,7 @@ from .settings import load_settings
 
 log = logging.getLogger(__name__)
 
-MODULES = ("gallery", "balance", "transactions", "prices", "floors", "scores")
+MODULES = ("gallery", "balance", "transactions", "prices", "floors", "scores", "essence")
 
 
 @dataclass
@@ -154,6 +155,7 @@ def run_update(
                 ),
                 "floors": lambda: ingest_floors(client, connection),
                 "scores": lambda: ingest_scores(client, connection),
+                "essence": lambda: ingest_essence(client, connection),
             }
             for name in modules:
                 if name in runners:

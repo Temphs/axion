@@ -481,3 +481,44 @@ def test_secret_description_spots_paste_mistakes_without_leaking():
     assert "looks wrapped in quotes" in _describe('"quoted"')
     assert "has leading or trailing spaces" in _describe("trailing ")
     assert "still looks like a placeholder" in _describe("<your-password>")
+
+
+def test_essence_ledger_keeps_api_and_hand_typed_rows_apart(tmp_path):
+    """Both feed the same table, so each must only ever clear its own rows.
+
+    Without the key prefixes, one refresh would silently delete every craft the
+    user had typed in by hand.
+    """
+    from sorare_portfolio.ingest.essence import _event
+
+    node = {
+        "__typename": "So5RewardSource", "id": "tx-1", "date": "2026-04-02T09:00:00Z",
+        "label": "Champion Europe", "description": "Gameweek 42",
+        "totalQuantity": 750,
+        "quantityByFlavour": [{"slug": "premier-league", "displayName": "Premier League", "count": 750}],
+    }
+    event = _event(node, "limited", "EARN")
+    assert event["event_key"].startswith("api-")
+    assert event["scarcity"] == "LIMITED"
+    assert event["source"] == "gameweek reward"        # from the entry's type
+    assert event["amount"] == 750.0
+    assert event["flavor"] == "Premier League (750)"
+    assert event["occurred_on"] == "2026-04-02"
+    assert event["base_cost"] == 0.0                   # earning costs nothing
+
+    spend = _event({**node, "__typename": "CardPullSource", "id": "tx-2"}, "rare", "SPEND")
+    assert spend["source"] == "craft pull"
+    assert spend["base_cost"] == 750.0                 # a debit is what the craft cost
+
+    with db.session(tmp_path / "test.db") as connection:
+        db.upsert_many(connection, "essence_event", [event, spend], key="event_key")
+        db.upsert_many(
+            connection, "essence_event",
+            [{"event_key": "man-typed", "occurred_on": "2026-01-01", "direction": "SPEND",
+              "scarcity": "LIMITED", "amount": 1000.0, "source": "craft"}],
+            key="event_key",
+        )
+        # What the Essence ingest clears before rewriting its own rows:
+        connection.execute("DELETE FROM essence_event WHERE event_key LIKE 'api-%'")
+        remaining = [row["event_key"] for row in connection.execute("SELECT event_key FROM essence_event")]
+        assert remaining == ["man-typed"]

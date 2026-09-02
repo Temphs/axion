@@ -1,0 +1,12 @@
+# Current Essence balances, which is where the Limited / Rare split lives.
+query EssenceChests {
+  currentUser {
+    cardShardsChests(sport: FOOTBALL) {
+      id
+      rarity
+      cardShardsCount
+      maxCardShardsCount
+      poolKeyShardsCounts { slug displayName count }
+    }
+  }
+}

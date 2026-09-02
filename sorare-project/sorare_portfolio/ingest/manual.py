@@ -115,7 +115,7 @@ def ingest_manual(connection: sqlite3.Connection) -> dict[str, int]:
 
     essence = [
         {
-            "event_key": db.natural_key("essence", row.get("date"), row.get("direction"), row.get("amount"), index),
+            "event_key": "man-" + db.natural_key("essence", row.get("date"), row.get("direction"), row.get("amount"), index),
             "occurred_on": (row.get("date") or "").strip(),
             "direction": (row.get("direction") or "").strip().upper(),
             "source": row.get("source"),
@@ -134,7 +134,9 @@ def ingest_manual(connection: sqlite3.Connection) -> dict[str, int]:
         for index, row in enumerate(_rows(ESSENCE_CSV))
     ]
     counts["essence_events"] = len(essence)
-    connection.execute("DELETE FROM essence_event")
+    # Only the hand-typed rows: the Essence ledger pulled from Sorare lives in
+    # the same table under an "api-" key and must not be wiped by this.
+    connection.execute("DELETE FROM essence_event WHERE event_key LIKE 'man-%' OR event_key NOT LIKE 'api-%'")
     db.upsert_many(connection, "essence_event", essence, key="event_key")
 
     investments = [
