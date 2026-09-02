@@ -468,3 +468,16 @@ def test_trade_cash_is_never_treated_as_a_card_price():
     cash = rows[None]
     assert cash["txn_type"] == "DIRECT_OFFER_CASH"
     assert cash["eur"] == 50.0 and cash["side"] == "BUY"     # you added the cash
+
+
+def test_secret_description_spots_paste_mistakes_without_leaking():
+    """The sign-in check must describe a password, never reveal it."""
+    from sorare_portfolio.login_check import _describe
+
+    secret = "correct-horse-battery"
+    described = _describe(secret)
+    assert secret not in described
+    assert described == "21 characters"
+    assert "looks wrapped in quotes" in _describe('"quoted"')
+    assert "has leading or trailing spaces" in _describe("trailing ")
+    assert "still looks like a placeholder" in _describe("<your-password>")

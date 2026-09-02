@@ -166,7 +166,12 @@ def sign_in(*, interactive: bool = True) -> Credentials:
             "accept them, then run the updater again."
         )
     if messages:
-        raise AuthError(f"signIn rejected: {'; '.join(messages)}")
+        raise AuthError(
+            f"Sorare rejected the sign-in ({'; '.join(messages)}).\n"
+            "Double-click check_login.bat: it works out whether the email is unknown, "
+            "the account signs in with Google or Apple and so has no Sorare password, "
+            "or the password itself is wrong."
+        )
 
     challenge = result.get("otpSessionChallenge")
     if challenge:

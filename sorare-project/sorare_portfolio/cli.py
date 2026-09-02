@@ -30,12 +30,17 @@ def _load_env() -> None:
         pass
     import os
 
-    for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
+    for line in ENV_FILE.read_text(encoding="utf-8-sig").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip())
+        value = value.strip()
+        # Quotes around a value are a habit from other config formats. Sorare
+        # would receive them as part of the password, so strip a matched pair.
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        os.environ.setdefault(key.strip(), value)
 
 
 def command_update(args: argparse.Namespace) -> int:
@@ -103,6 +108,12 @@ def command_build(_: argparse.Namespace) -> int:
     return 0
 
 
+def command_login(_: argparse.Namespace) -> int:
+    from .login_check import run_check
+
+    return run_check()
+
+
 def command_demo(_: argparse.Namespace) -> int:
     """A full workbook from sample data, so you can look before you connect."""
     from .demo import seed
@@ -144,6 +155,9 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("build", help="rebuild the workbook only").set_defaults(func=command_build)
     subparsers.add_parser("demo", help="build a sample workbook from generated data").set_defaults(
         func=command_demo
+    )
+    subparsers.add_parser("login", help="work out why a sign-in is being rejected").set_defaults(
+        func=command_login
     )
 
     args = parser.parse_args(argv)

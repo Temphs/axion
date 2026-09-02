@@ -193,6 +193,7 @@ sorare-project\
   setup.bat                    one-time install
   edit_settings.bat            opens your login file in Notepad
   doctor.bat                   checks the queries against Sorare's schema
+  check_login.bat              works out why a sign-in was rejected
   demo.bat                     builds a sample workbook, no account needed
   enable_refresh_all.bat       optional: live Power Query tables
   .env                         your login (never shared, never committed)
@@ -215,7 +216,7 @@ fast as the tape grows into the hundreds of thousands of rows.
 
 | What you see | What to do |
 |---|---|
-| `Authentication failed` | Double-click `update_sorare.bat`; the 30-day token has expired, or 2FA needs a code. |
+| `Authentication failed` or `Sorare rejected the sign-in` | Double-click **`check_login.bat`**. It walks the same steps the updater takes and says which one broke: unknown email, an account that signs in with Google or Apple (so it has no Sorare password), or a wrong password. It never prints your password. |
 | A module says `FAILED` with an unknown-field error | Double-click `doctor.bat` again - it refreshes the schema when it is missing, and `update_sorare.bat doctor --refresh` forces a fresh copy. Sorare changes fields roughly monthly; the report prints the real signature to fix. |
 | `The workbook is open in Excel` | Close Excel, run the updater again. |
 | Holdings shows `LOW` confidence everywhere | The tape is still young. It fills in as the hourly runs accumulate sales. |
