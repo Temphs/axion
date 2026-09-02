@@ -64,10 +64,23 @@ def command_doctor(args: argparse.Namespace) -> int:
         print(exc)
         return 2
     print(format_report(capabilities))
-    failed = [name for name, result in capabilities["queries"].items() if not result["ok"]]
+
+    unused = set(capabilities.get("unused") or [])
+    failed = [
+        name
+        for name, result in capabilities["queries"].items()
+        if not result["ok"] and name not in unused
+    ]
     if failed:
         print(f"{len(failed)} quer{'y' if len(failed) == 1 else 'ies'} need attention: {', '.join(failed)}")
         print("The other modules will still run - each one degrades on its own.")
+    else:
+        print("Everything the updater uses checks out. Run update_sorare.bat next.")
+    if unused:
+        print(
+            f"Leftover query file(s) from an older version, safe to delete: "
+            f"{', '.join(sorted(unused))}"
+        )
     return 0
 
 

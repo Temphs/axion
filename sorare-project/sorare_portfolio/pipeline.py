@@ -132,6 +132,19 @@ def run_update(
 
         if credentials:
             client = SorareClient(credentials, max_calls=int(ingest_config["max_api_calls_per_run"]))
+
+            # One cheap call before pulling anything: it turns "something went
+            # wrong" into "signed in as <you>", which is the first thing worth
+            # knowing when a scheduled run misbehaves.
+            try:
+                from .ingest.common import render
+
+                who = client.execute(render("current_user"), {}, operation_name="CurrentUser")
+                nickname = (who.get("currentUser") or {}).get("nickname")
+                log.info("Signed in to Sorare as %s", nickname or credentials.user_slug)
+                db.set_meta(connection, "signed_in_as", nickname or credentials.user_slug)
+            except Exception as exc:
+                log.warning("Could not confirm the signed-in user: %s", exc)
             runners: dict[str, Callable[[], dict]] = {
                 "gallery": lambda: ingest_gallery(client, connection),
                 "balance": lambda: ingest_balance(client, connection),

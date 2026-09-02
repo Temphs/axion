@@ -161,3 +161,23 @@ def test_windows_scripts_keep_crlf_line_endings():
         data = script.read_bytes()
         bare_newlines = data.count(b"\n") - data.count(b"\r\n")
         assert bare_newlines == 0, f"{script.name} has {bare_newlines} Unix line endings"
+
+
+def test_doctor_separates_leftover_queries_from_broken_ones(tmp_path, monkeypatch):
+    """Updating in place leaves deleted files behind; that is not a failure.
+
+    Without this, a query removed in a new version sits in the folder forever
+    being reported as FAILED, and the report cries wolf about something the
+    updater no longer even asks for.
+    """
+    from sorare_portfolio import schema_doctor
+
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "gallery.graphql").write_text("query G { currentUser { slug } }")
+    (queries / "old_removed_thing.graphql").write_text("query O { nope { slug } }")
+    monkeypatch.setattr(schema_doctor, "QUERY_DIR", queries)
+
+    used = schema_doctor.referenced_queries()
+    assert "gallery" in used                       # named in the ingest modules
+    assert "old_removed_thing" not in used

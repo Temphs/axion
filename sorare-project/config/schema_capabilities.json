@@ -1,6 +1,13 @@
 {
   "schema_bytes": 861207,
-  "hints": {},
+  "hints": {
+    "player_listings": [
+      "player: Player!"
+    ]
+  },
+  "unused": [
+    "player_listings"
+  ],
   "queries": {
     "balances": {
       "ok": true,
@@ -13,11 +20,6 @@
       "errors": []
     },
     "gallery": {
-      "ok": true,
-      "disabled": [],
-      "errors": []
-    },
-    "live_auctions": {
       "ok": true,
       "disabled": [],
       "errors": []
@@ -51,6 +53,13 @@
       "ok": true,
       "disabled": [],
       "errors": []
+    },
+    "player_listings": {
+      "ok": false,
+      "disabled": [],
+      "errors": [
+        "Cannot query field 'player' on type 'Query'. Did you mean 'players' or 'anyPlayer'?"
+      ]
     },
     "player_scores": {
       "ok": true,

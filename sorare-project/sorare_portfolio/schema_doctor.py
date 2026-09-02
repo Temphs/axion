@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Iterable
 
@@ -213,6 +214,23 @@ def enum_values(schema_text: str, enum_name: str) -> list[str]:
     ]
 
 
+def referenced_queries() -> set[str]:
+    """Query files any module actually asks for.
+
+    Updating in place adds and replaces files but never deletes the ones a new
+    version dropped, so a stale query can sit in the folder and get reported as
+    broken forever. A query nothing references is not a failure - it is a
+    leftover, and saying so is more useful than saying FAILED.
+    """
+    package = Path(__file__).resolve().parent
+    sources = "\n".join(
+        path.read_text(encoding="utf-8") for path in package.rglob("*.py")
+    )
+    return {
+        path.stem for path in QUERY_DIR.glob("*.graphql") if f'"{path.stem}"' in sources
+    }
+
+
 def run_doctor(*, refresh: bool = False) -> dict:
     if refresh or not SCHEMA_FILE.exists():
         print(f"Downloading Sorare's schema from {SCHEMA_URL} ...")
@@ -235,9 +253,12 @@ def run_doctor(*, refresh: bool = False) -> dict:
         if not report.ok
     }
 
+    used = referenced_queries()
+
     capabilities = {
         "schema_bytes": len(schema_text),
         "hints": hints,
+        "unused": sorted(report.name for report in reports if report.name not in used),
         "queries": {
             report.name: {
                 "ok": report.ok,
@@ -266,8 +287,12 @@ def load_capabilities() -> dict:
 def format_report(capabilities: dict) -> str:
     lines = ["", "Schema doctor report", "=" * 60]
     queries = capabilities.get("queries", {})
+    unused = set(capabilities.get("unused") or [])
     for name, result in sorted(queries.items()):
-        if result["ok"] and not result["disabled"]:
+        if name in unused:
+            note = "left over from an older version - safe to delete" if not result["ok"] else "not used by any module"
+            lines.append(f"  UNUSED   {name}  ({note})")
+        elif result["ok"] and not result["disabled"]:
             lines.append(f"  OK       {name}")
         elif result["ok"]:
             lines.append(f"  PARTIAL  {name}  (dropped: {', '.join(result['disabled'])})")
