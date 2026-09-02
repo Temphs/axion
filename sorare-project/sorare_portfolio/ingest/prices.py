@@ -1,21 +1,30 @@
-"""The price tape: completed public sales, accumulated run after run.
+"""The price tape: completed public sales.
 
-`tokenPrices` returns only the most recent handful of sales per player and
-rarity, so no single call can give you a 30- or 90-day history. The tape is
-built by asking often and de-duplicating: every run appends what it has not seen
-before. This is why the updater is meant to run hourly.
+`tokens.tokenPrices` accepts a `from` date, so the first run backfills a whole
+window in one call per position rather than only catching the latest handful.
+After that each run asks for sales since the newest print it already holds, and
+de-duplicates on a natural key - so running hourly is cheap, and running rarely
+costs you resolution but not history.
+
+`deal` names the venue each sale happened on, which is what lets fair value
+count genuine secondary-market trades and leave auctions and instant buys out.
 """
 
 from __future__ import annotations
 
 import logging
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .. import db
 from ..client import BudgetExhausted, SorareApiError, SorareClient
 from ..schema_doctor import load_capabilities
 from .common import current_season_year, iso, money_eur, normalise_type, render, wei_of
+
+# How far back the first run reaches. Everything after that is incremental.
+BACKFILL_DAYS = 90
+MAX_PRINTS_PER_CALL = 200
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +51,37 @@ def tracked_positions(connection: sqlite3.Connection, extra_slugs: list[str]) ->
     return sorted(positions)
 
 
+def sale_type_of(deal: dict[str, Any] | None) -> str:
+    """Which venue a completed sale happened on.
+
+    TokenDeal is a union, so the __typename separates auctions and instant buys
+    from manager-to-manager offers, and OfferType then separates a listing from
+    an accepted buy offer or a direct offer.
+    """
+    if not deal:
+        return "UNKNOWN"
+    kind = deal.get("__typename")
+    if kind == "TokenAuction":
+        return "AUCTION"
+    if kind == "TokenPrimaryOffer":
+        return "INSTANT_BUY"
+    if kind == "TokenOffer":
+        return normalise_type(deal.get("type"), default="MANAGER_SALE")
+    return "UNKNOWN"
+
+
+def _since(connection: sqlite3.Connection, player_slug: str, rarity: str) -> str:
+    """Ask only for sales newer than the newest one already stored."""
+    row = connection.execute(
+        "SELECT MAX(occurred_at) AS latest FROM price_obs WHERE player_slug = ? AND rarity = ?",
+        (player_slug, rarity),
+    ).fetchone()
+    latest = row["latest"] if row else None
+    if latest:
+        return latest
+    return (datetime.now(timezone.utc) - timedelta(days=BACKFILL_DAYS)).isoformat(timespec="seconds")
+
+
 def _observation(node: dict[str, Any], player_slug: str, rarity: str) -> dict | None:
     price = money_eur(node.get("amounts"))
     occurred_at = iso(node.get("date"))
@@ -49,21 +89,25 @@ def _observation(node: dict[str, Any], player_slug: str, rarity: str) -> dict | 
         return None
     card = node.get("card") or {}
     season_year = card.get("seasonYear")
+    in_season = card.get("inSeasonEligible")
     return {
         "obs_key": db.natural_key("tokenPrices", player_slug, rarity, occurred_at, price, card.get("slug")),
         "player_slug": player_slug,
         "rarity": rarity,
         "season_year": season_year,
         "season_class": (
-            "IN_SEASON"
-            if season_year is not None and int(season_year) == current_season_year()
-            else ("CLASSIC" if season_year is not None else "UNKNOWN")
+            ("IN_SEASON" if in_season else "CLASSIC")
+            if in_season is not None
+            else (
+                "IN_SEASON"
+                if season_year is not None and int(season_year) == current_season_year()
+                else ("CLASSIC" if season_year is not None else "UNKNOWN")
+            )
         ),
         "occurred_at": occurred_at,
         "eur": price,
         "wei": wei_of(node.get("amounts")),
-        # `deal` names the venue (auction vs single sale offer) where available.
-        "sale_type": normalise_type(node.get("deal"), default="UNKNOWN"),
+        "sale_type": sale_type_of(node.get("deal")),
         "card_slug": card.get("slug"),
         "source": "tokenPrices",
         "first_seen": db.utcnow(),
@@ -85,7 +129,12 @@ def ingest_prices(
         try:
             data = client.execute(
                 query,
-                {"playerSlug": player_slug, "rarity": rarity_argument(rarity)},
+                {
+                    "playerSlug": player_slug,
+                    "rarity": rarity_argument(rarity),
+                    "from": _since(connection, player_slug, rarity),
+                    "first": MAX_PRINTS_PER_CALL,
+                },
                 operation_name="TokenPrices",
             )
         except BudgetExhausted:
@@ -98,7 +147,7 @@ def ingest_prices(
                 break
             continue
 
-        for node in data.get("tokenPrices") or []:
+        for node in (data.get("tokens") or {}).get("tokenPrices") or []:
             observation = _observation(node, player_slug, rarity)
             if observation:
                 observations.append(observation)

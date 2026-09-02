@@ -1,11 +1,21 @@
-# Last public prices (auction or single-sale offer) for one player + rarity.
-# Sorare returns only the most recent handful, which is why the updater must run
-# often: the local tape is accumulated from these snapshots over time.
-query TokenPrices($playerSlug: String!, $rarity: Rarity!) {
-  tokenPrices(playerSlug: $playerSlug, rarity: $rarity) {
-    date
-    amounts { wei eur }
-    deal                                               # @opt TokenPrice.deal
-    card { slug seasonYear serialNumber }              # @opt TokenPrice.card
+# Completed public sales for one player and rarity.
+#
+# The `from` argument is the important one: it takes a date, so the tape can be
+# backfilled over a window rather than only picking up the most recent handful.
+# `deal` says which venue the sale happened on, which is what lets fair value
+# exclude auctions and instant buys.
+query TokenPrices($playerSlug: String!, $rarity: Rarity!, $from: ISO8601DateTime, $first: Int) {
+  tokens {
+    tokenPrices(playerSlug: $playerSlug, rarity: $rarity, from: $from, first: $first) {
+      date
+      amounts { wei eurCents }
+      deal {
+        __typename
+        ... on TokenOffer { id type }
+        ... on TokenAuction { id }
+        ... on TokenPrimaryOffer { id }
+      }
+      card { slug seasonYear serialNumber inSeasonEligible }
+    }
   }
 }

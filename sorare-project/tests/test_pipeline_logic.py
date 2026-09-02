@@ -22,8 +22,10 @@ from sorare_portfolio.transform import investments, liquidity, pnl, valuation  #
 
 
 def test_amounts_are_cents():
-    assert common.money_eur({"eur": 12500}) == 125.00
-    assert common.money_eur({"eur": 0}) == 0.0
+    """MonetaryAmount reports cents: eurCents 12500 is EUR 125.00."""
+    assert common.money_eur({"eurCents": 12500, "wei": "1"}) == 125.00
+    assert common.money_eur({"eurCents": 0}) == 0.0
+    assert common.money_eur({"wei": "1"}) is None      # crypto-only sale, no fiat figure
     assert common.money_eur(None) is None
 
 
@@ -38,12 +40,55 @@ def test_season_class_follows_the_football_season():
 
 
 def test_transaction_types_map_to_the_five_categories():
+    """Against Sorare's real OwnerTransfer and OfferType enums."""
     assert common.normalise_type("SINGLE_SALE_OFFER") == "MANAGER_SALE"
     assert common.normalise_type("single_buy_offer") == "ACCEPTED_BUY_OFFER"
-    assert common.normalise_type("TokenPrimaryOffer".upper()) == "INSTANT_BUY"
+    assert common.normalise_type("ENGLISH_AUCTION") == "AUCTION"
+    assert common.normalise_type("BUNDLED_ENGLISH_AUCTION") == "AUCTION"
+    assert common.normalise_type("INSTANT_BUY") == "INSTANT_BUY"
     assert common.normalise_type("DIRECT_OFFER") == "DIRECT_OFFER"
+    # Arrivals that are not purchases keep their own identity: an Essence craft
+    # must not be filed as a reward, nor either of them as a trade.
+    assert common.normalise_type("SHARDS") == "SHARD_CRAFT"
+    assert common.normalise_type("REWARD") == "REWARD"
+    assert "SHARD_CRAFT" in common.NON_PURCHASE_TYPES and "REWARD" in common.NON_PURCHASE_TYPES
+    assert "MANAGER_SALE" not in common.NON_PURCHASE_TYPES
     # An unknown type is kept, not silently dropped into another bucket.
     assert common.normalise_type("SOMETHING_NEW") == "SOMETHING_NEW"
+
+
+def test_sale_venue_comes_from_the_deal_union():
+    """TokenDeal's __typename separates auctions and instant buys from offers."""
+    from sorare_portfolio.ingest.prices import sale_type_of
+
+    assert sale_type_of({"__typename": "TokenAuction", "id": "1"}) == "AUCTION"
+    assert sale_type_of({"__typename": "TokenPrimaryOffer", "id": "2"}) == "INSTANT_BUY"
+    assert sale_type_of({"__typename": "TokenOffer", "type": "SINGLE_SALE_OFFER"}) == "MANAGER_SALE"
+    assert sale_type_of({"__typename": "TokenOffer", "type": "SINGLE_BUY_OFFER"}) == "ACCEPTED_BUY_OFFER"
+    assert sale_type_of({"__typename": "TokenOffer", "type": "DIRECT_OFFER"}) == "DIRECT_OFFER"
+    assert sale_type_of(None) == "UNKNOWN"
+
+
+def test_form_is_derived_from_the_match_list():
+    """L5/L10/L40 and the starter share all come from so5Scores."""
+    from sorare_portfolio.ingest.scores import _score_rows
+
+    player = {
+        "slug": "p",
+        "so5Scores": [
+            {"score": 60.0, "game": {"date": "2026-05-01T18:00:00Z"},
+             "playerGameStats": {"minsPlayed": 90, "gameStarted": 1, "onGameSheet": True}},
+            {"score": 20.0, "game": {"date": "2026-05-08T18:00:00Z"},
+             "playerGameStats": {"minsPlayed": 12, "gameStarted": 0, "onGameSheet": True}},
+            None,
+        ],
+    }
+    rows = _score_rows(player)
+    assert len(rows) == 2
+    assert [row["started"] for row in rows] == [1, 0]
+    assert rows[0]["minutes"] == 90
+    assert rows[0]["played_at"] == "2026-05-01T18:00:00+00:00"
+    assert len({row["score_key"] for row in rows}) == 2
 
 
 def test_optional_fields_are_stripped_by_capability_key():
@@ -249,3 +294,102 @@ def test_schema_download_writes_the_file_and_rejects_a_non_schema(tmp_path, monk
     with pytest.raises(schema_doctor.SchemaDownloadError, match="not a GraphQL schema"):
         schema_doctor.download_schema(target)
     assert "type Query" in target.read_text()      # the good copy is not clobbered
+
+
+class FakeClient:
+    """Stands in for the API, returning payloads shaped like the real schema.
+
+    The point is the shape: response paths, cents, and the enum spellings taken
+    from Sorare's published schema. It catches a mis-keyed response path, which
+    is the failure that otherwise only shows up against the live API.
+    """
+
+    def __init__(self, pages=(), execute_result=None):
+        self.pages = list(pages)
+        self.execute_result = execute_result or {}
+        self.calls = []
+
+    def paginate(self, query, variables, *, path, operation_name=None, snapshot=None, page_limit=200):
+        self.calls.append(("paginate", path, variables))
+        yield from self.pages
+
+    def execute(self, query, variables=None, *, operation_name=None, snapshot=None, tolerate_errors=False):
+        self.calls.append(("execute", operation_name, variables))
+        return self.execute_result
+
+
+def _card_node(slug, transfer_type, cents, *, in_season=True):
+    return {
+        "slug": slug, "assetId": "0x1", "rarityTyped": "limited", "seasonYear": 2025,
+        "serialNumber": 12, "anyPositions": ["Goalkeeper"], "xp": 100, "grade": 1,
+        "inSeasonEligible": in_season,
+        "anyPlayer": {
+            "slug": "keeper", "displayName": "A Keeper", "age": 29,
+            "activeClub": {"slug": "club", "name": "A Club",
+                           "domesticLeague": {"displayName": "Premier League"}},
+        },
+        "anyTeam": {"name": "A Club"},
+        "tokenOwner": {"from": "2026-01-05T10:00:00Z", "transferType": transfer_type,
+                       "amounts": {"wei": "1", "eurCents": cents}},
+    }
+
+
+def test_gallery_ingest_reads_cost_and_arrival_type_from_the_schema(tmp_path):
+    from sorare_portfolio.ingest.gallery import ingest_gallery
+
+    client = FakeClient(pages=[
+        _card_node("bought-card", "ENGLISH_AUCTION", 4550),
+        _card_node("reward-card", "REWARD", 0, in_season=False),
+        _card_node("crafted-card", "SHARDS", 0),
+    ])
+    with db.session(tmp_path / "test.db") as connection:
+        result = ingest_gallery(client, connection)
+        assert result["cards_seen"] == 3
+
+        cards = {row["slug"]: row for row in connection.execute("SELECT * FROM card")}
+        assert cards["bought-card"]["acquisition_eur"] == 45.50      # cents -> euros
+        assert cards["bought-card"]["acquisition_type"] == "AUCTION"
+        assert cards["bought-card"]["season_class"] == "IN_SEASON"
+        assert cards["reward-card"]["acquisition_type"] == "REWARD"
+        assert cards["reward-card"]["season_class"] == "CLASSIC"
+        assert cards["crafted-card"]["acquisition_type"] == "SHARD_CRAFT"
+
+        player = connection.execute("SELECT * FROM player").fetchone()
+        assert player["club_name"] == "A Club" and player["league"] == "Premier League"
+
+        # Only the purchase is a cash buy: a reward and a craft cost nothing and
+        # must never enter cost basis as if they had.
+        txns = {row["card_slug"]: row for row in connection.execute("SELECT * FROM txn")}
+        assert txns["bought-card"]["side"] == "BUY" and txns["bought-card"]["is_cash_trade"] == 1
+        assert txns["reward-card"]["side"] == "RECEIVE" and txns["reward-card"]["is_cash_trade"] == 0
+        assert txns["crafted-card"]["side"] == "RECEIVE"
+
+
+def test_price_tape_reads_the_tokens_root_and_asks_only_for_new_sales(tmp_path):
+    from sorare_portfolio.ingest import prices
+
+    payload = {"tokens": {"tokenPrices": [
+        {"date": "2026-05-02T12:00:00Z", "amounts": {"wei": "1", "eurCents": 1999},
+         "deal": {"__typename": "TokenOffer", "type": "SINGLE_SALE_OFFER"},
+         "card": {"slug": "c1", "seasonYear": 2025, "serialNumber": 3, "inSeasonEligible": True}},
+        {"date": "2026-05-03T12:00:00Z", "amounts": {"wei": "1", "eurCents": 2500},
+         "deal": {"__typename": "TokenAuction"},
+         "card": {"slug": "c2", "seasonYear": 2023, "serialNumber": 4, "inSeasonEligible": False}},
+    ]}}
+    client = FakeClient(execute_result=payload)
+    with db.session(tmp_path / "test.db") as connection:
+        db.upsert_many(connection, "player", [{"slug": "keeper", "display_name": "A Keeper"}],
+                       key="slug")
+        db.upsert_many(connection, "card", [{"slug": "c1", "player_slug": "keeper",
+                                             "rarity": "limited", "owned": 1}], key="slug")
+        result = prices.ingest_prices(client, connection)
+        assert result["tape_new"] == 2
+
+        rows = {row["eur"]: row for row in connection.execute("SELECT * FROM price_obs")}
+        assert rows[19.99]["sale_type"] == "MANAGER_SALE"
+        assert rows[19.99]["season_class"] == "IN_SEASON"
+        assert rows[25.0]["sale_type"] == "AUCTION"
+        assert rows[25.0]["season_class"] == "CLASSIC"
+
+        # The next run asks only for sales newer than the newest one held.
+        assert prices._since(connection, "keeper", "limited") == "2026-05-03T12:00:00+00:00"

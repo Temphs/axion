@@ -6,10 +6,12 @@ query LiveAuctions($cursor: String) {
         currentPrice
         endDate
         minNextBid
+        bestBid { amounts { wei eurCents } }
         anyCards {
           slug
           rarityTyped
           seasonYear
+          inSeasonEligible
           anyPlayer { slug displayName }
         }
       }

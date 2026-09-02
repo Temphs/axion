@@ -1,0 +1,7 @@
+# Your Sorare cash balance. Amounts are in cents.
+query Balances {
+  currentUser {
+    slug
+    availableBalances { eurCents { eurCents wei } }
+  }
+}

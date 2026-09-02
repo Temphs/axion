@@ -4,13 +4,18 @@ query MySoldSingleSaleOffers($cursor: String) {
     soldSingleSaleTokenOffers(after: $cursor) {
       nodes {
         id
-        endDate                                        # @opt TokenOffer.endDate
-        acceptedAt                                     # @opt TokenOffer.acceptedAt
+        type
+        status
+        acceptedAt
+        endDate
         senderSide {
-          amounts { wei eur }
-          anyCards { slug rarityTyped seasonYear serialNumber anyPlayer { slug displayName } }
+          amounts { wei eurCents }
+          anyCards {
+            slug rarityTyped seasonYear serialNumber inSeasonEligible
+            anyPlayer { slug displayName }
+          }
         }
-        receiver { ... on User { slug nickname } }     # @opt TokenOffer.receiver
+        userBuyer { slug nickname }
       }
       pageInfo { endCursor hasNextPage }
     }

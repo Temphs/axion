@@ -3,8 +3,8 @@
 Two conventions are documented here because they are the easiest thing in the
 whole project to get quietly wrong:
 
-* Monetary amounts. Sorare returns fiat amounts in minor units (cents), so 12500
-  means EUR 125.00. Everything downstream stores and displays major units.
+* Monetary amounts. MonetaryAmount carries `eurCents`, so 12500 means EUR
+  125.00. Everything downstream stores and displays major units.
 * Season class. A card is In-Season when its season year matches the football
   season currently running (which starts in August), otherwise Classic. When the
   schema exposes an explicit eligibility flag the doctor enables it and that
@@ -19,26 +19,36 @@ from typing import Any
 from ..client import load_query
 from ..schema_doctor import load_capabilities, strip_optional
 
+# Sorare's OwnerTransfer and OfferType enums, taken from the schema, mapped onto
+# the transaction types on the Transactions sheet. Anything unrecognised is kept
+# verbatim rather than silently binned into the wrong bucket.
 TRANSFER_TYPE_MAP = {
-    # Sorare's own vocabulary -> the five transaction types on the Transactions
-    # sheet. Anything unrecognised is kept verbatim rather than silently binned.
-    "TOKEN_AUCTION": "AUCTION",
-    "TOKENAUCTION": "AUCTION",
-    "AUCTION": "AUCTION",
     "ENGLISH_AUCTION": "AUCTION",
-    "TOKEN_PRIMARY_OFFER": "INSTANT_BUY",
-    "TOKENPRIMARYOFFER": "INSTANT_BUY",
-    "PRIMARY_OFFER": "INSTANT_BUY",
+    "BUNDLED_ENGLISH_AUCTION": "AUCTION",
+    "TOKENAUCTION": "AUCTION",
     "INSTANT_BUY": "INSTANT_BUY",
+    "TOKENPRIMARYOFFER": "INSTANT_BUY",
     "SINGLE_SALE_OFFER": "MANAGER_SALE",
-    "SINGLESALEOFFER": "MANAGER_SALE",
     "SINGLE_BUY_OFFER": "ACCEPTED_BUY_OFFER",
-    "SINGLEBUYOFFER": "ACCEPTED_BUY_OFFER",
     "DIRECT_OFFER": "DIRECT_OFFER",
-    "DIRECTOFFER": "DIRECT_OFFER",
+    # Cards that arrived without a purchase: each is a different story and the
+    # dashboard treats them differently, so they keep their own names.
     "REWARD": "REWARD",
-    "CLAIM": "REWARD",
+    "SHARDS": "SHARD_CRAFT",
+    "PACK": "PACK",
+    "MINT": "MINT",
+    "REFERRAL": "REFERRAL",
+    "LOAN": "LOAN",
+    "TRANSFER": "TRANSFER",
+    "DEPOSIT": "DEPOSIT",
+    "WITHDRAWAL": "WITHDRAWAL",
 }
+
+# Ways a card can arrive that are not a purchase, so cost basis must not treat
+# them as one.
+NON_PURCHASE_TYPES = frozenset(
+    {"REWARD", "SHARD_CRAFT", "PACK", "MINT", "REFERRAL", "LOAN", "TRANSFER", "DEPOSIT"}
+)
 
 
 def render(name: str) -> str:
@@ -48,10 +58,10 @@ def render(name: str) -> str:
 
 
 def money_eur(amounts: dict[str, Any] | None) -> float | None:
-    """EUR major units from a Sorare amounts object (which uses cents)."""
+    """EUR major units from a MonetaryAmount, which reports cents."""
     if not amounts:
         return None
-    value = amounts.get("eur")
+    value = amounts.get("eurCents")
     if value is None:
         return None
     try:
@@ -110,14 +120,13 @@ def player_row(player: dict[str, Any] | None, team: dict[str, Any] | None = None
     if not player or not player.get("slug"):
         return None
     club = player.get("activeClub") or team or {}
+    league = club.get("domesticLeague") or {}
     return {
         "slug": player["slug"],
         "display_name": player.get("displayName"),
         "club_slug": club.get("slug"),
         "club_name": club.get("name"),
-        "league": club.get("domesticLeague", {}).get("displayName")
-        if isinstance(club.get("domesticLeague"), dict)
-        else None,
+        "league": league.get("displayName") if isinstance(league, dict) else None,
         "position": None,
         "age": player.get("age"),
     }

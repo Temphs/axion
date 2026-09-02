@@ -6,8 +6,15 @@ query MyWonAuctions($cursor: String) {
         id
         endDate
         currentPrice
-        bestBid { amounts { wei eur } }                # @opt TokenAuction.bestBid
-        anyCards { slug rarityTyped seasonYear serialNumber anyPlayer { slug displayName } }
+        bestBid { amounts { wei eurCents } }
+        anyCards {
+          slug
+          rarityTyped
+          seasonYear
+          serialNumber
+          inSeasonEligible
+          anyPlayer { slug displayName }
+        }
       }
       pageInfo { endCursor hasNextPage }
     }

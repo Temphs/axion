@@ -13,7 +13,17 @@ from typing import Any
 
 from .. import db
 from ..client import SorareClient
-from .common import iso, money_eur, normalise_type, player_row, rarity_of, render, season_class, wei_of
+from .common import (
+    NON_PURCHASE_TYPES,
+    iso,
+    money_eur,
+    normalise_type,
+    player_row,
+    rarity_of,
+    render,
+    season_class,
+    wei_of,
+)
 
 log = logging.getLogger(__name__)
 
@@ -24,10 +34,11 @@ def _card_rows(node: dict[str, Any], seen_at: str) -> tuple[dict, dict | None, d
     amounts = owner.get("amounts") or {}
     acquired_at = iso(owner.get("from"))
     price = money_eur(amounts)
+    # tokenOwner.transferType is Sorare's own OwnerTransfer enum, so how a card
+    # arrived is read rather than guessed: REWARD, SHARDS (an Essence craft),
+    # PACK and the rest each say exactly what happened.
     acquisition_type = normalise_type(owner.get("transferType"), default="UNKNOWN")
-
-    # A card that arrived at zero cost is a reward or a craft, not a purchase.
-    if (price is None or price == 0) and acquisition_type == "UNKNOWN":
+    if acquisition_type == "UNKNOWN" and (price is None or price == 0):
         acquisition_type = "REWARD_OR_CRAFT"
 
     positions = node.get("anyPositions") or []
@@ -57,7 +68,7 @@ def _card_rows(node: dict[str, Any], seen_at: str) -> tuple[dict, dict | None, d
 
     transaction = None
     if card["slug"] and acquired_at:
-        is_purchase = acquisition_type not in ("REWARD_OR_CRAFT", "REWARD")
+        is_purchase = acquisition_type not in NON_PURCHASE_TYPES and acquisition_type != "REWARD_OR_CRAFT"
         transaction = {
             "txn_key": db.natural_key("owner", card["slug"], acquired_at),
             "source_id": card["slug"],
@@ -67,7 +78,7 @@ def _card_rows(node: dict[str, Any], seen_at: str) -> tuple[dict, dict | None, d
             "rarity": card["rarity"],
             "season_year": card["season_year"],
             "season_class": card["season_class"],
-            "txn_type": acquisition_type if is_purchase else "REWARD",
+            "txn_type": acquisition_type,
             "side": "BUY" if is_purchase else "RECEIVE",
             "quantity": 1,
             "eur": price or 0.0,

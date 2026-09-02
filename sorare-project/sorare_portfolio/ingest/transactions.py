@@ -103,7 +103,7 @@ def _parse_bought_offer(node: dict[str, Any]) -> list[dict]:
         occurred_at=iso(node.get("acceptedAt") or node.get("endDate")),
         txn_type="MANAGER_SALE",
         side="BUY",
-        counterparty=_first_user(node.get("sender")),
+        counterparty=_first_user(node.get("userSeller")),
         source="bought_offer",
     )
 
@@ -117,7 +117,7 @@ def _parse_sold_offer(node: dict[str, Any]) -> list[dict]:
         occurred_at=iso(node.get("acceptedAt") or node.get("endDate")),
         txn_type="MANAGER_SALE",
         side="SELL",
-        counterparty=_first_user(node.get("receiver")),
+        counterparty=_first_user(node.get("userBuyer")),
         source="sold_offer",
     )
 
@@ -129,16 +129,20 @@ def _parse_ended_offer(node: dict[str, Any], *, sent: bool) -> list[dict]:
     Card-for-card legs are recorded with is_cash_trade = 0 so a swap never lands
     in realised P/L as if it were a sale.
     """
+    # TokenOffer.status is a free-text string and acceptedAt is the reliable
+    # signal: an offer that was never accepted is not a transaction.
     status = str(node.get("status") or "").upper()
     accepted_at = iso(node.get("acceptedAt"))
-    if not accepted_at and status not in ("ACCEPTED", "ENDED_ACCEPTED"):
+    if not accepted_at and "ACCEPT" not in status:
         return []
 
     offer_type = normalise_type(node.get("type"), default="DIRECT_OFFER")
     occurred_at = accepted_at or iso(node.get("endDate"))
     sender_side = node.get("senderSide") or {}
     receiver_side = node.get("receiverSide") or {}
-    counterparty = _first_user(node.get("receiver") if sent else node.get("sender"))
+    counterparty = _first_user(node.get("userBuyer") if sent else node.get("userSeller")) or _first_user(
+        node.get("userSeller") if sent else node.get("userBuyer")
+    )
 
     rows: list[dict] = []
     # Cards leaving the sender's side; you are the sender when `sent` is true.

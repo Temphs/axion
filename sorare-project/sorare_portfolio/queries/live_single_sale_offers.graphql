@@ -1,18 +1,20 @@
-# Live manager listings - the raw material for floor prices.
-query LiveSingleSaleOffers($cursor: String) {
+# Live manager listings - the raw material for floor prices. Pass a playerSlug
+# to price one position cheaply; leave it out to sweep the whole market.
+query LiveSingleSaleOffers($cursor: String, $playerSlug: String) {
   tokens {
-    liveSingleSaleOffers(after: $cursor) {
+    liveSingleSaleOffers(after: $cursor, playerSlug: $playerSlug) {
       nodes {
         id
         startDate
         endDate
         senderSide {
-          amounts { wei eur }
+          amounts { wei eurCents }
           anyCards {
             slug
             rarityTyped
             seasonYear
             serialNumber
+            inSeasonEligible
             anyPlayer { slug displayName }
           }
         }

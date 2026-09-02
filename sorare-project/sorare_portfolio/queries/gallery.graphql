@@ -1,9 +1,9 @@
 # Your gallery, page by page. `cards` replaced `paginatedCards`, which Sorare
-# removed - see docs/ARCHITECTURE.md.
+# removed. Fiat amounts are in cents (MonetaryAmount.eurCents).
 #
 # Lines tagged "# @opt <Type>.<field>" are dropped automatically when the schema
-# doctor (or a live error) says the field is not available, so the core pull
-# keeps working when Sorare changes a peripheral field.
+# doctor says the field is not available, so a peripheral change at Sorare
+# cannot stop the core pull.
 query Gallery($cursor: String) {
   currentUser {
     cards(after: $cursor) {
@@ -14,20 +14,22 @@ query Gallery($cursor: String) {
         seasonYear
         serialNumber
         anyPositions
-        xp                                             # @opt Card.xp
-        grade                                          # @opt Card.grade
-        inSeasonEligible                               # @opt Card.inSeasonEligible
+        xp
+        grade
+        inSeasonEligible
+        ownerSince                                     # @opt Card.ownerSince
+        publicMinPrices { eurCents }                   # @opt Card.publicMinPrices
         anyPlayer {
           slug
           displayName
-          age                                          # @opt Player.age
-          activeClub { slug name }                     # @opt Player.activeClub
+          age
+          activeClub { slug name domesticLeague { displayName } }
         }
-        anyTeam { slug name }                          # @opt Card.anyTeam
+        anyTeam { name }
         tokenOwner {
           from
-          transferType                                 # @opt TokenOwner.transferType
-          amounts { wei eur }
+          transferType
+          amounts { wei eurCents }
         }
       }
       pageInfo {

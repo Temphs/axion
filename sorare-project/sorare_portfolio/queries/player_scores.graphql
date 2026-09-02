@@ -1,15 +1,19 @@
-# Player form. Sorare does not document these fields, so every one of them is
-# optional: whatever your schema actually has survives the doctor, the rest is
-# dropped and the L5/L10/L40 columns simply stay blank.
+# Player form. so5Scores is the per-match list, which is where L5, L10, L40 and
+# the starter share are derived from - one source, so the three averages can
+# never disagree with each other.
 #
-# Run `update_sorare.bat doctor` and read the "scores" line of the discovery
-# report - it lists the real score-related field names in your schema, which is
-# what to put here if these guesses do not match.
-query PlayerScores($slug: String!) {
-  player(slug: $slug) {
+# `players` returns the cross-sport interface, so the football-only scoring
+# fields need an inline fragment on Player.
+query PlayerScores($slugs: [String!]!) {
+  players(slugs: $slugs) {
     slug
-    lastFiveSo5AverageScore                            # @opt Player.lastFiveSo5AverageScore
-    lastFifteenSo5AverageScore                         # @opt Player.lastFifteenSo5AverageScore
-    lastFifteenSo5Appearances                          # @opt Player.lastFifteenSo5Appearances
+    displayName
+    ... on Player {
+      so5Scores(last: 40) {
+        score
+        game { date }
+        playerGameStats { minsPlayed gameStarted onGameSheet }
+      }
+    }
   }
 }

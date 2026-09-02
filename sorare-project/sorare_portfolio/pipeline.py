@@ -20,6 +20,7 @@ from .client import BudgetExhausted, SorareClient
 from .excel.build_workbook import build_workbook
 from .excel.settings_sync import sync_settings
 from .export.exporter import export_all
+from .ingest.balances import ingest_balance
 from .ingest.floors import ingest_floors
 from .ingest.gallery import ingest_gallery
 from .ingest.manual import ingest_manual
@@ -31,7 +32,7 @@ from .settings import load_settings
 
 log = logging.getLogger(__name__)
 
-MODULES = ("gallery", "transactions", "prices", "floors", "scores")
+MODULES = ("gallery", "balance", "transactions", "prices", "floors", "scores")
 
 
 @dataclass
@@ -133,6 +134,7 @@ def run_update(
             client = SorareClient(credentials, max_calls=int(ingest_config["max_api_calls_per_run"]))
             runners: dict[str, Callable[[], dict]] = {
                 "gallery": lambda: ingest_gallery(client, connection),
+                "balance": lambda: ingest_balance(client, connection),
                 "transactions": lambda: ingest_transactions(client, connection),
                 "prices": lambda: ingest_prices(
                     client, connection, extra_slugs=list(ingest_config["extra_player_slugs"])

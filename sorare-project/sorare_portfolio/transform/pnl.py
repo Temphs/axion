@@ -126,7 +126,15 @@ def headline_numbers(
     deposits = float(flows[flows["direction"] == "DEPOSIT"]["amount_eur"].sum()) if not flows.empty else 0.0
     withdrawals = float(flows[flows["direction"] == "WITHDRAWAL"]["amount_eur"].sum()) if not flows.empty else 0.0
 
+    # The live balance wins when the API gave us one; the Settings cell is the
+    # fallback, and stays the override for anyone who prefers it.
     cash = float(settings.get("account", {}).get("cash_balance_eur", 0.0) or 0.0)
+    live = connection.execute("SELECT value FROM meta WHERE key = 'cash_balance_eur'").fetchone()
+    if live and live["value"]:
+        try:
+            cash = float(live["value"])
+        except ValueError:
+            pass
     discount = float(settings["valuation"]["quick_sale_discount"])
 
     if positions.empty:

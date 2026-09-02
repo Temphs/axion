@@ -278,25 +278,44 @@ assumption changed in Excel is honoured by the very next run, and the comments i
 the YAML file survive because values are rewritten line by line rather than
 re-serialised.
 
-### Still open, pending the schema doctor's first run on your machine
+### Resolved by the schema doctor's first real run
 
-* **Player form (L5 / L10 / L40, starter %).** `queries/player_scores.graphql`
-  contains best-guess field names, all marked optional. Run the doctor and read
-  the `scores` line of its discovery report: it lists the real score-related
-  field names in your schema. The transform already derives L5/L10/L40 and
-  starter % from per-match scores as soon as anything populates `player_score`.
-* **Rewards.** Reward *cards* no longer wait on the API: any card that arrived
-  in your gallery with no purchase price is detected as a reward, dated, and
-  priced at today's market by the same engine as the rest of the portfolio
-  (`transform/rewards.py`). Its value at receipt is deliberately left empty
-  rather than guessed, so it can never inflate total rewards earned. Crafted
-  cards are excluded by cross-referencing the Essence ledger, so nothing is
-  counted twice. What still waits on the doctor is the reward *feed* - cash
-  amounts, gameweek, competition and lineup - because those field names are
-  undocumented; the doctor's `rewards` discovery line names them.
-* **Cash balance and fiat cash flow.** Balance is a Settings cell; deposits and
-  withdrawals come from `manual/cash_flows.csv`. If the doctor's `balances`
-  discovery finds a usable field, that becomes a five-line ingest module.
-* **Essence.** Nothing in Sorare's public API, so the ledger is manual by design.
-  Everything downstream of it - EUR per 1,000, value by draw type, craft ROI -
-  is built and works off that ledger.
+The doctor ran against Sorare's published schema on 1 September 2026 and settled
+every open question. Three of the four "cannot be done" findings in the table
+above were wrong, and the report named the real fields:
+
+* **`MonetaryAmount` has no `eur` field - it has `eurCents`.** That single wrong
+  assumption broke 10 of the 12 queries, since every one of them reads a price.
+* **Essence is in the API, under a different name.** Sorare calls it *shards*:
+  `cardShardsChests`, `cardShardsCount`, `cardShardsHistoryTransactions`,
+  `craftableCompetitions`. And `OwnerTransfer.SHARDS` marks a crafted card in
+  the gallery, so crafts are already identified exactly rather than guessed.
+* **Cash balance is available**: `currentUser.availableBalances.eurCents`, now
+  read every run, with the Settings cell demoted to an override.
+* **Player form is available**: `Player.so5Scores(last: 40)` returns per-match
+  scores with minutes and whether the player started, so L5, L10, L40 and the
+  starter share are all derived from one list.
+* **The price tape is far better than feared.** `tokens.tokenPrices` takes
+  `from` and `to` dates - so the first run backfills 90 days per position in one
+  call, and later runs ask only for sales newer than the newest already stored.
+  The earlier finding that a 30- or 90-day history "cannot exist on day one" was
+  wrong; it exists on the first run.
+* **`TokenDeal` is a union** of `TokenAuction | TokenOffer | TokenPrimaryOffer`,
+  so the venue of every completed sale is known exactly, which is what makes
+  "exclude auctions and instant buys from fair value" precise rather than
+  approximate.
+* **Floors are cheap**: `tokens.liveSingleSaleOffers(playerSlug:)` filters by
+  player, so the speculative player-scoped query was deleted and floors cost one
+  call per position.
+
+All 12 queries now validate against the real schema.
+
+### Still open
+
+* **The rewards feed** - cash, gameweek, competition, lineup. 126 reward-related
+  fields exist; picking the right ones needs a live response to read, not just
+  the schema. Reward *cards* are already detected from the gallery.
+* **The Essence ledger.** The shard fields are known and the sheet is built; the
+  ingest module is the remaining work.
+* **Deposits and withdrawals.** `bankWithdrawals` and the deposit mutations
+  exist; the read side needs the same live look as rewards.

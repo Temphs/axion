@@ -1,10 +1,11 @@
 """Floor prices from live listings.
 
-Preferred path: ask per player (cheap, precise). If the schema does not offer a
-player-scoped listing connection, fall back to a capped sweep of the global live
-listings feed and keep whatever matches a tracked player - partial by nature,
-which is why the floor is never the primary valuation input. Fair value from
-completed sales is; the floor only sets the quick-sale number.
+`tokens.liveSingleSaleOffers` takes a playerSlug, so floors are asked for one
+position at a time: precise, and one cheap call per player you hold. If that
+ever stops working the module falls back to a capped sweep of the whole live
+feed, which is partial by nature - one more reason the floor is never the
+primary valuation input. Fair value from completed sales is; the floor only
+sets the quick-sale number.
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ def _record(buckets: dict[tuple, list[float]], card: dict[str, Any], player_slug
 def _from_player_queries(
     client: SorareClient, connection: sqlite3.Connection
 ) -> tuple[dict[tuple, list[float]], list[str]]:
-    query = render("player_listings")
+    query = render("live_single_sale_offers")
     buckets: dict[tuple, list[float]] = defaultdict(list)
     failures: list[str] = []
     slugs = [
@@ -42,7 +43,15 @@ def _from_player_queries(
     ]
     for slug in slugs:
         try:
-            data = client.execute(query, {"playerSlug": slug}, operation_name="PlayerListings")
+            offers = list(
+                client.paginate(
+                    query,
+                    {"playerSlug": slug},
+                    path=("tokens", "liveSingleSaleOffers"),
+                    operation_name="LiveSingleSaleOffers",
+                    page_limit=5,
+                )
+            )
         except BudgetExhausted:
             break
         except SorareApiError as exc:
@@ -50,7 +59,6 @@ def _from_player_queries(
             if len(failures) > 5:
                 raise SorareApiError("player-scoped listings unavailable")
             continue
-        offers = ((data.get("player") or {}).get("liveSingleSaleOffers") or {}).get("nodes") or []
         for offer in offers:
             side = offer.get("senderSide") or {}
             price = money_eur(side.get("amounts"))
@@ -95,12 +103,14 @@ def _from_global_sweep(
 def ingest_floors(client: SorareClient, connection: sqlite3.Connection) -> dict[str, Any]:
     observed_at = db.utcnow()
     capabilities = load_capabilities()
-    player_query_ok = (capabilities.get("queries", {}).get("player_listings") or {}).get("ok", True)
+    player_query_ok = (
+        capabilities.get("queries", {}).get("live_single_sale_offers") or {}
+    ).get("ok", True)
 
     method = "player_scoped"
     try:
         if not player_query_ok:
-            raise SorareApiError("player_listings query rejected by the schema doctor")
+            raise SorareApiError("live listings query rejected by the schema doctor")
         buckets, failures = _from_player_queries(client, connection)
         if not buckets:
             raise SorareApiError("no listings returned per player")

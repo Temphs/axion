@@ -1,58 +1,89 @@
-"""Player form.
+"""Player form, from the per-match score list.
 
-Sorare documents no scoring fields publicly, so this module is deliberately
-tolerant: it asks for the aggregates its query still contains after the schema
-doctor has pruned it, and writes whatever came back. If nothing survived, the
-form columns stay empty rather than showing invented numbers.
+`Player.so5Scores(last: 40)` returns the individual match scores, so L5, L10 and
+L40 are all derived from one source and cannot disagree with each other, and the
+starter share is real (minutes played and whether the player started) rather
+than a proxy.
+
+Players are fetched in batches: one call covers many players, which keeps a
+hundred-card gallery inside a handful of requests.
 """
 
 from __future__ import annotations
 
 import logging
 import sqlite3
+from typing import Any
 
 from .. import db
 from ..client import BudgetExhausted, SorareApiError, SorareClient
-from .common import render
+from .common import iso, render
 
 log = logging.getLogger(__name__)
+
+# The API charges query complexity on the requested page size, so keep batches
+# modest: 25 players x 40 scores is comfortably inside the authenticated limit.
+BATCH_SIZE = 25
+SCORES_PER_PLAYER = 40
+
+
+def _score_rows(player: dict[str, Any]) -> list[dict]:
+    slug = player.get("slug")
+    rows = []
+    for index, entry in enumerate(player.get("so5Scores") or []):
+        if not entry:
+            continue
+        game = entry.get("game") or {}
+        stats = entry.get("playerGameStats") or {}
+        played_at = iso(game.get("date"))
+        rows.append(
+            {
+                # Two matches can share a date for a player in theory, so the
+                # position in the returned list keeps the key unique.
+                "score_key": db.natural_key("so5", slug, played_at, index),
+                "player_slug": slug,
+                "played_at": played_at,
+                "competition": None,
+                "score": entry.get("score"),
+                "minutes": stats.get("minsPlayed"),
+                "started": 1 if stats.get("gameStarted") else 0,
+                "opponent": None,
+            }
+        )
+    return rows
 
 
 def ingest_scores(client: SorareClient, connection: sqlite3.Connection) -> dict[str, int]:
     query = render("player_scores")
-    if "lastF" not in query:
-        log.info("No form fields available in this schema; skipping player scores.")
-        return {"players_updated": 0, "skipped": 1}
-
     slugs = [
         row["player_slug"]
         for row in connection.execute(
             "SELECT DISTINCT player_slug FROM card WHERE owned = 1 AND player_slug IS NOT NULL"
         )
     ]
-    updated = 0
-    for slug in slugs:
+    if not slugs:
+        return {"players": 0, "scores_new": 0}
+
+    rows: list[dict] = []
+    seen_players = 0
+    for start in range(0, len(slugs), BATCH_SIZE):
+        batch = slugs[start : start + BATCH_SIZE]
         try:
-            data = client.execute(query, {"slug": slug}, operation_name="PlayerScores")
+            data = client.execute(query, {"slugs": batch}, operation_name="PlayerScores")
         except BudgetExhausted:
+            log.warning("Call budget spent; the remaining players wait for the next run.")
             break
         except SorareApiError as exc:
-            log.warning("Player form unavailable (%s); skipping the rest.", exc)
+            log.warning("Player scores unavailable (%s); skipping the rest.", exc)
             break
-        player = data.get("player") or {}
-        if not player:
-            continue
-        connection.execute(
-            "UPDATE player SET l5_api = ?, l15_api = ?, appearances_api = ?, updated_at = ? "
-            "WHERE slug = ?",
-            (
-                player.get("lastFiveSo5AverageScore"),
-                player.get("lastFifteenSo5AverageScore"),
-                player.get("lastFifteenSo5Appearances"),
-                db.utcnow(),
-                slug,
-            ),
-        )
-        updated += 1
+        for player in data.get("players") or []:
+            seen_players += 1
+            rows.extend(_score_rows(player))
+
+    added = db.upsert_many(
+        connection, "player_score", rows, key="score_key",
+        update=["score", "minutes", "started", "played_at"],
+    )
     db.set_meta(connection, "scores_last_refresh", db.utcnow())
-    return {"players_updated": updated, "skipped": 0}
+    log.info("Player form: %d players, %d new match scores", seen_players, added)
+    return {"players": seen_players, "scores_new": added}
