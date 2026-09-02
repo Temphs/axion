@@ -393,3 +393,78 @@ def test_price_tape_reads_the_tokens_root_and_asks_only_for_new_sales(tmp_path):
 
         # The next run asks only for sales newer than the newest one held.
         assert prices._since(connection, "keeper", "limited") == "2026-05-03T12:00:00+00:00"
+
+
+def test_trade_values_each_card_on_its_trade_date_and_today():
+    """A swap realises no cash, so only market values show whether it was good."""
+    from sorare_portfolio.transform.trades import trade_table
+
+    now = pd.Timestamp.now(tz="UTC")
+    traded_on = now - pd.Timedelta(days=20)
+
+    def print_row(player, days_ago, price):
+        return {"player_slug": player, "rarity": "limited", "season_class": "IN_SEASON",
+                "occurred_at": now - pd.Timedelta(days=days_ago), "eur": price,
+                "sale_type": "MANAGER_SALE"}
+
+    tape = pd.DataFrame([
+        print_row("given", 21, 100.0), print_row("given", 19, 110.0),   # ~105 at the trade
+        print_row("given", 1, 60.0), print_row("given", 0, 62.0),       # ~61 today
+        print_row("got", 22, 80.0), print_row("got", 18, 84.0),         # ~82 at the trade
+        print_row("got", 1, 130.0), print_row("got", 0, 134.0),         # ~132 today
+    ])
+
+    def leg(player, side, card, txn_type="DIRECT_OFFER", eur=0.0, cash=0):
+        return {"txn_key": card, "source_id": "offer-1", "occurred_at": traded_on,
+                "card_slug": card, "player_slug": player, "rarity": "limited",
+                "season_year": 2025, "season_class": "IN_SEASON", "txn_type": txn_type,
+                "side": side, "quantity": 1, "eur": eur, "counterparty": "them",
+                "is_cash_trade": cash}
+
+    transactions = pd.DataFrame([
+        leg("given", "SELL", "card-out"),
+        leg("got", "BUY", "card-in"),
+        # 20 EUR paid on top of the cards.
+        {**leg(None, "BUY", None, "DIRECT_OFFER_CASH", 20.0, 1), "card_slug": None,
+         "player_slug": None, "txn_key": "cash"},
+    ])
+
+    table = trade_table(transactions, tape, pd.DataFrame())
+    assert set(table["direction"]) == {"GAVE", "GOT"}
+
+    gave = table[table["direction"] == "GAVE"].iloc[0]
+    got = table[table["direction"] == "GOT"].iloc[0]
+    assert gave["value_at_trade_eur"] == pytest.approx(105.0)
+    assert gave["value_today_eur"] == pytest.approx(61.0)
+    assert gave["change_since_trade_eur"] == pytest.approx(-44.0)
+    assert got["value_at_trade_eur"] == pytest.approx(82.0)
+    assert got["value_today_eur"] == pytest.approx(132.0)
+
+    # On the day: got 82, gave 105, paid 20 cash -> 43 down.
+    assert got["trade_net_at_trade_eur"] == pytest.approx(-43.0)
+    # Since then the card you took ran and the one you gave away fell: 51 up.
+    assert got["trade_net_today_eur"] == pytest.approx(51.0)
+    assert got["cash_paid_eur"] == pytest.approx(20.0)
+
+
+def test_trade_cash_is_never_treated_as_a_card_price():
+    """The sweetener in a swap must not become cost basis for the cards."""
+    from sorare_portfolio.ingest.transactions import _parse_ended_offer
+
+    node = {
+        "id": "offer-9", "type": "DIRECT_OFFER", "status": "accepted",
+        "acceptedAt": "2026-04-01T10:00:00Z", "endDate": "2026-04-01T10:00:00Z",
+        "senderSide": {"amounts": {"wei": "1", "eurCents": 5000},
+                       "anyCards": [{"slug": "mine", "rarityTyped": "limited", "seasonYear": 2025,
+                                     "anyPlayer": {"slug": "a"}}]},
+        "receiverSide": {"amounts": {"wei": "0", "eurCents": 0},
+                         "anyCards": [{"slug": "theirs", "rarityTyped": "limited", "seasonYear": 2025,
+                                       "anyPlayer": {"slug": "b"}}]},
+        "userBuyer": {"slug": "them", "nickname": "Them"},
+    }
+    rows = {row["card_slug"]: row for row in _parse_ended_offer(node, sent=True)}
+    assert rows["mine"]["eur"] == 0.0 and rows["mine"]["is_cash_trade"] == 0
+    assert rows["theirs"]["eur"] == 0.0 and rows["theirs"]["is_cash_trade"] == 0
+    cash = rows[None]
+    assert cash["txn_type"] == "DIRECT_OFFER_CASH"
+    assert cash["eur"] == 50.0 and cash["side"] == "BUY"     # you added the cash

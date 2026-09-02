@@ -144,12 +144,47 @@ def _parse_ended_offer(node: dict[str, Any], *, sent: bool) -> list[dict]:
         node.get("userSeller") if sent else node.get("userBuyer")
     )
 
+    # In a card-for-card trade the money on a side is a sweetener, not the price
+    # of the cards on it. Splitting it across those cards would invent a
+    # purchase price for each one and corrupt cost basis, so the cash is
+    # recorded as its own leg and the cards are recorded at no cost.
+    is_swap = offer_type == "DIRECT_OFFER" and bool(
+        _cards_of(sender_side) and _cards_of(receiver_side)
+    )
+
     rows: list[dict] = []
+    if is_swap:
+        for side_data, side_name in ((sender_side, "SELL" if sent else "BUY"),
+                                     (receiver_side, "BUY" if sent else "SELL")):
+            cash = money_eur(side_data.get("amounts"))
+            if not cash:
+                continue
+            rows.append(
+                {
+                    "txn_key": db.natural_key("swap-cash", node.get("id"), side_name, occurred_at),
+                    "source_id": str(node.get("id") or ""),
+                    "occurred_at": occurred_at,
+                    "card_slug": None,
+                    "player_slug": None,
+                    "rarity": None,
+                    "season_year": None,
+                    "season_class": None,
+                    "txn_type": "DIRECT_OFFER_CASH",
+                    # Cash leaving the side you are on is cash you paid.
+                    "side": "BUY" if side_name == "SELL" else "SELL",
+                    "quantity": 1,
+                    "eur": cash,
+                    "wei": wei_of(side_data.get("amounts")),
+                    "counterparty": counterparty,
+                    "is_cash_trade": 1,
+                    "ingested_at": db.utcnow(),
+                }
+            )
     # Cards leaving the sender's side; you are the sender when `sent` is true.
     rows += _legs(
         node,
         cards=_cards_of(sender_side),
-        amounts=sender_side.get("amounts"),
+        amounts=None if is_swap else sender_side.get("amounts"),
         occurred_at=occurred_at,
         txn_type=offer_type,
         side="SELL" if sent else "BUY",
@@ -159,7 +194,7 @@ def _parse_ended_offer(node: dict[str, Any], *, sent: bool) -> list[dict]:
     rows += _legs(
         node,
         cards=_cards_of(receiver_side),
-        amounts=receiver_side.get("amounts"),
+        amounts=None if is_swap else receiver_side.get("amounts"),
         occurred_at=occurred_at,
         txn_type=offer_type,
         side="BUY" if sent else "SELL",

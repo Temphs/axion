@@ -150,6 +150,46 @@ def seed(connection, *, seed_value: int = 7) -> None:
         )
         card["owned"] = 0
 
+    # A card-for-card swap with cash on top, so the Trades sheet has something
+    # to show: two cards out, one in, and 25 EUR received.
+    swap_out = random.sample([c for c in cards if c["owned"] == 1], 2)
+    swap_in = swap_out[0]
+    swapped_at = (now - timedelta(days=21)).isoformat(timespec="seconds")
+    for card in swap_out:
+        card["owned"] = 0
+        transactions.append(
+            {
+                "txn_key": db.natural_key("demo-swap-out", card["slug"]),
+                "source_id": "demo-swap-1", "occurred_at": swapped_at,
+                "card_slug": card["slug"], "player_slug": card["player_slug"],
+                "rarity": card["rarity"], "season_year": card["season_year"],
+                "season_class": card["season_class"], "txn_type": "DIRECT_OFFER",
+                "side": "SELL", "quantity": 1, "eur": 0.0, "wei": None,
+                "counterparty": "another-manager", "is_cash_trade": 0, "ingested_at": stamp,
+            }
+        )
+    transactions.append(
+        {
+            "txn_key": db.natural_key("demo-swap-in", swap_in["slug"]),
+            "source_id": "demo-swap-1", "occurred_at": swapped_at,
+            "card_slug": swap_in["slug"] + "-received", "player_slug": swap_in["player_slug"],
+            "rarity": swap_in["rarity"], "season_year": swap_in["season_year"],
+            "season_class": swap_in["season_class"], "txn_type": "DIRECT_OFFER",
+            "side": "BUY", "quantity": 1, "eur": 0.0, "wei": None,
+            "counterparty": "another-manager", "is_cash_trade": 0, "ingested_at": stamp,
+        }
+    )
+    transactions.append(
+        {
+            "txn_key": db.natural_key("demo-swap-cash"), "source_id": "demo-swap-1",
+            "occurred_at": swapped_at, "card_slug": None, "player_slug": None,
+            "rarity": None, "season_year": None, "season_class": None,
+            "txn_type": "DIRECT_OFFER_CASH", "side": "SELL", "quantity": 1, "eur": 25.0,
+            "wei": None, "counterparty": "another-manager", "is_cash_trade": 1,
+            "ingested_at": stamp,
+        }
+    )
+
     db.upsert_many(connection, "card", cards, key="slug")
     db.upsert_many(connection, "txn", transactions, key="txn_key")
     db.upsert_many(connection, "price_obs", tape, key="obs_key")

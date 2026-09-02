@@ -22,6 +22,7 @@ That's it. You never type in a card, a purchase price, or a sale.
 | **Player Terminal** | Pick a position and see floor, quick-sale, 24h/7d/30d/90d averages and medians, transaction counts, your cost and P/L - over a scatter chart of individual completed sales you can filter by sale type. |
 | **Liquidity** | Sales in 24h / 7d / 30d, average daily sales, your share of recent volume, estimated days to liquidate (and a conservative version), and a High/Medium/Low band. |
 | **Transactions** | Every buy and sell, typed as Auction / Instant Buy / Manager Sale / Accepted Buy Offer / Direct Offer, with closed trades and their realised P/L alongside. |
+| **Trades** | Card-for-card swaps: what each card was worth **on the day you traded it**, what it is worth **now**, the cash on top, and whether the whole swap has aged well. |
 | **Rewards** | Cash, reward cards and Essence kept strictly apart, by competition, scarcity and month. |
 | **Essence** | Your Limited and Rare ledger, crafts by draw type, and your own empirical EUR per 1,000 Essence. |
 | **Investments** | Thesis, catalyst, four probability-weighted scenarios, expected price, expected profit and risk/reward. |

@@ -20,6 +20,7 @@ from ..transform import investments as investments_transform
 from ..transform import liquidity as liquidity_transform
 from ..transform import pnl, positions as positions_transform, valuation
 from ..transform.rewards import derive_reward_cards
+from ..transform.trades import trade_table
 
 log = logging.getLogger(__name__)
 
@@ -220,6 +221,8 @@ def export_all(connection) -> dict[str, int]:
         for column in ("bought_at", "sold_at"):
             realised[column] = pd.to_datetime(realised[column], utc=True, errors="coerce").dt.tz_localize(None)
     written["realised_trades"] = _write(realised, "realised_trades")
+
+    written["trades"] = _write(trade_table(transactions, tape, valued), "trades")
 
     written["rewards"] = _write(rewards, "rewards")
     for name, frame in _reward_summaries(rewards).items():

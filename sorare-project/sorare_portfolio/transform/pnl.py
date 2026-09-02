@@ -17,8 +17,9 @@ import pandas as pd
 
 def load_transactions(connection) -> pd.DataFrame:
     transactions = pd.read_sql_query(
-        "SELECT txn_key, occurred_at, card_slug, player_slug, rarity, season_year, season_class, "
-        "txn_type, side, quantity, eur, counterparty, is_cash_trade FROM txn ORDER BY occurred_at",
+        "SELECT txn_key, source_id, occurred_at, card_slug, player_slug, rarity, season_year, "
+        "season_class, txn_type, side, quantity, eur, counterparty, is_cash_trade "
+        "FROM txn ORDER BY occurred_at",
         connection,
     )
     if transactions.empty:
@@ -36,8 +37,9 @@ def realised_trades(transactions: pd.DataFrame) -> pd.DataFrame:
     if transactions.empty:
         return pd.DataFrame(columns=columns)
 
-    buys = transactions[(transactions["side"] == "BUY") & (transactions["is_cash_trade"] == 1)]
-    sells = transactions[(transactions["side"] == "SELL") & (transactions["is_cash_trade"] == 1)]
+    with_cards = transactions[transactions["card_slug"].notna()]
+    buys = with_cards[(with_cards["side"] == "BUY") & (with_cards["is_cash_trade"] == 1)]
+    sells = with_cards[(with_cards["side"] == "SELL") & (with_cards["is_cash_trade"] == 1)]
     if sells.empty:
         return pd.DataFrame(columns=columns)
 

@@ -34,7 +34,7 @@ from . import theme as t
 log = logging.getLogger(__name__)
 
 NAV_SHEETS = [
-    "Dashboard", "Holdings", "Player Terminal", "Liquidity", "Transactions",
+    "Dashboard", "Holdings", "Player Terminal", "Liquidity", "Transactions", "Trades",
     "Rewards", "Essence", "Investments", "Price History", "Settings", "Raw Data",
 ]
 
@@ -45,6 +45,7 @@ PLACEMENTS: dict[str, tuple[str, str]] = {
     "liquidity": ("Liquidity", "A6"),
     "transactions": ("Transactions", "A6"),
     "realised_trades": ("Transactions", "T6"),
+    "trades": ("Trades", "A6"),
     "rewards": ("Rewards", "A6"),
     "essence_summary": ("Essence", "A6"),
     "essence_ledger": ("Essence", "A14"),
@@ -643,6 +644,46 @@ class Builder:
         worksheet["T5"] = "CLOSED TRADES (realised)"
         worksheet["T5"].font = t.SECTION_FONT
 
+    def build_trades(self) -> None:
+        worksheet = self.sheet("Trades")
+        self.header(
+            worksheet,
+            "TRADES",
+            "Card-for-card swaps realise no cash, so P/L says nothing about them. This does: what "
+            "each card was worth on the day you traded it, what it is worth now, and the cash on top.",
+        )
+        green = t.font(10, colour=t.POSITIVE)
+        red = t.font(10, colour=t.NEGATIVE)
+        for column in ("change_since_trade_eur", "change_since_trade_pct",
+                       "trade_net_at_trade_eur", "trade_net_today_eur"):
+            self._conditional(
+                "Trades", "trades", column,
+                [
+                    CellIsRule(operator="greaterThan", formula=["0"], font=green),
+                    CellIsRule(operator="lessThan", formula=["0"], font=red),
+                ],
+            )
+        # A leg valued from a distant sale is a guess with a date on it, so mark it.
+        basis_letter = self.columns.get("trades", {}).get("value_basis")
+        if basis_letter:
+            first_row = self.anchor_rows.get("trades", 6) + 1
+            self._conditional(
+                "Trades", "trades", "value_basis",
+                [FormulaRule(
+                    formula=[f'ISNUMBER(SEARCH("nearest",{basis_letter}{first_row}))'],
+                    font=t.font(10, bold=True, colour=t.WARNING),
+                )],
+            )
+        direction_letter = self.columns.get("trades", {}).get("direction")
+        if direction_letter:
+            self._conditional(
+                "Trades", "trades", "direction",
+                [
+                    CellIsRule(operator="equal", formula=['"GOT"'], font=t.font(10, bold=True, colour=t.ACCENT)),
+                    CellIsRule(operator="equal", formula=['"GAVE"'], font=t.font(10, colour=t.TEXT_MUTED)),
+                ],
+            )
+
     def build_rewards(self) -> None:
         worksheet = self.sheet("Rewards")
         self.header(
@@ -975,6 +1016,7 @@ class Builder:
         "Player Terminal": (200, 30),
         "Liquidity": (60, 24),
         "Transactions": (60, 36),
+        "Trades": (60, 24),
         "Rewards": (60, 40),
         "Essence": (60, 36),
         "Investments": (60, 34),
@@ -1043,6 +1085,7 @@ class Builder:
         self.build_terminal()
         self.build_liquidity()
         self.build_transactions()
+        self.build_trades()
         self.build_rewards()
         self.build_essence()
         self.build_investments()
