@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from .numbers import numeric
+
 
 def essence_tables(
     connection, positions: pd.DataFrame, settings: dict | None = None
@@ -96,11 +98,11 @@ def essence_tables(
         .reset_index()
     )
     if not by_draw.empty:
-        by_draw["eur_per_1000"] = (
+        by_draw["eur_per_1000"] = numeric(
             by_draw["card_value_eur"] / by_draw["essence_spent"].replace(0, pd.NA) * 1000
-        ).astype(float).round(2)
+        ).round(2)
         for column in ("card_value_eur", "avg_value_eur", "median_value_eur", "essence_spent"):
-            by_draw[column] = by_draw[column].astype(float).round(2)
+            by_draw[column] = numeric(by_draw[column]).round(2)
 
     return {
         "essence_ledger": ledger.drop(columns=["value_per_card_eur"], errors="ignore"),

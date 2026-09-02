@@ -42,11 +42,14 @@ FAIR_VALUE_WINDOWS = (1, 7, 30, 90)
 
 # The inclusion sets the pipeline pre-computes for every position, so the Player
 # Terminal can switch between them with a lookup instead of a recalculation.
+# UNKNOWN is a real sale at a price we could not attribute to a venue - it
+# belongs in the broad sets, which say "anything that traded", and must stay out
+# of the strict ones, which claim something specific about how it traded.
 INCLUSION_SETS: dict[str, tuple[str, ...]] = {
-    "ALL": ("AUCTION", "INSTANT_BUY", "MANAGER_SALE", "ACCEPTED_BUY_OFFER", "DIRECT_OFFER"),
+    "ALL": ("AUCTION", "INSTANT_BUY", "MANAGER_SALE", "ACCEPTED_BUY_OFFER", "DIRECT_OFFER", "UNKNOWN"),
     "SECONDARY": ("MANAGER_SALE", "ACCEPTED_BUY_OFFER"),
     "NO_AUCTION": ("INSTANT_BUY", "MANAGER_SALE", "ACCEPTED_BUY_OFFER"),
-    "MARKET": ("AUCTION", "INSTANT_BUY", "MANAGER_SALE", "ACCEPTED_BUY_OFFER"),
+    "MARKET": ("AUCTION", "INSTANT_BUY", "MANAGER_SALE", "ACCEPTED_BUY_OFFER", "UNKNOWN"),
 }
 
 

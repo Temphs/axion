@@ -1,0 +1,16 @@
+# Fallback tape query: date and price only.
+#
+# The full query asks for `deal`, which is a non-null union - if the server
+# cannot resolve the venue for even one sale in the list, the whole request
+# fails and that player gets no tape at all. Trading the venue for a tape that
+# actually arrives is the right trade: sales recorded this way are marked
+# UNKNOWN, count only towards the widest fair-value sets, and can never be
+# mistaken for confirmed secondary-market prints.
+query TokenPricesMinimal($playerSlug: String!, $rarity: Rarity!, $from: ISO8601DateTime, $first: Int) {
+  tokens {
+    tokenPrices(playerSlug: $playerSlug, rarity: $rarity, from: $from, first: $first) {
+      date
+      amounts { wei eurCents }
+    }
+  }
+}

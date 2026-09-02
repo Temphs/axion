@@ -6,6 +6,8 @@ from datetime import timedelta
 
 import pandas as pd
 
+from .numbers import numeric
+
 from .valuation import POSITION_KEYS, _now
 
 
@@ -29,15 +31,15 @@ def liquidity_table(positions: pd.DataFrame, tape: pd.DataFrame, settings: dict)
         result[label] = result[label].fillna(0).astype(int)
 
     result["avg_daily_sales"] = (result["sales_window"] / window).round(3)
-    result["my_share_of_volume_pct"] = (
+    result["my_share_of_volume_pct"] = numeric(
         result["cards_owned"] / result["sales_window"].replace(0, pd.NA) * 100
-    ).astype(float).round(1)
+    ).round(1)
 
     # Days to liquidate: at the observed clearing rate, then a conservative view
     # that assumes undercutting the floor only gets you half the daily flow.
     daily = result["avg_daily_sales"].replace(0, pd.NA)
-    result["liquidation_days"] = (result["cards_owned"] / daily).astype(float).round(1)
-    result["liquidation_days_conservative"] = (result["cards_owned"] / (daily * 0.5)).astype(float).round(1)
+    result["liquidation_days"] = numeric(result["cards_owned"] / daily).round(1)
+    result["liquidation_days_conservative"] = numeric(result["cards_owned"] / (daily * 0.5)).round(1)
 
     def band(rate: float) -> str:
         if pd.isna(rate) or rate <= 0:

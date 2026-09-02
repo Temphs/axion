@@ -49,6 +49,11 @@ class RunReport:
         for module, result in self.results.items():
             summary = ", ".join(f"{key}={value}" for key, value in result.items() if key != "failures")
             lines.append(f"  OK      {module:<14} {summary}")
+            # A module can finish having quietly failed on most of its work;
+            # the reason belongs in the summary, not only in the log file.
+            problems = result.get("failures") or []
+            if problems:
+                lines.append(f"          {len(problems)} problem(s), first: {problems[0]}")
         for module, message in self.failures.items():
             lines.append(f"  FAILED  {module:<14} {message}")
         lines.append(f"  API calls used: {self.api_calls}")

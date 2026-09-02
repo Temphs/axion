@@ -541,3 +541,65 @@ def test_shipped_settings_are_the_documented_defaults():
         shipped["valuation"]["fair_value_included_types"]
         == DEFAULTS["valuation"]["fair_value_included_types"]
     )
+
+
+def test_positions_survive_a_player_whose_cards_were_all_free(tmp_path):
+    """A position of only reward or crafted cards has no paid cards at all.
+
+    That is not exotic - eight of the first real gallery's cards were rewards -
+    and the average-cost division then produces pandas NA, which crashed the
+    entire export before it wrote a single row.
+    """
+    from sorare_portfolio.transform.positions import build_positions
+
+    with db.session(tmp_path / "test.db") as connection:
+        db.upsert_many(connection, "player",
+                       [{"slug": "free-guy", "display_name": "Free Guy"},
+                        {"slug": "paid-guy", "display_name": "Paid Guy"}], key="slug")
+        db.upsert_many(
+            connection, "card",
+            [
+                {"slug": "r1", "player_slug": "free-guy", "rarity": "limited",
+                 "season_class": "IN_SEASON", "acquisition_eur": 0.0,
+                 "acquisition_type": "REWARD", "owned": 1},
+                {"slug": "r2", "player_slug": "free-guy", "rarity": "limited",
+                 "season_class": "IN_SEASON", "acquisition_eur": 0.0,
+                 "acquisition_type": "SHARD_CRAFT", "owned": 1},
+                {"slug": "p1", "player_slug": "paid-guy", "rarity": "rare",
+                 "season_class": "CLASSIC", "acquisition_eur": 40.0,
+                 "acquisition_type": "AUCTION", "owned": 1},
+            ],
+            key="slug",
+        )
+        positions = build_positions(connection)
+
+    free = positions[positions["player_slug"] == "free-guy"].iloc[0]
+    paid = positions[positions["player_slug"] == "paid-guy"].iloc[0]
+    assert free["cards_owned"] == 2 and free["free_cards"] == 2
+    assert pd.isna(free["avg_cost_eur"])          # blank, not zero and not a crash
+    assert free["total_cost_eur"] == 0.0
+    assert paid["avg_cost_eur"] == 40.0
+
+
+def test_unattributed_sales_count_only_in_the_broad_fair_value_sets():
+    """A sale with no known venue is still a sale, but not a secondary print."""
+    from sorare_portfolio.settings import INCLUSION_SETS
+
+    assert "UNKNOWN" in INCLUSION_SETS["ALL"]
+    assert "UNKNOWN" in INCLUSION_SETS["MARKET"]
+    assert "UNKNOWN" not in INCLUSION_SETS["SECONDARY"]
+    assert "UNKNOWN" not in INCLUSION_SETS["NO_AUCTION"]
+
+
+def test_minimal_price_rows_parse_without_a_venue_or_card():
+    """The fallback query returns dates and prices only; that must still store."""
+    from sorare_portfolio.ingest.prices import _observation
+
+    row = _observation(
+        {"date": "2026-06-01T10:00:00Z", "amounts": {"wei": "1", "eurCents": 4200}},
+        "some-player", "limited",
+    )
+    assert row["eur"] == 42.0
+    assert row["sale_type"] == "UNKNOWN"
+    assert row["season_class"] == "UNKNOWN"
+    assert row["card_slug"] is None

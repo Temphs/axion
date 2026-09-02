@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from .numbers import numeric
+
 from .valuation import POSITION_KEYS
 
 
@@ -102,7 +104,7 @@ def build_positions(connection) -> pd.DataFrame:
     grouped["paid_cards"] = grouped["paid_cards"].fillna(0).astype(int)
     grouped["paid_cost"] = grouped["paid_cost"].fillna(0.0)
     grouped["avg_cost_eur"] = (
-        (grouped["paid_cost"] / grouped["paid_cards"].replace(0, pd.NA)).astype(float).round(2)
+        numeric(grouped["paid_cost"] / grouped["paid_cards"].replace(0, pd.NA)).round(2)
     )
     grouped["free_cards"] = grouped["cards_owned"] - grouped["paid_cards"]
     grouped["total_cost_eur"] = grouped["total_cost_eur"].round(2)
@@ -124,10 +126,10 @@ def finalise(positions: pd.DataFrame) -> pd.DataFrame:
     result["market_value_eur"] = (result["cards_owned"] * result["value_per_card_eur"]).round(2)
     result["quick_sale_value_eur"] = (result["cards_owned"] * result["quick_sale_price_eur"]).round(2)
     result["unrealized_pl_eur"] = (result["market_value_eur"] - result["total_cost_eur"]).round(2)
-    result["unrealized_pl_pct"] = (
+    result["unrealized_pl_pct"] = numeric(
         result["unrealized_pl_eur"] / result["total_cost_eur"].replace(0, pd.NA) * 100
-    ).astype(float).round(1)
-    result["return_from_cost_pct"] = (
+    ).round(1)
+    result["return_from_cost_pct"] = numeric(
         result["value_per_card_eur"] / result["avg_cost_eur"].replace(0, pd.NA) - 1
-    ).astype(float).mul(100).round(1)
+    ).mul(100).round(1)
     return result

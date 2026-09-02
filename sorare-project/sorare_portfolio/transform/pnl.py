@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from .numbers import numeric
+
 
 def load_transactions(connection) -> pd.DataFrame:
     transactions = pd.read_sql_query(
@@ -99,7 +101,7 @@ def rewards_table(connection, positions: pd.DataFrame) -> pd.DataFrame:
     else:
         valued["value_per_card_eur"] = pd.NA
 
-    valued["current_card_value_eur"] = valued["value_per_card_eur"].astype(float).round(2)
+    valued["current_card_value_eur"] = numeric(valued["value_per_card_eur"]).round(2)
     valued["card_appreciation_eur"] = (
         valued["current_card_value_eur"].fillna(0) - valued["card_value_at_receipt"].fillna(0)
     ).round(2)

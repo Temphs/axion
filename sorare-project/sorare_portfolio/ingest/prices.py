@@ -24,7 +24,7 @@ from .common import current_season_year, iso, money_eur, normalise_type, render,
 
 # How far back the first run reaches. Everything after that is incremental.
 BACKFILL_DAYS = 90
-MAX_PRINTS_PER_CALL = 200
+MAX_PRINTS_PER_CALL = 50
 
 log = logging.getLogger(__name__)
 
@@ -38,11 +38,19 @@ def rarity_argument(rarity: str) -> str:
     return lowered.get(rarity.lower(), rarity)
 
 
+# Rarities with a real secondary market. Common cards are given away by the
+# thousand and custom series are one-offs; neither has a price tape worth
+# polling, and asking for one wastes the run's call budget.
+PRICED_RARITIES = ("limited", "rare", "super_rare", "unique")
+
+
 def tracked_positions(connection: sqlite3.Connection, extra_slugs: list[str]) -> list[tuple[str, str]]:
     """(player_slug, rarity) pairs worth watching: everything you own, plus your watchlist."""
+    placeholders = ",".join("?" for _ in PRICED_RARITIES)
     rows = connection.execute(
         "SELECT DISTINCT player_slug, rarity FROM card "
-        "WHERE owned = 1 AND player_slug IS NOT NULL AND rarity IS NOT NULL"
+        f"WHERE owned = 1 AND player_slug IS NOT NULL AND rarity IN ({placeholders})",
+        PRICED_RARITIES,
     ).fetchall()
     positions = {(row["player_slug"], row["rarity"]) for row in rows}
     for slug in extra_slugs:
@@ -121,29 +129,50 @@ def ingest_prices(
     extra_slugs: list[str] | None = None,
 ) -> dict[str, Any]:
     query = render("token_prices")
+    minimal_query = render("token_prices_minimal")
+    using_minimal = False
     positions = tracked_positions(connection, extra_slugs or [])
     observations: list[dict] = []
     failures: list[str] = []
 
     for player_slug, rarity in positions:
+        variables = {
+            "playerSlug": player_slug,
+            "rarity": rarity_argument(rarity),
+            "from": _since(connection, player_slug, rarity),
+            "first": MAX_PRINTS_PER_CALL,
+        }
         try:
-            data = client.execute(
-                query,
-                {
-                    "playerSlug": player_slug,
-                    "rarity": rarity_argument(rarity),
-                    "from": _since(connection, player_slug, rarity),
-                    "first": MAX_PRINTS_PER_CALL,
-                },
-                operation_name="TokenPrices",
-            )
+            if using_minimal:
+                data = client.execute(minimal_query, variables, operation_name="TokenPricesMinimal")
+            else:
+                try:
+                    data = client.execute(query, variables, operation_name="TokenPrices")
+                except SorareApiError as exc:
+                    # One retry without the venue, then stay on the simpler
+                    # query: whatever rejects it will reject it for everyone.
+                    log.warning(
+                        "Full price query rejected for %s/%s (%s); falling back to "
+                        "dates and prices only for the rest of this run.",
+                        player_slug, rarity, exc,
+                    )
+                    failures.append(f"{player_slug}/{rarity}: {exc}")
+                    using_minimal = True
+                    data = client.execute(minimal_query, variables, operation_name="TokenPricesMinimal")
         except BudgetExhausted:
             log.warning("Call budget spent after %d positions; the rest wait for the next run.", len(observations))
             break
         except SorareApiError as exc:
             failures.append(f"{player_slug}/{rarity}: {exc}")
+            if len(failures) == 1:
+                # Say what actually went wrong the first time. "Too many
+                # failures" without the reason is useless in a log.
+                log.error("tokenPrices rejected %s/%s: %s", player_slug, rarity, exc)
             if len(failures) > 10:
-                log.error("Too many tokenPrices failures, stopping this module.")
+                log.error(
+                    "Stopping the price tape after %d failures. First reason: %s",
+                    len(failures), failures[0],
+                )
                 break
             continue
 
