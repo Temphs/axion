@@ -314,12 +314,15 @@ function computePeriodStats(
     },
     { hours: 0, billable: 0, nonBillable: 0, unbilled: 0, revenue: 0, cost: 0 }
   )
-  // Team availability is the sum of each active employee's own capacity, so
-  // differing contracts (and, in all-history mode, differing active months)
-  // are reflected instead of assuming everyone is full-time.
-  const activeIds = new Set(employees.filter((e) => e.active).map((e) => e.id))
+  // Team availability is the sum of each employee's own capacity, so differing
+  // contracts (and, in all-history mode, differing active months) are reflected
+  // instead of assuming everyone is full-time. Leavers who logged hours in the
+  // period are counted too: their hours are in the numerator, so omitting their
+  // capacity would push utilization above 100%.
+  const countedIds = new Set(employees.filter((e) => e.active).map((e) => e.id))
+  for (const e of withHours) countedIds.add(e.id)
   const availableTotal = employeeRows
-    .filter((e) => activeIds.has(e.id))
+    .filter((e) => countedIds.has(e.id))
     .reduce((s, e) => s + e.availableHours, 0)
 
   const summary: WorkforceSummary = {
@@ -440,6 +443,9 @@ export async function buildWorkforce(
      (most recent 12); otherwise the last 6 calendar months */
   const empInfo = new Map(employees.map((e) => [e.id, e]))
   const cliInfo = new Map(clients.map((c) => [c.id, c]))
+  // Same fully-loaded rate the KPI cards and tables use — a part-timer's salary
+  // is spread over their own contracted hours, not the account default.
+  const trendRate = new Map(employees.map((e) => [e.id, costPerHourFor(e, hpm)]))
 
   let trendMonths: Date[]
   if (allMode) {
@@ -473,7 +479,7 @@ export async function buildWorkforce(
       if (row.date < mStart || row.date > mEnd) continue
       const emp = empInfo.get(row.employeeId)
       if (!emp) continue
-      cost += row.hours * (hpm > 0 ? emp.monthlyCost / hpm : 0)
+      cost += row.hours * (trendRate.get(emp.id) ?? 0)
       activeClients.add(row.clientId)
     }
     let revenue = 0
@@ -501,7 +507,14 @@ export async function buildWorkforce(
     })
     .sort((a, b) => (b.allocation ?? 0) - (a.allocation ?? 0))
 
-  const elapsedFraction = Math.max(0, Math.min(1, (now.getTime() - from.getTime()) / Math.max(1, to.getTime() - from.getTime())))
+  // How far through the period we are. Measured against the end of the last
+  // calendar month the period touches — the same window `plannedHours` budgets
+  // against — so a month-to-date view reports ~50% mid-month instead of 100%
+  // (with `to` pinned to now, dividing by `to − from` always yielded 1 and the
+  // budget-pacing alert could never fire).
+  const budgetWindowEnd = endOfUtcMonth(to)
+  const elapsedSpan = Math.max(1, budgetWindowEnd.getTime() - from.getTime())
+  const elapsedFraction = Math.max(0, Math.min(1, (now.getTime() - from.getTime()) / elapsedSpan))
 
   let insights = computeInsights({
     employees: current.employees,

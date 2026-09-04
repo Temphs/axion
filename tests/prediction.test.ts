@@ -121,3 +121,61 @@ describe('predictVatPeriod', () => {
     expect(p.invoicesNeedingReview).toBe(1)
   })
 })
+
+describe('recurring counterparties are tracked per direction', () => {
+  // A party the business both sells to and buys from. It has already invoiced
+  // us this period as a supplier, but has not been billed as a customer, so
+  // only the income side should still be expected.
+  const both = 'EL123456789'
+  const historical = [
+    inv({ issueDate: new Date(Date.UTC(2026, 2, 10)), direction: 'income', vatCents: 50_000, counterpartyKey: both }),
+    inv({ issueDate: new Date(Date.UTC(2026, 1, 10)), direction: 'income', vatCents: 50_000, counterpartyKey: both }),
+    inv({
+      issueDate: new Date(Date.UTC(2026, 2, 12)),
+      direction: 'expense',
+      vatCents: 20_000,
+      vatDeductible: true,
+      deductiblePct: 100,
+      counterpartyKey: both,
+    }),
+    inv({
+      issueDate: new Date(Date.UTC(2026, 1, 12)),
+      direction: 'expense',
+      vatCents: 20_000,
+      vatDeductible: true,
+      deductiblePct: 100,
+      counterpartyKey: both,
+    }),
+  ]
+
+  it('still expects the income side when only the expense side has arrived', () => {
+    const current = [
+      inv({
+        issueDate: new Date(Date.UTC(2026, 4, 4)),
+        direction: 'expense',
+        vatCents: 20_000,
+        vatDeductible: true,
+        deductiblePct: 100,
+        counterpartyKey: both,
+      }),
+    ]
+    const p = predictVatPeriod(current, historical, { now: NOW, basis: 'month' })
+    expect(p.recurringExpectedVatCents).toBe(50_000) // the unbilled income side only
+  })
+
+  it('expects nothing recurring once both directions have arrived', () => {
+    const current = [
+      inv({ issueDate: new Date(Date.UTC(2026, 4, 4)), direction: 'income', vatCents: 50_000, counterpartyKey: both }),
+      inv({
+        issueDate: new Date(Date.UTC(2026, 4, 4)),
+        direction: 'expense',
+        vatCents: 20_000,
+        vatDeductible: true,
+        deductiblePct: 100,
+        counterpartyKey: both,
+      }),
+    ]
+    const p = predictVatPeriod(current, historical, { now: NOW, basis: 'month' })
+    expect(p.recurringExpectedVatCents).toBe(0)
+  })
+})

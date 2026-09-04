@@ -63,6 +63,13 @@ function daysInMonth(year: number, monthIndex: number): number {
   return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
 }
 
+// Whole UTC calendar day a timestamp falls on. Day counts are derived from
+// these indices rather than from an elapsed-milliseconds division, so a range
+// covers the same number of days no matter what time of day its bounds carry.
+function dayIndex(d: Date): number {
+  return Math.floor(d.getTime() / MS_PER_DAY)
+}
+
 // For each calendar month intersecting [from, to]: fraction of that month
 // covered by the period (by days). Sum of fractions = "months" in the period,
 // used to prorate monthly revenue, planned hours and available hours.
@@ -79,7 +86,7 @@ export function monthCoverage(from: Date, to: Date): Map<string, number> {
     const monthEnd = new Date(Date.UTC(y, m, dim, 23, 59, 59, 999))
     const overlapStart = from > monthStart ? from : monthStart
     const overlapEnd = to < monthEnd ? to : monthEnd
-    const overlapDays = Math.max(0, Math.round((overlapEnd.getTime() - overlapStart.getTime()) / MS_PER_DAY) + 1)
+    const overlapDays = Math.max(0, dayIndex(overlapEnd) - dayIndex(overlapStart) + 1)
     out.set(`${y}-${String(m + 1).padStart(2, '0')}`, Math.min(1, overlapDays / dim))
     m++
     if (m > 11) {
@@ -105,8 +112,10 @@ export function previousPeriodOf(from: Date, to: Date): Period {
     const prevTo = new Date(from.getTime() - 1)
     return { from: prevFrom, to: prevTo }
   }
-  const duration = to.getTime() - from.getTime()
-  return { from: new Date(from.getTime() - duration - MS_PER_DAY), to: new Date(from.getTime() - 1) }
+  // Arbitrary ranges shift back by their own length in whole days, so the
+  // comparison window always spans exactly as many days as the current one.
+  const days = dayIndex(to) - dayIndex(from) + 1
+  return { from: new Date(from.getTime() - days * MS_PER_DAY), to: new Date(from.getTime() - 1) }
 }
 
 /* ─── revenue attribution ────────────────────────────────────── */
