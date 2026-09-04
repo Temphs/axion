@@ -2,7 +2,9 @@
 // No Prisma/Next imports — everything here is unit-testable.
 //
 // Metric definitions (surfaced as tooltips in the UI):
-//   Billable utilization   = billable hours / available working hours
+//   Utilization            = counted hours / available working hours, where
+//                            counted hours are billable-only, or billable +
+//                            overhead when the account includes overhead
 //   Labor cost             = hours worked × fully-loaded hourly cost
 //   Attributed revenue     = client revenue allocated to employees pro-rata
 //                            by their hours on that client in that month
@@ -48,6 +50,29 @@ export function costPerHourFor(
 
 export function contributionMargin(revenue: number, laborCost: number): number | null {
   return safeRatio(revenue - laborCost, revenue)
+}
+
+/* ─── utilization ────────────────────────────────────────────── */
+
+export type HourSplit = { billableHours: number; nonBillableHours: number }
+
+// Hours that count toward utilization. Overhead (non-billable) work counts only
+// when the account has opted into it; otherwise utilization measures billable
+// work alone.
+export function utilizedHours(hours: HourSplit, includeOverhead: boolean): number {
+  return includeOverhead ? hours.billableHours + hours.nonBillableHours : hours.billableHours
+}
+
+// The single definition of utilization, used by every page that reports it:
+// counted hours over the contracted capacity of the period. Keeping one
+// function means the overview, the employee cards and the client pages can
+// never drift into quoting different ratios under the same label.
+export function utilizationOf(
+  hours: HourSplit,
+  availableHours: number,
+  includeOverhead: boolean
+): number | null {
+  return safeRatio(utilizedHours(hours, includeOverhead), availableHours)
 }
 
 /* ─── periods ────────────────────────────────────────────────── */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { monthCoverage, monthsInPeriod, previousPeriodOf } from '@/lib/profitability'
+import { monthCoverage, monthsInPeriod, previousPeriodOf, utilizationOf, utilizedHours } from '@/lib/profitability'
 
 const MS_PER_DAY = 86_400_000
 const spanDays = (from: Date, to: Date) =>
@@ -43,5 +43,33 @@ describe('previousPeriodOf', () => {
       expect(spanDays(prev.from, prev.to)).toBe(spanDays(from, to))
       expect(prev.to.getTime()).toBe(from.getTime() - 1) // contiguous, no gap
     }
+  })
+})
+
+describe('utilization is one definition everywhere', () => {
+  const hours = { billableHours: 90, nonBillableHours: 30 }
+
+  it('counts billable hours only when overhead is excluded', () => {
+    expect(utilizedHours(hours, false)).toBe(90)
+    expect(utilizationOf(hours, 160, false)).toBeCloseTo(0.5625)
+  })
+
+  it('counts overhead hours too when the account includes them', () => {
+    expect(utilizedHours(hours, true)).toBe(120)
+    expect(utilizationOf(hours, 160, true)).toBeCloseTo(0.75)
+  })
+
+  it('has no value without capacity, rather than reporting zero', () => {
+    expect(utilizationOf(hours, 0, false)).toBeNull()
+  })
+
+  it('matches the per-month form the employee cards used to compute', () => {
+    // hours / (contracted hours x months) === (hours / months) / contracted hours
+    const billableHours = 420
+    const contracted = 160
+    const months = 3
+    expect(utilizationOf({ billableHours, nonBillableHours: 0 }, contracted * months, false)).toBeCloseTo(
+      billableHours / months / contracted
+    )
   })
 })

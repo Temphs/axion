@@ -12,6 +12,7 @@ import {
   monthlyHoursFor,
   previousPeriodOf,
   safeRatio,
+  utilizationOf,
   type CapacityRow,
   type ClientRow,
   type EmployeeRow,
@@ -37,6 +38,7 @@ export type Workforce = {
   pricing: PricingOpportunity[]
   companyRevenuePerHour: number | null
   hoursPerMonth: number
+  includeOverhead: boolean
 }
 
 type PairRow = { employeeId: string; clientId: string; date: Date; hours: number }
@@ -94,6 +96,7 @@ function computePeriodStats(
   employees: EmployeeInfo[],
   clients: ClientInfo[],
   hpm: number,
+  includeOverhead: boolean,
   activeMonthsOnly = false
 ): PeriodStats {
   // "All history" mode counts only months that actually have entries, so long
@@ -229,7 +232,7 @@ function computePeriodStats(
       nonBillableHours,
       unbilledHours,
       availableHours: available,
-      utilization: safeRatio(billableHours, available),
+      utilization: utilizationOf({ billableHours, nonBillableHours }, available, includeOverhead),
       revenue,
       laborCost,
       contribution: revenue - laborCost,
@@ -331,7 +334,11 @@ function computePeriodStats(
     nonBillableHours: totals.nonBillable,
     unbilledHours: totals.unbilled,
     availableHours: availableTotal,
-    utilization: safeRatio(totals.billable, availableTotal),
+    utilization: utilizationOf(
+      { billableHours: totals.billable, nonBillableHours: totals.nonBillable },
+      availableTotal,
+      includeOverhead
+    ),
     revenue: totals.revenue,
     laborCost: totals.cost,
     contribution: totals.revenue - totals.cost,
@@ -387,7 +394,10 @@ export async function buildWorkforce(
   }
   const prev = previousPeriodOf(from, to)
   const trendStart = startOfUtcMonth(to, -5)
-  const windowStart = prev.from < trendStart ? prev.from : trendStart
+  // "All history" has no previous period to compare against, so its window must
+  // not be stretched back by another full span of the account's history.
+  const earliestNeeded = allMode ? from : prev.from
+  const windowStart = earliestNeeded < trendStart ? earliestNeeded : trendStart
   const windowEnd = endOfUtcMonth(to) > to ? endOfUtcMonth(to) : to
 
   const settings = await getSettings(userId)
@@ -434,10 +444,12 @@ export async function buildWorkforce(
     hours: (g._sum.minutes ?? 0) / 60,
   }))
 
-  const current = computePeriodStats(rows, from, to, employees, clients, hpm, allMode)
-  const previousStats = computePeriodStats(rows, prev.from, prev.to, employees, clients, hpm)
-  // "All history" has no meaningful previous period to compare against.
-  const hasPrevious = !allMode && previousStats.summary.hours > 0
+  const includeOverhead = settings.includeOverhead
+  const current = computePeriodStats(rows, from, to, employees, clients, hpm, includeOverhead, allMode)
+  const previousStats = allMode
+    ? null
+    : computePeriodStats(rows, prev.from, prev.to, employees, clients, hpm, includeOverhead)
+  const hasPrevious = previousStats !== null && previousStats.summary.hours > 0
 
   /* trend: months ending at month(to) — in all-mode only months with entries
      (most recent 12); otherwise the last 6 calendar months */
@@ -521,7 +533,7 @@ export async function buildWorkforce(
   let insights = computeInsights({
     employees: current.employees,
     clients: current.clients,
-    previousClients: new Map(previousStats.clients.map((c) => [c.id, { margin: c.margin, hours: c.hours }])),
+    previousClients: new Map((previousStats?.clients ?? []).map((c) => [c.id, { margin: c.margin, hours: c.hours }])),
     capacity,
     companyRevenuePerHour: current.summary.revenuePerHour,
     defaultUtilizationTarget: 0.75,
@@ -545,7 +557,7 @@ export async function buildWorkforce(
   return {
     period: { from: from.toISOString(), to: to.toISOString(), months: monthsF, elapsedFraction, all: allMode },
     summary: current.summary,
-    previousSummary: hasPrevious ? previousStats.summary : null,
+    previousSummary: hasPrevious ? previousStats!.summary : null,
     employees: current.employees,
     clients: current.clients,
     trend,
@@ -554,6 +566,7 @@ export async function buildWorkforce(
     pricing,
     companyRevenuePerHour: current.summary.revenuePerHour,
     hoursPerMonth: hpm,
+    includeOverhead,
   }
 }
 

@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db'
 import { getSettings, hoursPerMonth } from '@/lib/settings'
-import { costPerHourFor, monthlyHoursFor, monthsInPeriod } from '@/lib/profitability'
+import { costPerHourFor, monthlyHoursFor, monthsInPeriod, safeRatio, utilizationOf } from '@/lib/profitability'
 
 export type StatsFilter = {
   from?: Date
@@ -26,7 +26,7 @@ export type ClientStat = {
   cost: number
   revenue: number
   profit: number
-  roi: number | null
+  margin: number | null
   revenuePerHour: number
 }
 
@@ -155,7 +155,7 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
         cost: 0,
         revenue: 0,
         profit: 0,
-        roi: null,
+        margin: null,
         revenuePerHour: 0,
       }
       clientMap.set(g.clientId, cliStat)
@@ -168,7 +168,7 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
   for (const cli of clientMap.values()) {
     cli.revenue = cli.billable ? cli.monthlyRevenue * months : 0
     cli.profit = cli.revenue - cli.cost
-    cli.roi = cli.cost > 0 ? cli.profit / cli.cost : null
+    cli.margin = safeRatio(cli.profit, cli.revenue)
     cli.revenuePerHour = cli.hours > 0 ? cli.revenue / cli.hours : 0
   }
 
@@ -199,7 +199,7 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
     employeeCount: employeeMap.size,
     clientCount: clientMap.size,
     capacityHours,
-    utilization: capacityHours > 0 ? totalHours / capacityHours : null,
+    utilization: utilizationOf({ billableHours, nonBillableHours }, capacityHours, settings.includeOverhead),
   }
 
   return {
@@ -312,7 +312,11 @@ export async function getEmployeesOverview(userId: string): Promise<EmployeeOver
       months,
       avgPerDay,
       avgPerMonth,
-      utilization: monthlyHoursFor(e, hpm) > 0 ? avgPerMonth / monthlyHoursFor(e, hpm) : null,
+      utilization: utilizationOf(
+        { billableHours, nonBillableHours },
+        monthlyHoursFor(e, hpm) * months,
+        settings.includeOverhead
+      ),
       billableHours,
       nonBillableHours,
       billablePct: totalBN > 0 ? billableHours / totalBN : null,
@@ -422,7 +426,11 @@ export async function getEmployeeDetail(userId: string, id: string): Promise<Emp
     months,
     avgPerDay,
     avgPerMonth,
-    utilization: monthlyHoursFor(employee, hpm) > 0 ? avgPerMonth / monthlyHoursFor(employee, hpm) : null,
+    utilization: utilizationOf(
+      { billableHours, nonBillableHours },
+      monthlyHoursFor(employee, hpm) * months,
+      settings.includeOverhead
+    ),
     cost: hours * costPerHour,
     entryCount,
     billableHours,
