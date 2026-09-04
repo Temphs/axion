@@ -12,6 +12,7 @@ import {
   monthlyHoursFor,
   previousPeriodOf,
   safeRatio,
+  utilizationOf,
   type CapacityRow,
   type ClientRow,
   type EmployeeRow,
@@ -37,6 +38,7 @@ export type Workforce = {
   pricing: PricingOpportunity[]
   companyRevenuePerHour: number | null
   hoursPerMonth: number
+  includeOverhead: boolean
 }
 
 type PairRow = { employeeId: string; clientId: string; date: Date; hours: number }
@@ -94,6 +96,7 @@ function computePeriodStats(
   employees: EmployeeInfo[],
   clients: ClientInfo[],
   hpm: number,
+  includeOverhead: boolean,
   activeMonthsOnly = false
 ): PeriodStats {
   // "All history" mode counts only months that actually have entries, so long
@@ -229,7 +232,7 @@ function computePeriodStats(
       nonBillableHours,
       unbilledHours,
       availableHours: available,
-      utilization: safeRatio(billableHours, available),
+      utilization: utilizationOf({ billableHours, nonBillableHours }, available, includeOverhead),
       revenue,
       laborCost,
       contribution: revenue - laborCost,
@@ -314,12 +317,15 @@ function computePeriodStats(
     },
     { hours: 0, billable: 0, nonBillable: 0, unbilled: 0, revenue: 0, cost: 0 }
   )
-  // Team availability is the sum of each active employee's own capacity, so
-  // differing contracts (and, in all-history mode, differing active months)
-  // are reflected instead of assuming everyone is full-time.
-  const activeIds = new Set(employees.filter((e) => e.active).map((e) => e.id))
+  // Team availability is the sum of each employee's own capacity, so differing
+  // contracts (and, in all-history mode, differing active months) are reflected
+  // instead of assuming everyone is full-time. Leavers who logged hours in the
+  // period are counted too: their hours are in the numerator, so omitting their
+  // capacity would push utilization above 100%.
+  const countedIds = new Set(employees.filter((e) => e.active).map((e) => e.id))
+  for (const e of withHours) countedIds.add(e.id)
   const availableTotal = employeeRows
-    .filter((e) => activeIds.has(e.id))
+    .filter((e) => countedIds.has(e.id))
     .reduce((s, e) => s + e.availableHours, 0)
 
   const summary: WorkforceSummary = {
@@ -328,7 +334,11 @@ function computePeriodStats(
     nonBillableHours: totals.nonBillable,
     unbilledHours: totals.unbilled,
     availableHours: availableTotal,
-    utilization: safeRatio(totals.billable, availableTotal),
+    utilization: utilizationOf(
+      { billableHours: totals.billable, nonBillableHours: totals.nonBillable },
+      availableTotal,
+      includeOverhead
+    ),
     revenue: totals.revenue,
     laborCost: totals.cost,
     contribution: totals.revenue - totals.cost,
@@ -384,7 +394,10 @@ export async function buildWorkforce(
   }
   const prev = previousPeriodOf(from, to)
   const trendStart = startOfUtcMonth(to, -5)
-  const windowStart = prev.from < trendStart ? prev.from : trendStart
+  // "All history" has no previous period to compare against, so its window must
+  // not be stretched back by another full span of the account's history.
+  const earliestNeeded = allMode ? from : prev.from
+  const windowStart = earliestNeeded < trendStart ? earliestNeeded : trendStart
   const windowEnd = endOfUtcMonth(to) > to ? endOfUtcMonth(to) : to
 
   const settings = await getSettings(userId)
@@ -431,15 +444,20 @@ export async function buildWorkforce(
     hours: (g._sum.minutes ?? 0) / 60,
   }))
 
-  const current = computePeriodStats(rows, from, to, employees, clients, hpm, allMode)
-  const previousStats = computePeriodStats(rows, prev.from, prev.to, employees, clients, hpm)
-  // "All history" has no meaningful previous period to compare against.
-  const hasPrevious = !allMode && previousStats.summary.hours > 0
+  const includeOverhead = settings.includeOverhead
+  const current = computePeriodStats(rows, from, to, employees, clients, hpm, includeOverhead, allMode)
+  const previousStats = allMode
+    ? null
+    : computePeriodStats(rows, prev.from, prev.to, employees, clients, hpm, includeOverhead)
+  const hasPrevious = previousStats !== null && previousStats.summary.hours > 0
 
   /* trend: months ending at month(to) — in all-mode only months with entries
      (most recent 12); otherwise the last 6 calendar months */
   const empInfo = new Map(employees.map((e) => [e.id, e]))
   const cliInfo = new Map(clients.map((c) => [c.id, c]))
+  // Same fully-loaded rate the KPI cards and tables use — a part-timer's salary
+  // is spread over their own contracted hours, not the account default.
+  const trendRate = new Map(employees.map((e) => [e.id, costPerHourFor(e, hpm)]))
 
   let trendMonths: Date[]
   if (allMode) {
@@ -468,12 +486,14 @@ export async function buildWorkforce(
     const fraction = isCurrent ? Math.min(1, now.getUTCDate() / mEnd.getUTCDate()) : 1
 
     let cost = 0
+    let hours = 0
     const activeClients = new Set<string>()
     for (const row of rows) {
       if (row.date < mStart || row.date > mEnd) continue
       const emp = empInfo.get(row.employeeId)
       if (!emp) continue
-      cost += row.hours * (hpm > 0 ? emp.monthlyCost / hpm : 0)
+      hours += row.hours
+      cost += row.hours * (trendRate.get(emp.id) ?? 0)
       activeClients.add(row.clientId)
     }
     let revenue = 0
@@ -481,7 +501,7 @@ export async function buildWorkforce(
       const cli = cliInfo.get(clientId)
       if (cli?.billable && cli.monthlyRevenue > 0) revenue += cli.monthlyRevenue * fraction
     }
-    trend.push({ month: mk, label: monthLabel(mk), revenue, laborCost: cost, contribution: revenue - cost })
+    trend.push({ month: mk, label: monthLabel(mk), hours, revenue, laborCost: cost, contribution: revenue - cost })
   }
 
   /* capacity (active employees, current period) */
@@ -501,12 +521,19 @@ export async function buildWorkforce(
     })
     .sort((a, b) => (b.allocation ?? 0) - (a.allocation ?? 0))
 
-  const elapsedFraction = Math.max(0, Math.min(1, (now.getTime() - from.getTime()) / Math.max(1, to.getTime() - from.getTime())))
+  // How far through the period we are. Measured against the end of the last
+  // calendar month the period touches — the same window `plannedHours` budgets
+  // against — so a month-to-date view reports ~50% mid-month instead of 100%
+  // (with `to` pinned to now, dividing by `to − from` always yielded 1 and the
+  // budget-pacing alert could never fire).
+  const budgetWindowEnd = endOfUtcMonth(to)
+  const elapsedSpan = Math.max(1, budgetWindowEnd.getTime() - from.getTime())
+  const elapsedFraction = Math.max(0, Math.min(1, (now.getTime() - from.getTime()) / elapsedSpan))
 
   let insights = computeInsights({
     employees: current.employees,
     clients: current.clients,
-    previousClients: new Map(previousStats.clients.map((c) => [c.id, { margin: c.margin, hours: c.hours }])),
+    previousClients: new Map((previousStats?.clients ?? []).map((c) => [c.id, { margin: c.margin, hours: c.hours }])),
     capacity,
     companyRevenuePerHour: current.summary.revenuePerHour,
     defaultUtilizationTarget: 0.75,
@@ -530,7 +557,7 @@ export async function buildWorkforce(
   return {
     period: { from: from.toISOString(), to: to.toISOString(), months: monthsF, elapsedFraction, all: allMode },
     summary: current.summary,
-    previousSummary: hasPrevious ? previousStats.summary : null,
+    previousSummary: hasPrevious ? previousStats!.summary : null,
     employees: current.employees,
     clients: current.clients,
     trend,
@@ -539,6 +566,7 @@ export async function buildWorkforce(
     pricing,
     companyRevenuePerHour: current.summary.revenuePerHour,
     hoursPerMonth: hpm,
+    includeOverhead,
   }
 }
 
@@ -582,11 +610,13 @@ export async function buildClientProfitTrend(
   const rate = new Map(employees.map((e) => [e.id, costPerHourFor(e, hpm)]))
 
   const costByMonth = new Map<string, number>()
+  const hoursByMonth = new Map<string, number>()
   const activityByMonth = new Set<string>()
   for (const g of groups) {
     const mk = monthKeyOf(g.date)
     const hours = (g._sum.minutes ?? 0) / 60
     costByMonth.set(mk, (costByMonth.get(mk) ?? 0) + hours * (rate.get(g.employeeId) ?? 0))
+    hoursByMonth.set(mk, (hoursByMonth.get(mk) ?? 0) + hours)
     activityByMonth.add(mk)
   }
 
@@ -599,7 +629,14 @@ export async function buildClientProfitTrend(
     const revenue =
       client.billable && client.monthlyRevenue > 0 && activityByMonth.has(mk) ? client.monthlyRevenue * fraction : 0
     const cost = costByMonth.get(mk) ?? 0
-    out.push({ month: mk, label: monthLabel(mk), revenue, laborCost: cost, contribution: revenue - cost })
+    out.push({
+      month: mk,
+      label: monthLabel(mk),
+      hours: hoursByMonth.get(mk) ?? 0,
+      revenue,
+      laborCost: cost,
+      contribution: revenue - cost,
+    })
   }
   // "All history": show only months where the client actually had activity.
   if (opts.all) return out.filter((p) => p.revenue !== 0 || p.laborCost !== 0)

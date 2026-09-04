@@ -147,7 +147,11 @@ export function predictVatPeriod(
   // periods. If it hasn't invoiced yet this period, expect its median VAT.
   let recurringOutput = 0
   let recurringInput = 0
-  const seenThisPeriod = new Set(inPeriod.map((i) => i.counterpartyKey).filter(Boolean))
+  // Keyed by direction as well as counterparty: the same party can both buy
+  // from and sell to the business, and those are two separate expectations.
+  const seenThisPeriod = new Set(
+    inPeriod.filter((i) => i.counterpartyKey).map((i) => `${i.direction}:${i.counterpartyKey}`)
+  )
   const recentPeriods: Array<{ start: Date; end: Date }> = []
   let cursor = new Date(period.start.getTime() - MS_PER_DAY)
   for (let k = 0; k < 3; k++) {
@@ -161,10 +165,11 @@ export function predictVatPeriod(
     if (!inv.counterpartyKey) continue
     const idx = recentPeriods.findIndex((p) => within(inv.issueDate, p.start, p.end))
     if (idx === -1) continue
-    const entry = byCounterparty.get(inv.counterpartyKey) ?? { direction: inv.direction, perPeriod: new Map() }
+    const key = `${inv.direction}:${inv.counterpartyKey}`
+    const entry = byCounterparty.get(key) ?? { direction: inv.direction, perPeriod: new Map() }
     const vat = inv.direction === 'income' ? inv.vatCents : Math.round((inv.vatCents * (inv.vatDeductible ? Math.min(100, Math.max(0, inv.deductiblePct)) : 0)) / 100)
     entry.perPeriod.set(idx, (entry.perPeriod.get(idx) ?? 0) + vat)
-    byCounterparty.set(inv.counterpartyKey, entry)
+    byCounterparty.set(key, entry)
   }
 
   let recurringCount = 0

@@ -1,79 +1,159 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { useId } from 'react'
 import { eur } from '@/lib/format'
 import type { TrendPoint } from '@/lib/profitability'
 
-// Monthly profitability trend: grouped bars (revenue vs labor cost) with the
-// resulting contribution printed per month. Styled after MonthlyHoursChart.
+// Monthly profitability: revenue and labour cost as two smooth lines over a
+// common zero baseline, so the gap between them reads as the contribution.
+// Per-month figures stay available on hover.
+
+const W = 900
+const H = 240
+const PAD_L = 66
+const PAD_R = 36 // room for the last month label, which is centred on the final point
+const PAD_T = 14
+const PAD_B = 30
+
+// Rounds an axis maximum up to a readable tick value, so gridline labels come
+// out as round money amounts rather than the raw data maximum.
+function niceMax(value: number): number {
+  if (value <= 0) return 1
+  const magnitude = 10 ** Math.floor(Math.log10(value))
+  for (const step of [1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10]) {
+    if (value <= step * magnitude) return step * magnitude
+  }
+  return 10 * magnitude
+}
+
+type Pt = [number, number]
+
+// Catmull-Rom control points, matching the curve used by the marketing charts.
+function smoothPath(points: Pt[]): string {
+  if (points.length === 0) return ''
+  if (points.length === 1) return `M ${points[0][0]},${points[0][1]}`
+  const d = [`M ${points[0][0]},${points[0][1]}`]
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i === 0 ? 0 : i - 1]
+    const p1 = points[i]
+    const p2 = points[i + 1]
+    const p3 = points[i + 2 < points.length ? i + 2 : i + 1]
+    d.push(
+      `C ${p1[0] + (p2[0] - p0[0]) / 6},${p1[1] + (p2[1] - p0[1]) / 6}` +
+        ` ${p2[0] - (p3[0] - p1[0]) / 6},${p2[1] - (p3[1] - p1[1]) / 6}` +
+        ` ${p2[0]},${p2[1]}`
+    )
+  }
+  return d.join(' ')
+}
+
 export function ProfitTrendChart({ data }: { data: TrendPoint[] }) {
+  const id = useId().replace(/:/g, '')
   const hasData = data.some((d) => d.revenue !== 0 || d.laborCost !== 0)
   if (!hasData) {
     return <p className="py-10 text-center text-sm text-slate-400">Δεν υπάρχουν δεδομένα για την περίοδο.</p>
   }
-  const max = Math.max(...data.map((d) => Math.max(d.revenue, d.laborCost)), 1)
+
+  const max = niceMax(Math.max(...data.map((d) => Math.max(d.revenue, d.laborCost)), 0))
+  const innerW = W - PAD_L - PAD_R
+  const innerH = H - PAD_T - PAD_B
+  // A single point would divide by zero; pin it to the middle of the plot.
+  const xOf = (i: number) => (data.length === 1 ? PAD_L + innerW / 2 : PAD_L + (i / (data.length - 1)) * innerW)
+  const yOf = (v: number) => PAD_T + innerH - (Math.max(0, v) / max) * innerH
+
+  const revenuePts: Pt[] = data.map((d, i) => [xOf(i), yOf(d.revenue)])
+  const costPts: Pt[] = data.map((d, i) => [xOf(i), yOf(d.laborCost)])
+  const revenueLine = smoothPath(revenuePts)
+  const baseline = PAD_T + innerH
 
   return (
     <div>
-      <div className="relative h-44">
-        {[1, 0.75, 0.5, 0.25, 0].map((g) => (
-          <div key={g} className="absolute inset-x-0 flex items-center gap-2" style={{ top: `${(1 - g) * 100}%` }}>
-            <span className="w-12 shrink-0 text-right text-[10px] text-slate-400">
-              {eur(max * g)}
-            </span>
-            <span className="h-px flex-1 bg-slate-100" />
-          </div>
-        ))}
-        <div className="absolute inset-0 flex items-stretch gap-2 pl-14">
-          {data.map((d, i) => (
-            <div
-              key={d.month}
-              className="group flex h-full flex-1 items-end justify-center gap-1"
-              title={`${d.label}: έσοδα ${eur(d.revenue)} · κόστος ${eur(d.laborCost)} · συνεισφορά ${eur(d.contribution)}`}
-            >
-              <motion.div
-                className="w-full max-w-[18px] rounded-t bg-gradient-to-t from-blue-600 to-blue-400 transition-colors group-hover:from-blue-700 group-hover:to-blue-500"
-                initial={{ height: 0 }}
-                animate={{ height: `${Math.max(d.revenue > 0 ? 2 : 0, (d.revenue / max) * 100)}%` }}
-                transition={{ duration: 0.55, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
-              />
-              <motion.div
-                className="w-full max-w-[18px] rounded-t bg-gradient-to-t from-slate-400 to-slate-300 transition-colors group-hover:from-slate-500 group-hover:to-slate-400"
-                initial={{ height: 0 }}
-                animate={{ height: `${Math.max(d.laborCost > 0 ? 2 : 0, (d.laborCost / max) * 100)}%` }}
-                transition={{ duration: 0.55, delay: 0.08 + i * 0.06, ease: [0.16, 1, 0.3, 1] }}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" fill="none" role="img" aria-label="Έσοδα και κόστος εργασίας ανά μήνα">
+        <defs>
+          <linearGradient id={`trend-${id}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#2563EB" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#2563EB" stopOpacity="0" />
+          </linearGradient>
+        </defs>
 
-      {/* month labels + contribution row */}
-      <div className="mt-1.5 flex gap-2 pl-14">
-        {data.map((d) => (
-          <div key={d.month} className="flex-1 text-center">
-            <div className="truncate text-[10px] text-slate-500">{d.label}</div>
-            <div
-              className={`text-[11px] font-semibold tabular-nums ${
-                d.contribution >= 0 ? 'text-emerald-600' : 'text-red-500'
-              }`}
-            >
-              {eur(d.contribution)}
-            </div>
-          </div>
-        ))}
-      </div>
+        {/* Dotted gridlines with money labels */}
+        {[1, 0.75, 0.5, 0.25, 0].map((t) => {
+          const y = PAD_T + innerH * (1 - t)
+          return (
+            <g key={t}>
+              <line
+                x1={PAD_L}
+                x2={W - PAD_R}
+                y1={y}
+                y2={y}
+                stroke="#cbd5e1"
+                strokeWidth="1"
+                strokeDasharray="2 4"
+                strokeLinecap="round"
+              />
+              <text x={PAD_L - 8} y={y + 3.5} textAnchor="end" className="fill-slate-400 text-[10px] tabular-nums">
+                {eur(max * t)}
+              </text>
+            </g>
+          )
+        })}
 
-      <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-slate-500">
+        <motion.path
+          d={`${revenueLine} L ${revenuePts[revenuePts.length - 1][0]},${baseline} L ${revenuePts[0][0]},${baseline} Z`}
+          fill={`url(#trend-${id})`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.7, delay: 0.35 }}
+        />
+        <motion.path
+          d={smoothPath(costPts)}
+          stroke="#1f2a4d"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 1, ease: 'easeInOut' }}
+        />
+        <motion.path
+          d={revenueLine}
+          stroke="#2563EB"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 1, ease: 'easeInOut' }}
+        />
+
+        {/* Month labels, and an invisible band per month carrying the figures */}
+        {data.map((d, i) => (
+          <g key={d.month} className="group">
+            <text x={xOf(i)} y={H - 8} textAnchor="middle" className="fill-slate-400 text-[10px]">
+              {d.label}
+            </text>
+            <circle cx={xOf(i)} cy={yOf(d.revenue)} r="3.5" fill="#2563EB" className="opacity-0 group-hover:opacity-100" />
+            <circle cx={xOf(i)} cy={yOf(d.laborCost)} r="3.5" fill="#1f2a4d" className="opacity-0 group-hover:opacity-100" />
+            <rect
+              x={xOf(i) - innerW / (data.length * 2 || 1)}
+              y={PAD_T}
+              width={innerW / (data.length || 1)}
+              height={innerH}
+              fill="transparent"
+            >
+              <title>{`${d.label}: έσοδα ${eur(d.revenue)} · κόστος ${eur(d.laborCost)} · συνεισφορά ${eur(d.contribution)}`}</title>
+            </rect>
+          </g>
+        ))}
+      </svg>
+
+      <div className="mt-2 flex flex-wrap items-center gap-4 px-1 text-[11px] text-slate-500">
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-3.5 rounded-sm bg-blue-600" /> Έσοδα
+          <span className="h-1.5 w-4 rounded-full bg-blue-600" /> Έσοδα
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-3.5 rounded-sm bg-slate-300" /> Κόστος εργασίας
+          <span className="h-1.5 w-4 rounded-full bg-[#1f2a4d]" /> Κόστος εργασίας
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="font-semibold text-emerald-600">€</span> Συνεισφορά (κάτω από κάθε μήνα)
-        </span>
+        <span className="text-slate-400">Η απόσταση των γραμμών είναι η συνεισφορά</span>
       </div>
     </div>
   )

@@ -14,7 +14,7 @@ type Row = {
   cost: number
   revenue: number
   profit: number
-  roi: number | null
+  margin: number | null
 }
 
 export function OverviewClientsTable({ clients, lang }: { clients: Row[]; lang: string }) {
@@ -47,7 +47,7 @@ export function OverviewClientsTable({ clients, lang }: { clients: Row[]; lang: 
               <th className="px-5 py-3 text-right font-medium">Κόστος</th>
               <th className="px-5 py-3 text-right font-medium">Έσοδα</th>
               <th className="px-5 py-3 text-right font-medium">Κέρδος</th>
-              <th className="px-5 py-3 text-right font-medium">ROI</th>
+              <th className="px-5 py-3 text-right font-medium">Περιθώριο</th>
             </tr>
           </thead>
           <tbody>
@@ -70,7 +70,7 @@ export function OverviewClientsTable({ clients, lang }: { clients: Row[]; lang: 
                 <td className="px-5 py-3 text-right tabular-nums text-slate-600">{eur(c.cost)}</td>
                 <td className="px-5 py-3 text-right tabular-nums text-slate-600">{eur(c.revenue)}</td>
                 <td className={'px-5 py-3 text-right tabular-nums font-medium ' + (c.profit >= 0 ? 'text-emerald-600' : 'text-red-500')}>{eur(c.profit)}</td>
-                <td className="px-5 py-3 text-right tabular-nums text-slate-600">{pct(c.roi)}</td>
+                <td className="px-5 py-3 text-right tabular-nums text-slate-600">{pct(c.margin)}</td>
               </tr>
             ))}
           </tbody>

@@ -1,8 +1,6 @@
 import { prisma } from '@/lib/db'
 import { getSettings, hoursPerMonth } from '@/lib/settings'
-import { costPerHourFor, monthlyHoursFor } from '@/lib/profitability'
-
-const MS_PER_AVG_MONTH = 1000 * 60 * 60 * 24 * 30.4375
+import { costPerHourFor, monthlyHoursFor, monthsInPeriod, safeRatio, utilizationOf } from '@/lib/profitability'
 
 export type StatsFilter = {
   from?: Date
@@ -28,7 +26,7 @@ export type ClientStat = {
   cost: number
   revenue: number
   profit: number
-  roi: number | null
+  margin: number | null
   revenuePerHour: number
 }
 
@@ -54,9 +52,11 @@ export type Stats = {
   clients: ClientStat[]
 }
 
+// Length of a range in months, by calendar coverage: a full calendar month is
+// exactly 1 whether it has 28 or 31 days. Shared with the workforce page so the
+// same range prorates monthly revenue to the same figure on both.
 function monthsBetween(from: Date, to: Date): number {
-  const ms = to.getTime() - from.getTime()
-  return ms > 0 ? ms / MS_PER_AVG_MONTH : 0
+  return monthsInPeriod(from, to)
 }
 
 // Parse ?from=&to=&employeeId=&clientId= from a request URL. A bare yyyy-mm-dd `to`
@@ -104,7 +104,7 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
   const [pairGroups, bounds, employeeRows, clientRows] = await Promise.all([
     prisma.workEntry.groupBy({ by: ['employeeId', 'clientId'], where, _sum: { minutes: true } }),
     prisma.workEntry.aggregate({ where, _min: { date: true }, _max: { date: true }, _count: { _all: true } }),
-    prisma.employee.findMany({ where: { userId }, select: { id: true, name: true, monthlyCost: true, contractHoursPerMonth: true } }),
+    prisma.employee.findMany({ where: { userId }, select: { id: true, name: true, active: true, monthlyCost: true, contractHoursPerMonth: true } }),
     prisma.client.findMany({ where: { userId }, select: { id: true, name: true, billable: true, monthlyRevenue: true } }),
   ])
   const empInfo = new Map(employeeRows.map((e) => [e.id, e]))
@@ -155,7 +155,7 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
         cost: 0,
         revenue: 0,
         profit: 0,
-        roi: null,
+        margin: null,
         revenuePerHour: 0,
       }
       clientMap.set(g.clientId, cliStat)
@@ -166,9 +166,9 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
 
   // Finalize per-client revenue/profit/ROI using the prorated revenue for the range.
   for (const cli of clientMap.values()) {
-    cli.revenue = cli.monthlyRevenue * months
+    cli.revenue = cli.billable ? cli.monthlyRevenue * months : 0
     cli.profit = cli.revenue - cli.cost
-    cli.roi = cli.cost > 0 ? cli.profit / cli.cost : null
+    cli.margin = safeRatio(cli.profit, cli.revenue)
     cli.revenuePerHour = cli.hours > 0 ? cli.revenue / cli.hours : 0
   }
 
@@ -182,8 +182,11 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
   const summaryCost = summaryClients.reduce((s, c) => s + c.cost, 0)
   const summaryRevenue = summaryClients.reduce((s, c) => s + c.revenue, 0)
 
-  const activeEmployees = await prisma.employee.count({ where: { active: true, userId } })
-  const capacityHours = activeEmployees * hpm * (months || 0)
+  // Sum each active employee's own contracted capacity rather than assuming
+  // everyone is full-time — the cost side already prices part-timers by contract.
+  const capacityHours = employeeRows
+    .filter((e) => e.active)
+    .reduce((sum, e) => sum + monthlyHoursFor(e, hpm), 0) * (months || 0)
 
   const summary: StatsSummary = {
     hours: summaryHours,
@@ -196,7 +199,7 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
     employeeCount: employeeMap.size,
     clientCount: clientMap.size,
     capacityHours,
-    utilization: capacityHours > 0 ? totalHours / capacityHours : null,
+    utilization: utilizationOf({ billableHours, nonBillableHours }, capacityHours, settings.includeOverhead),
   }
 
   return {
@@ -309,7 +312,11 @@ export async function getEmployeesOverview(userId: string): Promise<EmployeeOver
       months,
       avgPerDay,
       avgPerMonth,
-      utilization: monthlyHoursFor(e, hpm) > 0 ? avgPerMonth / monthlyHoursFor(e, hpm) : null,
+      utilization: utilizationOf(
+        { billableHours, nonBillableHours },
+        monthlyHoursFor(e, hpm) * months,
+        settings.includeOverhead
+      ),
       billableHours,
       nonBillableHours,
       billablePct: totalBN > 0 ? billableHours / totalBN : null,
@@ -419,7 +426,11 @@ export async function getEmployeeDetail(userId: string, id: string): Promise<Emp
     months,
     avgPerDay,
     avgPerMonth,
-    utilization: monthlyHoursFor(employee, hpm) > 0 ? avgPerMonth / monthlyHoursFor(employee, hpm) : null,
+    utilization: utilizationOf(
+      { billableHours, nonBillableHours },
+      monthlyHoursFor(employee, hpm) * months,
+      settings.includeOverhead
+    ),
     cost: hours * costPerHour,
     entryCount,
     billableHours,

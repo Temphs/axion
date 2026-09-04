@@ -1,10 +1,11 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Activity, ChevronRight, CircleDollarSign, Info, TrendingUp, Wallet } from 'lucide-react'
+import { Activity, Briefcase, ChevronRight, CircleDollarSign, Clock, Info, TrendingUp, Users, Wallet } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
 import { ProgressBar } from '@/components/axion/charts'
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter'
 import { KpiCard } from '@/components/workforce/KpiCard'
+import { HoursOverviewCard } from '@/components/workforce/HoursOverviewCard'
 import { ProfitTrendChart } from '@/components/workforce/ProfitTrendChart'
 import { AlertsPanel } from '@/components/workforce/AlertsPanel'
 import { getCurrentUser } from '@/lib/auth'
@@ -57,13 +58,23 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
       : `Αναλυτικά στοιχεία: ${periodName}`
   const avgPerDay = summary.activeDays > 0 ? summary.hours / summary.activeDays : null
   const maxClientContribution = Math.max(...topClients.map((c) => Math.max(0, c.contribution)), 1)
+  const asPct = (fraction: number | null) => (fraction === null ? null : fraction * 100)
+  const hoursDeltaPct = asPct(delta(summary.hours, prev?.hours))
+  const contributionDeltaPct = asPct(delta(summary.contribution, prev?.contribution))
 
   return (
     <div className="space-y-5">
       {/* ── Header ──────────────────────────────────────────────── */}
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">Επισκόπηση</h1>
+          <nav aria-label="breadcrumb" className="flex items-center gap-1.5 text-xs text-blue-200/70">
+            <span>MyEmployee</span>
+            <span aria-hidden className="text-blue-200/40">
+              /
+            </span>
+            <span className="font-medium text-white/90">Επισκόπηση</span>
+          </nav>
+          <h1 className="font-display mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">Επισκόπηση</h1>
           <p className="mt-0.5 text-sm text-blue-200/80">Η γενική εικόνα της επιχείρησης</p>
         </div>
         <DateRangeFilter />
@@ -122,7 +133,6 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
               value={eur(summary.revenue)}
               sub={`${summary.clientCount} πελάτες με δραστηριότητα`}
               delta={delta(summary.revenue, prev?.revenue)}
-              spark={wf.trend.map((t) => t.revenue)}
               tooltip="Μηνιαία έσοδα πελατών, αναλογικά για την περίοδο — μόνο για μήνες με καταγεγραμμένη εργασία."
             />
             <KpiCard
@@ -132,7 +142,6 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
               sub={`${hrs(summary.hours)} εργασίας${avgPerDay !== null ? ` · μ.ο. ${hrs(avgPerDay)}/ημέρα` : ''}`}
               delta={delta(summary.laborCost, prev?.laborCost)}
               invert
-              spark={wf.trend.map((t) => t.laborCost)}
               tooltip="Ώρες εργασίας × πλήρες ωριαίο κόστος κάθε εργαζόμενου."
             />
             <KpiCard
@@ -142,7 +151,6 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
               tone={summary.contribution >= 0 ? 'pos' : 'neg'}
               sub={summary.margin !== null ? `περιθώριο ${pct(summary.margin)}` : undefined}
               delta={delta(summary.contribution, prev?.contribution)}
-              spark={wf.trend.map((t) => t.contribution)}
               tooltip="Έσοδα − κόστος εργασίας."
             />
             <KpiCard
@@ -151,25 +159,47 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
               value={pct(summary.utilization)}
               sub={summary.unbilledHours > 0 ? `${hrs(summary.unbilledHours)} μη τιμολογημένες` : 'όλες οι ώρες χρεώσιμες'}
               delta={
-                summary.utilization !== null && prev?.utilization != null && prev.utilization !== 0
-                  ? (summary.utilization - prev.utilization) / prev.utilization
+                summary.utilization !== null && prev?.utilization != null
+                  ? summary.utilization - prev.utilization
                   : null
               }
-              tooltip="Χρεώσιμες ώρες ÷ διαθέσιμες εργάσιμες ώρες της ομάδας."
+              deltaSuffix=" μ.β."
+              tooltip={`${
+                wf.includeOverhead ? 'Όλες οι ώρες' : 'Χρεώσιμες ώρες'
+              } ÷ διαθέσιμες εργάσιμες ώρες της ομάδας. Ο αριθμητής ακολουθεί τη ρύθμιση «συμπερίληψη overhead». Η μεταβολή δίνεται σε ποσοστιαίες μονάδες.`}
             />
           </div>
 
-          {/* ── Trend + alerts ──────────────────────────────────── */}
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Card className="p-5 lg:col-span-2">
-              <h2 className="text-sm font-semibold text-slate-900">Πορεία κερδοφορίας</h2>
-              <p className="mb-4 text-xs text-slate-400">
-                {wf.period.all ? 'Μήνες με δραστηριότητα (έως 12)' : 'Τελευταίοι 6 μήνες'}
+          {/* ── Charts ──────────────────────────────────────────── */}
+          <div className="grid items-start gap-4 lg:grid-cols-5">
+            <div className="lg:col-span-2">
+              <HoursOverviewCard
+                data={wf.trend}
+                caption="σε σχέση με την προηγούμενη περίοδο"
+                deltaPct={hoursDeltaPct}
+                stats={[
+                  { icon: Clock, label: 'Ώρες', value: hrs(summary.hours) },
+                  { icon: Activity, label: 'Χρεώσιμες', value: hrs(summary.billableHours) },
+                  { icon: Briefcase, label: 'Πελάτες', value: num(summary.clientCount) },
+                  { icon: Users, label: 'Εργαζόμενοι', value: num(summary.employeeCount) },
+                ]}
+              />
+            </div>
+            <Card className="p-5 lg:col-span-3">
+              <h2 className="font-display text-base font-bold tracking-tight text-slate-900">Πορεία κερδοφορίας</h2>
+              <p className="mb-4 mt-0.5 text-xs text-slate-400">
+                {contributionDeltaPct !== null && (
+                  <span className={`font-semibold ${contributionDeltaPct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {contributionDeltaPct >= 0 ? '↑' : '↓'} {Math.abs(contributionDeltaPct).toFixed(0)}% συνεισφορά{' '}
+                  </span>
+                )}
+                {wf.period.all ? 'σε μήνες με δραστηριότητα (έως 12)' : 'στους τελευταίους 6 μήνες'}
               </p>
               <ProfitTrendChart data={wf.trend} />
             </Card>
-            <AlertsPanel insights={wf.insights.slice(0, 4)} lang={lang} />
           </div>
+
+          <AlertsPanel insights={wf.insights.slice(0, 4)} lang={lang} />
 
           {/* ── Top lists ───────────────────────────────────────── */}
           <div className="grid gap-4 lg:grid-cols-2">

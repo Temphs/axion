@@ -2,7 +2,9 @@
 // No Prisma/Next imports — everything here is unit-testable.
 //
 // Metric definitions (surfaced as tooltips in the UI):
-//   Billable utilization   = billable hours / available working hours
+//   Utilization            = counted hours / available working hours, where
+//                            counted hours are billable-only, or billable +
+//                            overhead when the account includes overhead
 //   Labor cost             = hours worked × fully-loaded hourly cost
 //   Attributed revenue     = client revenue allocated to employees pro-rata
 //                            by their hours on that client in that month
@@ -50,6 +52,29 @@ export function contributionMargin(revenue: number, laborCost: number): number |
   return safeRatio(revenue - laborCost, revenue)
 }
 
+/* ─── utilization ────────────────────────────────────────────── */
+
+export type HourSplit = { billableHours: number; nonBillableHours: number }
+
+// Hours that count toward utilization. Overhead (non-billable) work counts only
+// when the account has opted into it; otherwise utilization measures billable
+// work alone.
+export function utilizedHours(hours: HourSplit, includeOverhead: boolean): number {
+  return includeOverhead ? hours.billableHours + hours.nonBillableHours : hours.billableHours
+}
+
+// The single definition of utilization, used by every page that reports it:
+// counted hours over the contracted capacity of the period. Keeping one
+// function means the overview, the employee cards and the client pages can
+// never drift into quoting different ratios under the same label.
+export function utilizationOf(
+  hours: HourSplit,
+  availableHours: number,
+  includeOverhead: boolean
+): number | null {
+  return safeRatio(utilizedHours(hours, includeOverhead), availableHours)
+}
+
 /* ─── periods ────────────────────────────────────────────────── */
 
 export type Period = { from: Date; to: Date }
@@ -61,6 +86,13 @@ export function monthKeyOf(d: Date): string {
 
 function daysInMonth(year: number, monthIndex: number): number {
   return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
+}
+
+// Whole UTC calendar day a timestamp falls on. Day counts are derived from
+// these indices rather than from an elapsed-milliseconds division, so a range
+// covers the same number of days no matter what time of day its bounds carry.
+function dayIndex(d: Date): number {
+  return Math.floor(d.getTime() / MS_PER_DAY)
 }
 
 // For each calendar month intersecting [from, to]: fraction of that month
@@ -79,7 +111,7 @@ export function monthCoverage(from: Date, to: Date): Map<string, number> {
     const monthEnd = new Date(Date.UTC(y, m, dim, 23, 59, 59, 999))
     const overlapStart = from > monthStart ? from : monthStart
     const overlapEnd = to < monthEnd ? to : monthEnd
-    const overlapDays = Math.max(0, Math.round((overlapEnd.getTime() - overlapStart.getTime()) / MS_PER_DAY) + 1)
+    const overlapDays = Math.max(0, dayIndex(overlapEnd) - dayIndex(overlapStart) + 1)
     out.set(`${y}-${String(m + 1).padStart(2, '0')}`, Math.min(1, overlapDays / dim))
     m++
     if (m > 11) {
@@ -105,8 +137,10 @@ export function previousPeriodOf(from: Date, to: Date): Period {
     const prevTo = new Date(from.getTime() - 1)
     return { from: prevFrom, to: prevTo }
   }
-  const duration = to.getTime() - from.getTime()
-  return { from: new Date(from.getTime() - duration - MS_PER_DAY), to: new Date(from.getTime() - 1) }
+  // Arbitrary ranges shift back by their own length in whole days, so the
+  // comparison window always spans exactly as many days as the current one.
+  const days = dayIndex(to) - dayIndex(from) + 1
+  return { from: new Date(from.getTime() - days * MS_PER_DAY), to: new Date(from.getTime() - 1) }
 }
 
 /* ─── revenue attribution ────────────────────────────────────── */
@@ -230,6 +264,7 @@ export type WorkforceSummary = {
 export type TrendPoint = {
   month: string
   label: string
+  hours: number
   revenue: number
   laborCost: number
   contribution: number

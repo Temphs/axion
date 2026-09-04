@@ -56,9 +56,17 @@ export function Nav({
     return pathname.startsWith(href) && href.length > longest ? href.length : longest
   }, 0)
 
-  // White panel: dark text, and a simple "glass" highlight on the selection.
-  const activeLinkCls  = 'bg-blue-500/10 text-blue-700 ring-1 ring-inset ring-blue-200/70 shadow-sm backdrop-blur-sm'
-  const passiveLinkCls = 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+  // Each entry carries a small rounded icon tile. The selected one lifts off the
+  // white panel as its own card and fills its tile with the brand gradient.
+  const activeLinkCls  = 'bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_10px_24px_-12px_rgba(37,99,235,0.45)]'
+  const passiveLinkCls = 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+  const tileCls = (active: boolean) =>
+    cn(
+      'flex shrink-0 items-center justify-center rounded-lg transition',
+      active
+        ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-[0_3px_8px_-2px_rgba(37,99,235,0.55)]'
+        : 'bg-white text-slate-400 shadow-[0_1px_3px_rgba(15,23,42,0.1)]'
+    )
 
   return (
     <div className={cn('flex gap-1', h ? 'flex-col' : 'flex-col')}>
@@ -73,12 +81,14 @@ export function Nav({
               key={id}
               href={href}
               className={cn(
-                'flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition',
+                'flex items-center gap-2.5 rounded-xl p-2 pr-3.5 text-sm font-semibold transition',
                 h && 'whitespace-nowrap',
                 active ? activeLinkCls : passiveLinkCls,
               )}
             >
-              <Icon size={16} strokeWidth={2} />
+              <span className={cn(tileCls(active), 'h-8 w-8')}>
+                <Icon size={16} strokeWidth={2} />
+              </span>
               {label}
             </Link>
           )
@@ -110,12 +120,14 @@ export function Nav({
                 key={seg || 'overview'}
                 href={href}
                 className={cn(
-                  'flex items-center gap-2.5 rounded-xl px-3.5 py-2 text-sm font-medium transition',
+                  'flex items-center gap-2.5 rounded-xl p-1.5 pr-3.5 text-sm font-medium transition',
                   h && 'whitespace-nowrap',
                   active ? activeLinkCls : passiveLinkCls,
                 )}
               >
-                <Icon size={15} strokeWidth={2} />
+                <span className={cn(tileCls(active), 'h-7 w-7')}>
+                  <Icon size={14} strokeWidth={2} />
+                </span>
                 {label}
               </Link>
             )
