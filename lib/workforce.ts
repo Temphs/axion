@@ -474,11 +474,13 @@ export async function buildWorkforce(
     const fraction = isCurrent ? Math.min(1, now.getUTCDate() / mEnd.getUTCDate()) : 1
 
     let cost = 0
+    let hours = 0
     const activeClients = new Set<string>()
     for (const row of rows) {
       if (row.date < mStart || row.date > mEnd) continue
       const emp = empInfo.get(row.employeeId)
       if (!emp) continue
+      hours += row.hours
       cost += row.hours * (trendRate.get(emp.id) ?? 0)
       activeClients.add(row.clientId)
     }
@@ -487,7 +489,7 @@ export async function buildWorkforce(
       const cli = cliInfo.get(clientId)
       if (cli?.billable && cli.monthlyRevenue > 0) revenue += cli.monthlyRevenue * fraction
     }
-    trend.push({ month: mk, label: monthLabel(mk), revenue, laborCost: cost, contribution: revenue - cost })
+    trend.push({ month: mk, label: monthLabel(mk), hours, revenue, laborCost: cost, contribution: revenue - cost })
   }
 
   /* capacity (active employees, current period) */
@@ -595,11 +597,13 @@ export async function buildClientProfitTrend(
   const rate = new Map(employees.map((e) => [e.id, costPerHourFor(e, hpm)]))
 
   const costByMonth = new Map<string, number>()
+  const hoursByMonth = new Map<string, number>()
   const activityByMonth = new Set<string>()
   for (const g of groups) {
     const mk = monthKeyOf(g.date)
     const hours = (g._sum.minutes ?? 0) / 60
     costByMonth.set(mk, (costByMonth.get(mk) ?? 0) + hours * (rate.get(g.employeeId) ?? 0))
+    hoursByMonth.set(mk, (hoursByMonth.get(mk) ?? 0) + hours)
     activityByMonth.add(mk)
   }
 
@@ -612,7 +616,14 @@ export async function buildClientProfitTrend(
     const revenue =
       client.billable && client.monthlyRevenue > 0 && activityByMonth.has(mk) ? client.monthlyRevenue * fraction : 0
     const cost = costByMonth.get(mk) ?? 0
-    out.push({ month: mk, label: monthLabel(mk), revenue, laborCost: cost, contribution: revenue - cost })
+    out.push({
+      month: mk,
+      label: monthLabel(mk),
+      hours: hoursByMonth.get(mk) ?? 0,
+      revenue,
+      laborCost: cost,
+      contribution: revenue - cost,
+    })
   }
   // "All history": show only months where the client actually had activity.
   if (opts.all) return out.filter((p) => p.revenue !== 0 || p.laborCost !== 0)

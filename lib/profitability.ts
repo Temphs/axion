@@ -239,6 +239,7 @@ export type WorkforceSummary = {
 export type TrendPoint = {
   month: string
   label: string
+  hours: number
   revenue: number
   laborCost: number
   contribution: number
