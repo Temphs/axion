@@ -5,7 +5,6 @@ import {
   Clock,
   CalendarDays,
   CircleDollarSign,
-  Gauge,
   Hourglass,
   TrendingUp,
   Wallet,
@@ -17,12 +16,14 @@ import { EmployeeClientsTable } from '@/components/dashboard/EmployeeClientsTabl
 import { EmployeeEditPanel } from '@/components/dashboard/EmployeeEditPanel'
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter'
 import { KpiCard } from '@/components/workforce/KpiCard'
+import { DayCompletionCard } from '@/components/workforce/DayCompletionCard'
 import { TargetsCard } from '@/components/workforce/TargetsCard'
+import { prisma } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth'
-import { getEmployeeDetail } from '@/lib/stats'
+import { getEmployeeDayLog, getEmployeeDetail } from '@/lib/stats'
 import { buildWorkforce } from '@/lib/workforce'
 import { getSettings, hoursPerMonth } from '@/lib/settings'
-import { eur, hrs, num, pct } from '@/lib/format'
+import { eur, hrs, num, pct, shortDate } from '@/lib/format'
 
 export default async function EmployeeDetailPage({
   params,
@@ -36,10 +37,17 @@ export default async function EmployeeDetailPage({
   const to = typeof sp.to === 'string' && sp.to ? new Date(`${sp.to}T23:59:59.999Z`) : undefined
   const all = sp.range === 'all'
 
-  const [d, settings, wf] = await Promise.all([
+  const [d, settings, wf, dayLog, overheadClients] = await Promise.all([
     getEmployeeDetail(user.id, id),
     getSettings(user.id),
     buildWorkforce(user.id, { from, to, all }),
+    getEmployeeDayLog(user.id, id, { from, to }),
+    // Gaps are filled against a non-billable client, so offer those to pick from.
+    prisma.client.findMany({
+      where: { userId: user.id, billable: false, active: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    }),
   ])
   if (!d) notFound()
   const row = wf.employees.find((e) => e.id === id)
@@ -47,6 +55,7 @@ export default async function EmployeeDetailPage({
   const hpm = hoursPerMonth(settings)
   const topTypes = d.workTypes.slice(0, 6)
   const months = Math.max(wf.period.months, 0.01)
+  const contributionPerHour = row && row.hours > 0 ? row.contribution / row.hours : null
   const periodLabel = new Intl.DateTimeFormat('el-GR', { month: 'long', year: 'numeric' }).format(
     new Date(wf.period.from)
   )
@@ -90,6 +99,8 @@ export default async function EmployeeDetailPage({
           </div>
           {row && (
             <section className="space-y-4">
+              {/* Contribution spread over every hour logged, not just billable
+                  ones — the overhead hours are part of what earned it. */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 <KpiCard
                   icon={Hourglass}
@@ -97,13 +108,6 @@ export default async function EmployeeDetailPage({
                   value={hrs(row.hours)}
                   sub={`${hrs(row.billableHours)} χρεώσιμες${row.activeDays > 0 ? ` · μ.ο. ${hrs(row.hours / row.activeDays)}/ημέρα` : ''}`}
                   tooltip="Σύνολο καταχωρημένων ωρών στην περίοδο. Ο μέσος όρος ανά ημέρα μετρά μόνο ημέρες με καταχωρήσεις."
-                />
-                <KpiCard
-                  icon={Gauge}
-                  label="Αξιοποίηση"
-                  value={pct(row.utilization)}
-                  sub={`από ${hrs(row.availableHours)} διαθέσιμες`}
-                  tooltip="Χρεώσιμες ώρες (εκτός overhead) ÷ σύνολο καταχωρημένων ωρών (overhead + χρεώσιμες)."
                 />
                 <KpiCard
                   icon={TrendingUp}
@@ -119,19 +123,23 @@ export default async function EmployeeDetailPage({
                 />
                 <KpiCard
                   icon={CircleDollarSign}
-                  label="Συνεισφορά"
+                  label="Συνολική συνεισφορά"
                   value={eur(row.contribution)}
                   tone={row.contribution >= 0 ? 'pos' : 'neg'}
                   sub={row.margin !== null ? `περιθώριο ${pct(row.margin)}` : undefined}
                   tooltip="Επιμερισμένα έσοδα − κόστος εργασίας."
-                />
-                <KpiCard
-                  icon={Clock}
-                  label="€ / χρεώσιμη ώρα"
-                  value={row.revenuePerHour !== null ? eur(row.revenuePerHour, true) : '—'}
-                  sub={row.unbilledHours > 0 ? `${hrs(row.unbilledHours)} μη τιμολογημένες` : undefined}
-                  tooltip="Επιμερισμένα έσοδα ÷ χρεώσιμες ώρες."
-                />
+                >
+                  <p className="flex items-baseline justify-between gap-2 text-xs">
+                    <span className="text-slate-400">Συνεισφορά / ώρα</span>
+                    <span
+                      className={`font-semibold tabular-nums ${
+                        contributionPerHour !== null && contributionPerHour < 0 ? 'text-red-500' : 'text-slate-700'
+                      }`}
+                    >
+                      {contributionPerHour !== null ? `${eur(contributionPerHour, true)}/ώρα` : '—'}
+                    </span>
+                  </p>
+                </KpiCard>
               </div>
 
               <TargetsCard
@@ -146,14 +154,32 @@ export default async function EmployeeDetailPage({
             </section>
           )}
 
-          {/* ── All-time activity ───────────────────────────────── */}
-          <h2 className="font-display text-lg font-semibold text-white">Συνολική δραστηριότητα</h2>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <Kpi icon={<Clock size={16} />} label="Ώρες / ημέρα" value={hrs(d.avgPerDay)} sub={`από ${settings.hoursPerDay}ω`} />
-            <Kpi icon={<CalendarDays size={16} />} label="Ώρες / μήνα" value={hrs(d.avgPerMonth)} sub={`από ${num(hpm)}ω`} />
-            <Kpi icon={<Hourglass size={16} />} label="Σύνολο ωρών" value={hrs(d.hours)} sub={`${d.days} ημέρες`} />
-            <Kpi icon={<Gauge size={16} />} label="Αξιοποίηση" value={pct(d.utilization)} tone={utilTone(d.utilization)} />
-            <Kpi icon={<Wallet size={16} />} label="Κόστος" value={eur(d.cost)} sub={`${d.entryCount} εγγραφές`} />
+          {/* ── Entry coverage ──────────────────────────────────── */}
+          <h2 className="font-display text-lg font-semibold text-white">Καταχωρήσεις</h2>
+
+          <DayCompletionCard
+            employeeId={d.id}
+            employeeName={d.name}
+            days={dayLog}
+            targetHours={settings.hoursPerDay}
+            overheadClients={overheadClients}
+          />
+
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Kpi icon={<Clock size={16} />} label="Ώρες / ημέρα" value={hrs(d.avgPerDay)} sub={`στόχος ${settings.hoursPerDay}ω`} />
+            <Kpi icon={<CalendarDays size={16} />} label="Ώρες / μήνα" value={hrs(d.avgPerMonth)} sub={`στόχος ${num(hpm)}ω`} />
+            <Kpi
+              icon={<CalendarDays size={16} />}
+              label="Ημέρες με καταχωρήσεις"
+              value={num(d.days)}
+              sub={`${d.entryCount} εγγραφές`}
+            />
+            <Kpi
+              icon={<CalendarDays size={16} />}
+              label="Διάστημα καταχωρήσεων"
+              value={row?.firstEntry && row?.lastEntry ? `${shortDate(row.firstEntry)}` : '—'}
+              sub={row?.lastEntry ? `έως ${shortDate(row.lastEntry)}` : undefined}
+            />
           </div>
 
           {/* trend + billable split */}
@@ -172,8 +198,8 @@ export default async function EmployeeDetailPage({
                 <Donut
                   className="w-36"
                   immediate
-                  centerLabel={pct(d.utilization)}
-                  centerSub="χρεώσιμες"
+                  centerLabel={hrs(d.hours)}
+                  centerSub="σύνολο"
                   segments={[
                     { value: d.billableHours, color: '#2563EB' },
                     { value: d.nonBillableHours || 0.0001, color: '#f59e0b' },
@@ -212,13 +238,6 @@ export default async function EmployeeDetailPage({
       )}
     </div>
   )
-}
-
-function utilTone(u: number | null): 'pos' | 'neg' | undefined {
-  if (u === null) return undefined
-  if (u >= 0.8) return 'pos'
-  if (u < 0.5) return 'neg'
-  return undefined
 }
 
 function Kpi({ icon, label, value, sub, tone }: { icon: React.ReactNode; label: string; value: string; sub?: string; tone?: 'pos' | 'neg' }) {

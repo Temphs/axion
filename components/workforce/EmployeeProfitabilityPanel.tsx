@@ -1,8 +1,8 @@
 import Link from 'next/link'
-import { Gauge, Target } from 'lucide-react'
+import { AlertTriangle, CalendarDays, Target } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
-import { Donut, ProgressBar } from '@/components/axion/charts'
-import { eur, hrs, pct } from '@/lib/format'
+import { Donut } from '@/components/axion/charts'
+import { eur, hrs, num, pct, shortDate } from '@/lib/format'
 import type { ClientRow, EmployeeRow } from '@/lib/profitability'
 
 // Employee overview: a ranked profitability list beside a revenue-by-client
@@ -20,12 +20,6 @@ function initials(name: string): string {
     .join('')
 }
 
-// Bars stay on the brand blue so the list reads as one block; the performance
-// table below is where utilization gets its red/amber/green judgement.
-function barColor(value: number | null): string {
-  return value === null ? '#cbd5e1' : '#2563EB'
-}
-
 export function EmployeeProfitabilityPanel({
   employees,
   clients,
@@ -39,7 +33,7 @@ export function EmployeeProfitabilityPanel({
 }) {
   const ranked = [...employees]
     .filter((e) => e.hours > 0)
-    .sort((a, b) => (b.utilization ?? -1) - (a.utilization ?? -1) || b.hours - a.hours)
+    .sort((a, b) => b.contribution - a.contribution || b.hours - a.hours)
     .slice(0, 6)
 
   const byRevenue = clients
@@ -51,14 +45,13 @@ export function EmployeeProfitabilityPanel({
   const totals = employees.reduce(
     (s, e) => {
       s.hours += e.hours
-      s.billable += e.billableHours
       s.contribution += e.contribution
+      s.incompleteDays += e.incompleteDays
       return s
     },
-    { hours: 0, billable: 0, contribution: 0 }
+    { hours: 0, contribution: 0, incompleteDays: 0 }
   )
   const marginPerHour = totals.hours > 0 ? totals.contribution / totals.hours : null
-  const billableRate = totals.hours > 0 ? totals.billable / totals.hours : null
 
   return (
     <div className="grid items-start gap-4 lg:grid-cols-3">
@@ -94,16 +87,34 @@ export function EmployeeProfitabilityPanel({
                       {e.revenuePerHour !== null && ` · έσοδα ${eur(e.revenuePerHour)}/ώρα`}
                     </span>
                   </span>
-                  <span className="shrink-0 text-sm font-bold tabular-nums text-slate-900">
-                    {pct(e.utilization)}
+                  <span className="shrink-0 text-right">
+                    <span
+                      className={`block text-sm font-bold tabular-nums ${
+                        e.contribution >= 0 ? 'text-emerald-600' : 'text-red-500'
+                      }`}
+                    >
+                      {eur(e.contribution)}
+                    </span>
+                    <span className="block text-[11px] text-slate-400">συνεισφορά</span>
                   </span>
                 </div>
-                <div className="mt-2 pl-12">
-                  <ProgressBar
-                    value={e.utilization !== null ? Math.min(100, e.utilization * 100) : 0}
-                    color={barColor(e.utilization)}
-                    immediate
-                  />
+
+                {/* Which dates this person actually logged, and whether any of
+                    those days came in under the daily target. */}
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 pl-12 text-[11px]">
+                  <span className="flex items-center gap-1 text-slate-400">
+                    <CalendarDays size={12} className="shrink-0" />
+                    {e.firstEntry && e.lastEntry
+                      ? `${shortDate(e.firstEntry)} → ${shortDate(e.lastEntry)}`
+                      : 'χωρίς καταχωρήσεις'}
+                  </span>
+                  <span className="text-slate-400">{num(e.activeDays)} ημέρες</span>
+                  {e.incompleteDays > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
+                      <AlertTriangle size={11} className="shrink-0" />
+                      {num(e.incompleteDays)} ημέρες κάτω από τον στόχο · λείπουν {hrs(e.missingHours)}
+                    </span>
+                  )}
                 </div>
               </Link>
             </li>
@@ -165,9 +176,9 @@ export function EmployeeProfitabilityPanel({
             label="μ.ό. περιθώριο / ώρα"
           />
           <MiniStat
-            icon={<Gauge size={14} strokeWidth={2.25} />}
-            value={pct(billableRate)}
-            label="χρεώσιμες ώρες"
+            icon={<AlertTriangle size={14} strokeWidth={2.25} />}
+            value={num(totals.incompleteDays)}
+            label="ημέρες κάτω από τον ημερήσιο στόχο"
           />
         </div>
       </div>

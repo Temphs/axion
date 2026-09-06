@@ -60,6 +60,9 @@ export function HoursOverviewCard({
       {/* Headline + per-metric chips, mirroring the panel above */}
       <div className="px-1 pt-4">
         <h2 className="font-display text-base font-bold tracking-tight text-slate-900">Ώρες εργασίας</h2>
+        <p className="text-[11px] text-slate-400">
+          {data.length > 0 && `${data[0].label} → ${data[data.length - 1].label} · ${data.length} μήνες`}
+        </p>
         <p className="mt-0.5 text-xs text-slate-400">
           {deltaPct !== null && (
             <span className={`font-semibold ${deltaPct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>

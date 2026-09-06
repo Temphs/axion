@@ -27,10 +27,10 @@ export function contribution(revenue: number, laborCost: number): number {
   return revenue - laborCost
 }
 
-/* ─── employee capacity & rate ───────────────────────────────── */
+/* ─── employee rate ──────────────────────────────────────────── */
 
 // Monthly hours an employee is contracted for, falling back to the account
-// default. Single source of truth for both capacity and hourly cost.
+// default. Drives the fully loaded hourly cost.
 export function monthlyHoursFor(
   employee: { contractHoursPerMonth?: number | null },
   accountHoursPerMonth: number
@@ -58,8 +58,7 @@ export type HourSplit = { billableHours: number; nonBillableHours: number }
 // The single definition of utilization, used by every page that reports it:
 // billable (non-overhead) hours over every hour entered, overhead included in
 // the denominator. It answers "how much of the time we recorded is chargeable
-// work", and is deliberately independent of contracted capacity — how full a
-// person's month is gets reported separately, as capacity allocation.
+// work". It does not measure how full someone's month is.
 export function utilizationOf(hours: HourSplit): number | null {
   return safeRatio(hours.billableHours, hours.billableHours + hours.nonBillableHours)
 }
@@ -157,16 +156,6 @@ export function clientHealth(margin: number | null, billable: boolean, hasRevenu
   return 'critical'
 }
 
-export type CapacityStatus = 'under' | 'healthy' | 'near' | 'over'
-
-export function capacityStatus(allocation: number | null): CapacityStatus | null {
-  if (allocation === null) return null
-  if (allocation < 0.5) return 'under'
-  if (allocation < 0.85) return 'healthy'
-  if (allocation <= 1) return 'near'
-  return 'over'
-}
-
 /* ─── row shapes shared by builder + UI ──────────────────────── */
 
 export type EmployeeClientSlice = {
@@ -187,10 +176,15 @@ export type EmployeeRow = {
   costPerHour: number
   hours: number
   activeDays: number
+  // Day-level completeness: which dates were logged, and how many of those days
+  // came in under the account's daily target (8h by default).
+  firstEntry: string | null // yyyy-mm-dd
+  lastEntry: string | null
+  incompleteDays: number
+  missingHours: number
   billableHours: number
   nonBillableHours: number
   unbilledHours: number
-  availableHours: number
   utilization: number | null // 0..1
   revenue: number
   laborCost: number
@@ -238,7 +232,6 @@ export type WorkforceSummary = {
   billableHours: number
   nonBillableHours: number
   unbilledHours: number
-  availableHours: number
   utilization: number | null
   revenue: number
   laborCost: number
@@ -259,21 +252,11 @@ export type TrendPoint = {
   contribution: number
 }
 
-export type CapacityRow = {
-  id: string
-  name: string
-  availableHours: number
-  allocatedHours: number
-  remainingHours: number
-  allocation: number | null // 0..∞
-  status: CapacityStatus | null
-}
-
 /* ─── deterministic insights ─────────────────────────────────── */
 
 export type Insight = {
   severity: 'critical' | 'warning' | 'info'
-  kind: 'client_margin' | 'utilization' | 'budget_overrun' | 'pricing' | 'capacity'
+  kind: 'client_margin' | 'utilization' | 'budget_overrun' | 'pricing'
   message: string
   href?: string // relative link target (client/employee page)
 }
@@ -285,7 +268,6 @@ export type InsightInputs = {
   employees: EmployeeRow[]
   clients: ClientRow[]
   previousClients: Map<string, { margin: number | null; hours: number }>
-  capacity: CapacityRow[]
   companyRevenuePerHour: number | null
   defaultUtilizationTarget: number // fraction, e.g. 0.75
   periodElapsedFraction: number // how much of the period has passed (1 for closed periods)
@@ -363,24 +345,6 @@ export function computeInsights(input: InsightInputs): Insight[] {
         })
       }
     }
-  }
-
-  // Capacity extremes.
-  const over = input.capacity.filter((c) => c.status === 'over' || c.status === 'near')
-  const under = input.capacity.filter((c) => c.status === 'under' && c.availableHours > 0)
-  for (const c of over) {
-    if (c.allocation === null) continue
-    const free = under[0]
-    out.push({
-      severity: c.status === 'over' ? 'warning' : 'info',
-      kind: 'capacity',
-      message:
-        `Ο/Η ${c.name} βρίσκεται στο ${pctF(c.allocation)} της διαθέσιμης χωρητικότητας` +
-        (free && free.allocation !== null
-          ? ` — ο/η ${free.name} έχει ${free.remainingHours.toFixed(0)}ω ελεύθερες.`
-          : '.'),
-      href: `employees/${c.id}`,
-    })
   }
 
   const order = { critical: 0, warning: 1, info: 2 }
