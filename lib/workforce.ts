@@ -38,7 +38,6 @@ export type Workforce = {
   pricing: PricingOpportunity[]
   companyRevenuePerHour: number | null
   hoursPerMonth: number
-  includeOverhead: boolean
 }
 
 type PairRow = { employeeId: string; clientId: string; date: Date; hours: number }
@@ -96,7 +95,6 @@ function computePeriodStats(
   employees: EmployeeInfo[],
   clients: ClientInfo[],
   hpm: number,
-  includeOverhead: boolean,
   activeMonthsOnly = false
 ): PeriodStats {
   // "All history" mode counts only months that actually have entries, so long
@@ -232,7 +230,7 @@ function computePeriodStats(
       nonBillableHours,
       unbilledHours,
       availableHours: available,
-      utilization: utilizationOf({ billableHours, nonBillableHours }, available, includeOverhead),
+      utilization: utilizationOf({ billableHours, nonBillableHours }),
       revenue,
       laborCost,
       contribution: revenue - laborCost,
@@ -334,11 +332,7 @@ function computePeriodStats(
     nonBillableHours: totals.nonBillable,
     unbilledHours: totals.unbilled,
     availableHours: availableTotal,
-    utilization: utilizationOf(
-      { billableHours: totals.billable, nonBillableHours: totals.nonBillable },
-      availableTotal,
-      includeOverhead
-    ),
+    utilization: utilizationOf({ billableHours: totals.billable, nonBillableHours: totals.nonBillable }),
     revenue: totals.revenue,
     laborCost: totals.cost,
     contribution: totals.revenue - totals.cost,
@@ -444,11 +438,8 @@ export async function buildWorkforce(
     hours: (g._sum.minutes ?? 0) / 60,
   }))
 
-  const includeOverhead = settings.includeOverhead
-  const current = computePeriodStats(rows, from, to, employees, clients, hpm, includeOverhead, allMode)
-  const previousStats = allMode
-    ? null
-    : computePeriodStats(rows, prev.from, prev.to, employees, clients, hpm, includeOverhead)
+  const current = computePeriodStats(rows, from, to, employees, clients, hpm, allMode)
+  const previousStats = allMode ? null : computePeriodStats(rows, prev.from, prev.to, employees, clients, hpm)
   const hasPrevious = previousStats !== null && previousStats.summary.hours > 0
 
   /* trend: months ending at month(to) — in all-mode only months with entries
@@ -566,7 +557,6 @@ export async function buildWorkforce(
     pricing,
     companyRevenuePerHour: current.summary.revenuePerHour,
     hoursPerMonth: hpm,
-    includeOverhead,
   }
 }
 

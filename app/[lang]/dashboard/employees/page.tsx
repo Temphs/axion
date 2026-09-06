@@ -6,6 +6,7 @@ import { buildWorkforce } from '@/lib/workforce'
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter'
 import { EmployeesGrid } from '@/components/dashboard/EmployeesGrid'
 import { EmployeePerformanceTable } from '@/components/workforce/EmployeePerformanceTable'
+import { EmployeeProfitabilityPanel } from '@/components/workforce/EmployeeProfitabilityPanel'
 import { CapacityPanel } from '@/components/workforce/CapacityPanel'
 
 export default async function EmployeesPage({ params, searchParams }: PageProps<'/[lang]/dashboard/employees'>) {
@@ -25,6 +26,10 @@ export default async function EmployeesPage({ params, searchParams }: PageProps<
     buildWorkforce(user.id, { from: filter.from, to: filter.to, all: usp.get('range') === 'all' }),
   ])
 
+  const periodLabel = wf.period.all
+    ? 'Όλο το ιστορικό'
+    : new Intl.DateTimeFormat('el-GR', { month: 'long', year: 'numeric' }).format(new Date(wf.period.from))
+
   return (
     <div className="space-y-5">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -34,6 +39,13 @@ export default async function EmployeesPage({ params, searchParams }: PageProps<
         </div>
         <DateRangeFilter />
       </header>
+
+      <EmployeeProfitabilityPanel
+        employees={wf.employees}
+        clients={wf.clients}
+        periodLabel={periodLabel}
+        lang={lang}
+      />
 
       <EmployeePerformanceTable employees={wf.employees} lang={lang} />
 

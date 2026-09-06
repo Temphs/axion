@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { monthCoverage, monthsInPeriod, previousPeriodOf, utilizationOf, utilizedHours } from '@/lib/profitability'
+import { monthCoverage, monthsInPeriod, previousPeriodOf, utilizationOf } from '@/lib/profitability'
 
 const MS_PER_DAY = 86_400_000
 const spanDays = (from: Date, to: Date) =>
@@ -47,29 +47,23 @@ describe('previousPeriodOf', () => {
 })
 
 describe('utilization is one definition everywhere', () => {
-  const hours = { billableHours: 90, nonBillableHours: 30 }
-
-  it('counts billable hours only when overhead is excluded', () => {
-    expect(utilizedHours(hours, false)).toBe(90)
-    expect(utilizationOf(hours, 160, false)).toBeCloseTo(0.5625)
+  it('is the billable share of the hours actually entered', () => {
+    // 90 billable + 30 overhead = 120 logged, of which 75% is chargeable.
+    expect(utilizationOf({ billableHours: 90, nonBillableHours: 30 })).toBeCloseTo(0.75)
   })
 
-  it('counts overhead hours too when the account includes them', () => {
-    expect(utilizedHours(hours, true)).toBe(120)
-    expect(utilizationOf(hours, 160, true)).toBeCloseTo(0.75)
+  it('reaches 100% only when no overhead was logged', () => {
+    expect(utilizationOf({ billableHours: 40, nonBillableHours: 0 })).toBe(1)
+    expect(utilizationOf({ billableHours: 0, nonBillableHours: 40 })).toBe(0)
   })
 
-  it('has no value without capacity, rather than reporting zero', () => {
-    expect(utilizationOf(hours, 0, false)).toBeNull()
+  it('does not depend on contracted capacity', () => {
+    // Someone who logged 8 of 10 hours is at 80% whether or not the month is full.
+    expect(utilizationOf({ billableHours: 8, nonBillableHours: 2 })).toBeCloseTo(0.8)
+    expect(utilizationOf({ billableHours: 800, nonBillableHours: 200 })).toBeCloseTo(0.8)
   })
 
-  it('matches the per-month form the employee cards used to compute', () => {
-    // hours / (contracted hours x months) === (hours / months) / contracted hours
-    const billableHours = 420
-    const contracted = 160
-    const months = 3
-    expect(utilizationOf({ billableHours, nonBillableHours: 0 }, contracted * months, false)).toBeCloseTo(
-      billableHours / months / contracted
-    )
+  it('has no value when nothing was entered, rather than reporting zero', () => {
+    expect(utilizationOf({ billableHours: 0, nonBillableHours: 0 })).toBeNull()
   })
 })

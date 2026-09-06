@@ -118,7 +118,6 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
 
   const employeeMap = new Map<string, EmployeeStat>()
   const clientMap = new Map<string, ClientStat>()
-  let totalHours = 0
   let billableHours = 0
   let nonBillableHours = 0
 
@@ -128,7 +127,6 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
     if (!emp || !cli) continue
     const hours = (g._sum.minutes ?? 0) / 60
     const cost = hours * costPerHourFor(emp, hpm)
-    totalHours += hours
     if (cli.billable) billableHours += hours
     else nonBillableHours += hours
 
@@ -199,7 +197,7 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
     employeeCount: employeeMap.size,
     clientCount: clientMap.size,
     capacityHours,
-    utilization: utilizationOf({ billableHours, nonBillableHours }, capacityHours, settings.includeOverhead),
+    utilization: utilizationOf({ billableHours, nonBillableHours }),
   }
 
   return {
@@ -248,7 +246,6 @@ export type EmployeeOverview = {
   utilization: number | null
   billableHours: number
   nonBillableHours: number
-  billablePct: number | null
   cost: number
 }
 
@@ -299,7 +296,6 @@ export async function getEmployeesOverview(userId: string): Promise<EmployeeOver
     const costPerHour = costPerHourFor(e, hpm)
     const billableHours = (a?.billable ?? 0) / 60
     const nonBillableHours = (a?.nonBillable ?? 0) / 60
-    const totalBN = billableHours + nonBillableHours
     return {
       id: e.id,
       name: e.name,
@@ -312,14 +308,9 @@ export async function getEmployeesOverview(userId: string): Promise<EmployeeOver
       months,
       avgPerDay,
       avgPerMonth,
-      utilization: utilizationOf(
-        { billableHours, nonBillableHours },
-        monthlyHoursFor(e, hpm) * months,
-        settings.includeOverhead
-      ),
+      utilization: utilizationOf({ billableHours, nonBillableHours }),
       billableHours,
       nonBillableHours,
-      billablePct: totalBN > 0 ? billableHours / totalBN : null,
       cost: hours * costPerHour,
     }
   })
@@ -342,7 +333,6 @@ export type EmployeeDetail = {
   entryCount: number
   billableHours: number
   nonBillableHours: number
-  billablePct: number | null
   workTypes: { type: string; hours: number; pct: number }[]
   clients: { id: string; name: string; hours: number; cost: number; billable: boolean }[]
   trend: { month: string; label: string; hours: number }[]
@@ -412,7 +402,6 @@ export async function getEmployeeDetail(userId: string, id: string): Promise<Emp
 
   const billableHours = billableMin / 60
   const nonBillableHours = nonBillableMin / 60
-  const totalBN = billableHours + nonBillableHours
 
   return {
     id: employee.id,
@@ -426,16 +415,11 @@ export async function getEmployeeDetail(userId: string, id: string): Promise<Emp
     months,
     avgPerDay,
     avgPerMonth,
-    utilization: utilizationOf(
-      { billableHours, nonBillableHours },
-      monthlyHoursFor(employee, hpm) * months,
-      settings.includeOverhead
-    ),
+    utilization: utilizationOf({ billableHours, nonBillableHours }),
     cost: hours * costPerHour,
     entryCount,
     billableHours,
     nonBillableHours,
-    billablePct: totalBN > 0 ? billableHours / totalBN : null,
     workTypes,
     clients,
     trend,
