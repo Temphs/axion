@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Check, Pencil, Trash2, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Pencil, Search, Trash2, X } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
 import { api } from '@/components/dashboard/api'
 import { DateField } from '@/components/dashboard/DateField'
@@ -36,7 +36,11 @@ export function EntriesManager({
   from,
   to,
   employeeId,
-  truncated,
+  q,
+  page,
+  pageSize,
+  total,
+  totalHours,
 }: {
   entries: Entry[]
   employees: Ref[]
@@ -44,7 +48,11 @@ export function EntriesManager({
   from: string
   to: string
   employeeId: string
-  truncated: boolean
+  q: string
+  page: number
+  pageSize: number
+  total: number
+  totalHours: number
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -60,6 +68,16 @@ export function EntriesManager({
   const [workType, setWorkType] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  // The search box keeps a local draft so typing doesn't refetch on every key.
+  // When q changes in the URL (back button, cleared filters) the draft is reset
+  // during render — React's documented alternative to syncing state in an effect.
+  const [query, setQuery] = useState(q)
+  const [syncedQ, setSyncedQ] = useState(q)
+  if (q !== syncedQ) {
+    setSyncedQ(q)
+    setQuery(q)
+  }
 
   const canAdd = activeEmployees.length > 0 && activeClients.length > 0
 
@@ -77,19 +95,22 @@ export function EntriesManager({
   }
 
   // All list filters live in the URL so the view is shareable and survives refresh.
-  function setFilters(updates: Record<string, string>) {
-    const q = new URLSearchParams(params.toString())
+  function setFilters(updates: Record<string, string>, keepPage = false) {
+    const next = new URLSearchParams(params.toString())
     for (const [key, value] of Object.entries(updates)) {
-      if (value) q.set(key, value)
-      else q.delete(key)
+      if (value) next.set(key, value)
+      else next.delete(key)
     }
-    const qs = q.toString()
+    if (!keepPage) next.delete('page')
+    const qs = next.toString()
     router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
   }
 
-  const filtering = Boolean(from || to || employeeId)
-  const totalHours = entries.reduce((s, e) => s + e.minutes, 0) / 60
+  const filtering = Boolean(from || to || employeeId || q)
   const filteredEmployeeName = employeeId ? employees.find((e) => e.id === employeeId)?.name : null
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+  const firstShown = total === 0 ? 0 : (page - 1) * pageSize + 1
+  const lastShown = (page - 1) * pageSize + entries.length
 
   return (
     <div className="space-y-6">
@@ -139,18 +160,44 @@ export function EntriesManager({
         <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold text-slate-900">
-              {filtering ? 'Ιστορικό καταχωρήσεων' : 'Πρόσφατες καταχωρήσεις'}
+              {filtering ? 'Ιστορικό καταχωρήσεων' : 'Όλες οι καταχωρήσεις'}
             </h2>
             <p className="text-xs text-slate-500">
-              {entries.length}
-              {truncated ? '+' : ''} {entries.length === 1 ? 'καταχώρηση' : 'καταχωρήσεις'} · {hrs(totalHours)}
+              {total} {total === 1 ? 'καταχώρηση' : 'καταχωρήσεις'} · {hrs(totalHours)}
+              {q && ` · «${q}»`}
               {filteredEmployeeName && ` · ${filteredEmployeeName}`}
-              {filtering && from && to && ` · ${rangeLabel(from, to)}`}
-              {truncated && ' · περιορίστε το διάστημα για όλα'}
+              {from && to && ` · ${rangeLabel(from, to)}`}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
+            <form
+              onSubmit={(ev) => {
+                ev.preventDefault()
+                setFilters({ q: query.trim() })
+              }}
+              className="relative"
+            >
+              <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={query}
+                onChange={(ev) => setQuery(ev.target.value)}
+                onBlur={() => query.trim() !== q && setFilters({ q: query.trim() })}
+                placeholder="Αναζήτηση σε όλο το ιστορικό…"
+                aria-label="Αναζήτηση καταχωρήσεων"
+                className="w-56 rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-7 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => { setQuery(''); setFilters({ q: '' }) }}
+                  aria-label="Καθαρισμός αναζήτησης"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-slate-700"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </form>
             <select
               value={employeeId}
               onChange={(e) => setFilters({ employeeId: e.target.value })}
@@ -169,7 +216,7 @@ export function EntriesManager({
             <DateField value={to} onCommit={(v) => setFilters({ to: v })} ariaLabel="Έως" inputClassName={searchInputCls} />
             {filtering && (
               <button
-                onClick={() => setFilters({ from: '', to: '', employeeId: '' })}
+                onClick={() => { setQuery(''); setFilters({ from: '', to: '', employeeId: '', q: '' }) }}
                 className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700"
               >
                 Καθαρισμός
@@ -202,8 +249,58 @@ export function EntriesManager({
             </tbody>
           </table>
         </div>
+
+        {pageCount > 1 && (
+          <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-3">
+            <p className="text-xs tabular-nums text-slate-500">
+              {firstShown}–{lastShown} από {total}
+            </p>
+            <div className="flex items-center gap-1.5">
+              <PageButton
+                disabled={page <= 1}
+                onClick={() => setFilters({ page: String(page - 1) }, true)}
+                label="Προηγούμενη σελίδα"
+              >
+                <ChevronLeft size={14} /> Προηγούμενη
+              </PageButton>
+              <span className="px-1 text-xs tabular-nums text-slate-500">
+                {page} / {pageCount}
+              </span>
+              <PageButton
+                disabled={page >= pageCount}
+                onClick={() => setFilters({ page: String(page + 1) }, true)}
+                label="Επόμενη σελίδα"
+              >
+                Επόμενη <ChevronRight size={14} />
+              </PageButton>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
+  )
+}
+
+function PageButton({
+  disabled,
+  onClick,
+  label,
+  children,
+}: {
+  disabled: boolean
+  onClick: () => void
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-40"
+    >
+      {children}
+    </button>
   )
 }
 

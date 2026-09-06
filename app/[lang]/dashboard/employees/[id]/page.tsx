@@ -103,7 +103,7 @@ export default async function EmployeeDetailPage({
                   label="Αξιοποίηση"
                   value={pct(row.utilization)}
                   sub={`από ${hrs(row.availableHours)} διαθέσιμες`}
-                  tooltip="Χρεώσιμες ώρες ÷ διαθέσιμες εργάσιμες ώρες περιόδου."
+                  tooltip="Χρεώσιμες ώρες (εκτός overhead) ÷ σύνολο καταχωρημένων ωρών (overhead + χρεώσιμες)."
                 />
                 <KpiCard
                   icon={TrendingUp}
@@ -172,7 +172,7 @@ export default async function EmployeeDetailPage({
                 <Donut
                   className="w-36"
                   immediate
-                  centerLabel={pct(d.billablePct)}
+                  centerLabel={pct(d.utilization)}
                   centerSub="χρεώσιμες"
                   segments={[
                     { value: d.billableHours, color: '#2563EB' },

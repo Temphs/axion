@@ -19,7 +19,6 @@ type EmployeeOverview = {
   avgPerDay: number
   avgPerMonth: number
   utilization: number | null
-  billablePct: number | null
   cost: number
 }
 

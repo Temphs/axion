@@ -2,9 +2,8 @@
 // No Prisma/Next imports — everything here is unit-testable.
 //
 // Metric definitions (surfaced as tooltips in the UI):
-//   Utilization            = counted hours / available working hours, where
-//                            counted hours are billable-only, or billable +
-//                            overhead when the account includes overhead
+//   Utilization            = billable hours / all hours entered — the
+//                            chargeable share of the time actually logged
 //   Labor cost             = hours worked × fully-loaded hourly cost
 //   Attributed revenue     = client revenue allocated to employees pro-rata
 //                            by their hours on that client in that month
@@ -56,23 +55,13 @@ export function contributionMargin(revenue: number, laborCost: number): number |
 
 export type HourSplit = { billableHours: number; nonBillableHours: number }
 
-// Hours that count toward utilization. Overhead (non-billable) work counts only
-// when the account has opted into it; otherwise utilization measures billable
-// work alone.
-export function utilizedHours(hours: HourSplit, includeOverhead: boolean): number {
-  return includeOverhead ? hours.billableHours + hours.nonBillableHours : hours.billableHours
-}
-
 // The single definition of utilization, used by every page that reports it:
-// counted hours over the contracted capacity of the period. Keeping one
-// function means the overview, the employee cards and the client pages can
-// never drift into quoting different ratios under the same label.
-export function utilizationOf(
-  hours: HourSplit,
-  availableHours: number,
-  includeOverhead: boolean
-): number | null {
-  return safeRatio(utilizedHours(hours, includeOverhead), availableHours)
+// billable (non-overhead) hours over every hour entered, overhead included in
+// the denominator. It answers "how much of the time we recorded is chargeable
+// work", and is deliberately independent of contracted capacity — how full a
+// person's month is gets reported separately, as capacity allocation.
+export function utilizationOf(hours: HourSplit): number | null {
+  return safeRatio(hours.billableHours, hours.billableHours + hours.nonBillableHours)
 }
 
 /* ─── periods ────────────────────────────────────────────────── */
@@ -335,7 +324,7 @@ export function computeInsights(input: InsightInputs): Insight[] {
       out.push({
         severity: 'warning',
         kind: 'utilization',
-        message: `Η χρεώσιμη αξιοποίηση του/της ${e.name} είναι ${pctF(e.utilization)} έναντι στόχου ${pctF(target)}.`,
+        message: `Οι χρεώσιμες ώρες του/της ${e.name} είναι ${pctF(e.utilization)} του καταγεγραμμένου χρόνου, έναντι στόχου ${pctF(target)}.`,
         href: `employees/${e.id}`,
       })
     }

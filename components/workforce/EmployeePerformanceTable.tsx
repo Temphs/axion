@@ -28,7 +28,7 @@ const COLUMNS: Array<{ key: SortKey; label: string; align?: 'right'; tip?: strin
     key: 'utilization',
     label: 'Αξιοποίηση',
     align: 'right',
-    tip: 'Χρεώσιμες ώρες ÷ διαθέσιμες εργάσιμες ώρες περιόδου',
+    tip: 'Χρεώσιμες ώρες (εκτός overhead) ÷ σύνολο καταχωρημένων ωρών (overhead + χρεώσιμες)',
   },
   { key: 'revenue', label: 'Έσοδα', align: 'right' },
   { key: 'laborCost', label: 'Κόστος', align: 'right' },
