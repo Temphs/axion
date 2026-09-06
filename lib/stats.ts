@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db'
 import { getSettings, hoursPerMonth } from '@/lib/settings'
-import { costPerHourFor, monthlyHoursFor, monthsInPeriod, safeRatio, utilizationOf } from '@/lib/profitability'
+import { costPerHourFor, monthsInPeriod, safeRatio, utilizationOf } from '@/lib/profitability'
 
 export type StatsFilter = {
   from?: Date
@@ -40,7 +40,6 @@ export type StatsSummary = {
   entryCount: number
   employeeCount: number
   clientCount: number
-  capacityHours: number
   utilization: number | null
 }
 
@@ -180,12 +179,6 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
   const summaryCost = summaryClients.reduce((s, c) => s + c.cost, 0)
   const summaryRevenue = summaryClients.reduce((s, c) => s + c.revenue, 0)
 
-  // Sum each active employee's own contracted capacity rather than assuming
-  // everyone is full-time — the cost side already prices part-timers by contract.
-  const capacityHours = employeeRows
-    .filter((e) => e.active)
-    .reduce((sum, e) => sum + monthlyHoursFor(e, hpm), 0) * (months || 0)
-
   const summary: StatsSummary = {
     hours: summaryHours,
     cost: summaryCost,
@@ -196,7 +189,6 @@ export async function buildStats(userId: string, filter: StatsFilter): Promise<S
     entryCount: bounds._count._all,
     employeeCount: employeeMap.size,
     clientCount: clientMap.size,
-    capacityHours,
     utilization: utilizationOf({ billableHours, nonBillableHours }),
   }
 
@@ -597,4 +589,58 @@ export async function getClientDetail(userId: string, id: string): Promise<Clien
     workTypes,
     trend,
   }
+}
+
+// --- Day-level entry coverage --------------------------------------------
+
+export type DayLog = {
+  date: string // yyyy-mm-dd
+  hours: number
+  billableHours: number
+  missingHours: number // shortfall against the account's daily target, 0 when met
+}
+
+// Every day this employee logged something, with the shortfall against the
+// daily target. Days with nothing logged are left out on purpose: an empty day
+// is leave or a weekend, not an under-filled one.
+export async function getEmployeeDayLog(
+  userId: string,
+  employeeId: string,
+  opts: { from?: Date; to?: Date } = {}
+): Promise<DayLog[]> {
+  const settings = await getSettings(userId)
+  const target = settings.hoursPerDay
+
+  const dateFilter: Record<string, Date> = {}
+  if (opts.from) dateFilter.gte = opts.from
+  if (opts.to) dateFilter.lte = opts.to
+
+  const [groups, clients] = await Promise.all([
+    prisma.workEntry.groupBy({
+      by: ['date', 'clientId'],
+      where: { userId, employeeId, ...(opts.from || opts.to ? { date: dateFilter } : {}) },
+      _sum: { minutes: true },
+    }),
+    prisma.client.findMany({ where: { userId }, select: { id: true, billable: true } }),
+  ])
+  const billableOf = new Map(clients.map((c) => [c.id, c.billable]))
+
+  const byDay = new Map<string, { hours: number; billableHours: number }>()
+  for (const g of groups) {
+    const key = g.date.toISOString().slice(0, 10)
+    const hours = (g._sum.minutes ?? 0) / 60
+    const row = byDay.get(key) ?? { hours: 0, billableHours: 0 }
+    row.hours += hours
+    if (billableOf.get(g.clientId)) row.billableHours += hours
+    byDay.set(key, row)
+  }
+
+  return [...byDay.entries()]
+    .map(([date, r]) => ({
+      date,
+      hours: r.hours,
+      billableHours: r.billableHours,
+      missingHours: Math.max(0, target - r.hours),
+    }))
+    .sort((a, b) => b.date.localeCompare(a.date))
 }

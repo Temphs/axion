@@ -1,8 +1,8 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useId } from 'react'
-import { eur } from '@/lib/format'
+import { useId, useState } from 'react'
+import { eur, hrs } from '@/lib/format'
 import type { TrendPoint } from '@/lib/profitability'
 
 // Monthly profitability: revenue and labour cost as two smooth lines over a
@@ -50,6 +50,9 @@ function smoothPath(points: Pt[]): string {
 
 export function ProfitTrendChart({ data }: { data: TrendPoint[] }) {
   const id = useId().replace(/:/g, '')
+  // Index of the month under the pointer, so the exact figures can be read off
+  // the chart instead of guessed from the curve.
+  const [active, setActive] = useState<number | null>(null)
   const hasData = data.some((d) => d.revenue !== 0 || d.laborCost !== 0)
   if (!hasData) {
     return <p className="py-10 text-center text-sm text-slate-400">Δεν υπάρχουν δεδομένα για την περίοδο.</p>
@@ -67,8 +70,26 @@ export function ProfitTrendChart({ data }: { data: TrendPoint[] }) {
   const revenueLine = smoothPath(revenuePts)
   const baseline = PAD_T + innerH
 
+  const shown = active !== null ? data[active] : null
+
   return (
-    <div>
+    <div onMouseLeave={() => setActive(null)}>
+      {/* Exact figures for the hovered month, or the period total at rest */}
+      <div className="mb-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 px-1 text-xs">
+        <span className="font-display text-sm font-bold text-slate-900">
+          {shown ? shown.label : `${data[0].label} → ${data[data.length - 1].label}`}
+        </span>
+        <Figure label="Έσοδα" value={eur(shown ? shown.revenue : data.reduce((s, d) => s + d.revenue, 0))} dot="#2563EB" />
+        <Figure label="Κόστος" value={eur(shown ? shown.laborCost : data.reduce((s, d) => s + d.laborCost, 0))} dot="#1f2a4d" />
+        <Figure
+          label="Συνεισφορά"
+          value={eur(shown ? shown.contribution : data.reduce((s, d) => s + d.contribution, 0))}
+          tone={(shown ? shown.contribution : data.reduce((s, d) => s + d.contribution, 0)) >= 0 ? 'pos' : 'neg'}
+        />
+        {shown && <Figure label="Ώρες" value={hrs(shown.hours)} />}
+        {!shown && <span className="text-slate-400">— περάστε τον δείκτη πάνω από έναν μήνα</span>}
+      </div>
+
       <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" fill="none" role="img" aria-label="Έσοδα και κόστος εργασίας ανά μήνα">
         <defs>
           <linearGradient id={`trend-${id}`} x1="0" y1="0" x2="0" y2="1">
@@ -125,36 +146,82 @@ export function ProfitTrendChart({ data }: { data: TrendPoint[] }) {
           transition={{ duration: 1, ease: 'easeInOut' }}
         />
 
-        {/* Month labels, and an invisible band per month carrying the figures */}
+        {/* Month labels */}
         {data.map((d, i) => (
-          <g key={d.month} className="group">
-            <text x={xOf(i)} y={H - 8} textAnchor="middle" className="fill-slate-400 text-[10px]">
-              {d.label}
-            </text>
-            <circle cx={xOf(i)} cy={yOf(d.revenue)} r="3.5" fill="#2563EB" className="opacity-0 group-hover:opacity-100" />
-            <circle cx={xOf(i)} cy={yOf(d.laborCost)} r="3.5" fill="#1f2a4d" className="opacity-0 group-hover:opacity-100" />
-            <rect
-              x={xOf(i) - innerW / (data.length * 2 || 1)}
-              y={PAD_T}
-              width={innerW / (data.length || 1)}
-              height={innerH}
-              fill="transparent"
-            >
-              <title>{`${d.label}: έσοδα ${eur(d.revenue)} · κόστος ${eur(d.laborCost)} · συνεισφορά ${eur(d.contribution)}`}</title>
-            </rect>
+          <text
+            key={d.month}
+            x={xOf(i)}
+            y={H - 8}
+            textAnchor="middle"
+            className={active === i ? 'fill-slate-700 text-[10px] font-semibold' : 'fill-slate-400 text-[10px]'}
+          >
+            {d.label}
+          </text>
+        ))}
+
+        {/* Hover readout: a guide line, the two points, and the figures */}
+        {active !== null && (
+          <g pointerEvents="none">
+            <line
+              x1={xOf(active)}
+              x2={xOf(active)}
+              y1={PAD_T}
+              y2={baseline}
+              stroke="#94a3b8"
+              strokeWidth="1"
+              strokeDasharray="3 3"
+            />
+            <circle cx={xOf(active)} cy={yOf(data[active].revenue)} r="4.5" fill="#2563EB" stroke="#fff" strokeWidth="2" />
+            <circle cx={xOf(active)} cy={yOf(data[active].laborCost)} r="4.5" fill="#1f2a4d" stroke="#fff" strokeWidth="2" />
           </g>
+        )}
+
+        {/* One band per month drives the hover */}
+        {data.map((d, i) => (
+          <rect
+            key={`hit-${d.month}`}
+            x={xOf(i) - innerW / (data.length * 2 || 1)}
+            y={PAD_T}
+            width={innerW / (data.length || 1)}
+            height={innerH}
+            fill="transparent"
+            onMouseEnter={() => setActive(i)}
+            onFocus={() => setActive(i)}
+            tabIndex={0}
+            role="button"
+            aria-label={`${d.label}: έσοδα ${eur(d.revenue)}, κόστος ${eur(d.laborCost)}, συνεισφορά ${eur(d.contribution)}`}
+            className="cursor-crosshair outline-none"
+          />
         ))}
       </svg>
 
-      <div className="mt-2 flex flex-wrap items-center gap-4 px-1 text-[11px] text-slate-500">
-        <span className="flex items-center gap-1.5">
-          <span className="h-1.5 w-4 rounded-full bg-blue-600" /> Έσοδα
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-1.5 w-4 rounded-full bg-[#1f2a4d]" /> Κόστος εργασίας
-        </span>
-        <span className="text-slate-400">Η απόσταση των γραμμών είναι η συνεισφορά</span>
-      </div>
+      <p className="mt-1 px-1 text-[11px] text-slate-400">Η απόσταση των γραμμών είναι η συνεισφορά</p>
     </div>
+  )
+}
+
+function Figure({
+  label,
+  value,
+  dot,
+  tone,
+}: {
+  label: string
+  value: string
+  dot?: string
+  tone?: 'pos' | 'neg'
+}) {
+  return (
+    <span className="flex items-center gap-1.5">
+      {dot && <span className="h-1.5 w-4 shrink-0 rounded-full" style={{ background: dot }} />}
+      <span className="text-slate-400">{label}</span>
+      <span
+        className={`font-semibold tabular-nums ${
+          tone === 'pos' ? 'text-emerald-600' : tone === 'neg' ? 'text-red-500' : 'text-slate-700'
+        }`}
+      >
+        {value}
+      </span>
+    </span>
   )
 }

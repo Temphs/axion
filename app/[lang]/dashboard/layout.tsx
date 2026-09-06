@@ -23,10 +23,10 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
       <div className="mx-auto flex max-w-[1440px] gap-6 px-4 py-6 lg:px-8">
 
         {/* ── Desktop sidebar ─────────────────────────────────── */}
-        <aside className="sticky top-6 hidden h-[calc(100vh-3rem)] w-64 shrink-0 flex-col justify-between rounded-3xl border border-white/40 bg-white/95 p-4 shadow-[0_1px_3px_rgba(0,0,40,0.12),0_24px_48px_-16px_rgba(0,0,40,0.35)] backdrop-blur-md lg:flex">
-          {/* Brand */}
-          <div>
-            <div className="mb-7 flex items-center gap-3 px-2 pt-1">
+        <aside className="sticky top-6 hidden h-[calc(100vh-3rem)] w-64 shrink-0 flex-col justify-between overflow-hidden rounded-3xl border border-white/40 bg-white/95 p-4 shadow-[0_1px_3px_rgba(0,0,40,0.12),0_24px_48px_-16px_rgba(0,0,40,0.35)] backdrop-blur-md lg:flex">
+          {/* Brand + navigation — the part that gives way when space is tight */}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mb-5 flex items-center gap-3 px-2 pt-1">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-lg font-bold text-white shadow-md shadow-blue-900/30">
                 A
               </span>
@@ -39,14 +39,14 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
             <Nav lang={lang} />
           </div>
 
-          {/* Bottom section */}
-          <div className="space-y-3">
+          {/* Bottom section — always visible, never clipped */}
+          <div className="shrink-0 space-y-3 pt-3">
             {/* Summary card */}
-            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3.5">
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                 Σύνοψη
               </p>
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 <SummaryRow label="Ώρες σύνολο" value={hrs(summary.hours)} />
                 <SummaryRow label="Κόστος μισθών" value={eur(summary.cost)} />
                 <SummaryRow label="Πελάτες" value={num(summary.clientCount)} />
@@ -61,8 +61,10 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
                   {initials}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-900">{user.name ?? 'Διαχειριστής'}</p>
-                  <p className="truncate text-[11px] text-slate-400">{user.email}</p>
+                  <p className="truncate text-sm font-semibold text-slate-900" title={user.name ?? undefined}>
+                    {user.name ?? 'Διαχειριστής'}
+                  </p>
+                  <p className="truncate text-[11px] text-slate-400" title={user.email}>{user.email}</p>
                 </div>
               </div>
               <div className="mt-2.5">

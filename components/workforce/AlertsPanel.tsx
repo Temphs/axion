@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { AlertTriangle, Gauge, Landmark, PiggyBank, Timer, Users } from 'lucide-react'
+import { AlertTriangle, Gauge, Landmark, PiggyBank, Timer } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
 import type { Insight } from '@/lib/profitability'
 
@@ -8,7 +8,6 @@ const KIND_ICON = {
   utilization: Gauge,
   budget_overrun: Timer,
   pricing: PiggyBank,
-  capacity: Users,
 } as const
 
 const SEVERITY_CLS = {

@@ -2,18 +2,15 @@ import { prisma } from '@/lib/db'
 import { getSettings, hoursPerMonth } from '@/lib/settings'
 import {
   allocateProRata,
-  capacityStatus,
   clientHealth,
   computeInsights,
   costPerHourFor,
   findPricingOpportunities,
   monthCoverage,
   monthKeyOf,
-  monthlyHoursFor,
   previousPeriodOf,
   safeRatio,
   utilizationOf,
-  type CapacityRow,
   type ClientRow,
   type EmployeeRow,
   type Insight,
@@ -34,10 +31,10 @@ export type Workforce = {
   clients: ClientRow[]
   trend: TrendPoint[]
   insights: Insight[]
-  capacity: CapacityRow[]
   pricing: PricingOpportunity[]
   companyRevenuePerHour: number | null
   hoursPerMonth: number
+  hoursPerDay: number
 }
 
 type PairRow = { employeeId: string; clientId: string; date: Date; hours: number }
@@ -60,6 +57,11 @@ type ClientInfo = {
   active: boolean
   monthlyRevenue: number
   plannedMonthlyHours: number | null
+}
+
+// A UTC day index back to a yyyy-mm-dd string.
+function isoDay(dayKey: number): string {
+  return new Date(dayKey * 86_400_000).toISOString().slice(0, 10)
 }
 
 function monthLabel(key: string): string {
@@ -95,6 +97,7 @@ function computePeriodStats(
   employees: EmployeeInfo[],
   clients: ClientInfo[],
   hpm: number,
+  hoursPerDay: number,
   activeMonthsOnly = false
 ): PeriodStats {
   // "All history" mode counts only months that actually have entries, so long
@@ -109,25 +112,24 @@ function computePeriodStats(
   } else {
     coverage = monthCoverage(from, to)
   }
-  let monthsF = 0
-  for (const f of coverage.values()) monthsF += f
   // Whole calendar months the period touches — used for month-granular budgets.
   const budgetMonths = coverage.size
 
   const empInfo = new Map(employees.map((e) => [e.id, e]))
   const cliInfo = new Map(clients.map((c) => [c.id, c]))
-  // Contracted hours drive both capacity and the hourly rate, so a part-timer
-  // is measured against their own contract, not the company-wide default.
-  const monthlyHoursOf = (e: EmployeeInfo) => monthlyHoursFor(e, hpm)
+  // Contracted hours drive the hourly rate, so a part-timer is priced against
+  // their own contract, not the company-wide default.
   const rate = (e: EmployeeInfo) => costPerHourFor(e, hpm)
 
   // client → month → employee → hours (drives revenue attribution)
   const clientMonthEmp = new Map<string, Map<string, Map<string, number>>>()
   // employee → client → {hours, cost}
   const empClient = new Map<string, Map<string, { hours: number; cost: number }>>()
-  // distinct working days, overall and per employee (for avg hours/day)
+  // distinct working days, overall and per employee. Per employee the hours on
+  // each day are kept too, so a day that came in under the daily target can be
+  // spotted and offered a top-up.
   const allDays = new Set<number>()
-  const empDays = new Map<string, Set<number>>()
+  const empDays = new Map<string, Map<number, number>>()
   // per-employee active months — in all-history mode each employee's
   // available hours count only the months they actually worked
   const empMonths = new Map<string, Set<string>>()
@@ -141,8 +143,8 @@ function computePeriodStats(
     const dayKey = Math.floor(row.date.getTime() / 86_400_000)
     allDays.add(dayKey)
     let days = empDays.get(emp.id)
-    if (!days) empDays.set(emp.id, (days = new Set()))
-    days.add(dayKey)
+    if (!days) empDays.set(emp.id, (days = new Map()))
+    days.set(dayKey, (days.get(dayKey) ?? 0) + row.hours)
 
     const mk = monthKeyOf(row.date)
     let months = empMonths.get(emp.id)
@@ -215,21 +217,35 @@ function computePeriodStats(
       clientsOut.sort((a, b) => b.hours - a.hours)
     }
     const revenue = empRevenue.get(e.id) ?? 0
-    // All-history mode: each employee is measured against the months they
-    // actually worked, so joiners/leavers aren't diluted by company-wide span.
-    const monthsForEmployee = activeMonthsOnly ? (empMonths.get(e.id)?.size ?? 0) : monthsF
-    const available = monthlyHoursOf(e) * monthsForEmployee
+    // Day-level completeness. Only days that already carry entries are judged:
+    // a day with nothing logged is leave or a weekend, not an under-filled day.
+    const days = empDays.get(e.id)
+    const dayKeys = days ? [...days.keys()].sort((a, b) => a - b) : []
+    let incompleteDays = 0
+    let missingHours = 0
+    if (days) {
+      for (const logged of days.values()) {
+        if (logged < hoursPerDay) {
+          incompleteDays++
+          missingHours += hoursPerDay - logged
+        }
+      }
+    }
+
     return {
       id: e.id,
       name: e.name,
       active: e.active,
       costPerHour: rate(e),
       hours,
-      activeDays: empDays.get(e.id)?.size ?? 0,
+      activeDays: dayKeys.length,
+      firstEntry: dayKeys.length ? isoDay(dayKeys[0]) : null,
+      lastEntry: dayKeys.length ? isoDay(dayKeys[dayKeys.length - 1]) : null,
+      incompleteDays,
+      missingHours,
       billableHours,
       nonBillableHours,
       unbilledHours,
-      availableHours: available,
       utilization: utilizationOf({ billableHours, nonBillableHours }),
       revenue,
       laborCost,
@@ -315,23 +331,11 @@ function computePeriodStats(
     },
     { hours: 0, billable: 0, nonBillable: 0, unbilled: 0, revenue: 0, cost: 0 }
   )
-  // Team availability is the sum of each employee's own capacity, so differing
-  // contracts (and, in all-history mode, differing active months) are reflected
-  // instead of assuming everyone is full-time. Leavers who logged hours in the
-  // period are counted too: their hours are in the numerator, so omitting their
-  // capacity would push utilization above 100%.
-  const countedIds = new Set(employees.filter((e) => e.active).map((e) => e.id))
-  for (const e of withHours) countedIds.add(e.id)
-  const availableTotal = employeeRows
-    .filter((e) => countedIds.has(e.id))
-    .reduce((s, e) => s + e.availableHours, 0)
-
   const summary: WorkforceSummary = {
     hours: totals.hours,
     billableHours: totals.billable,
     nonBillableHours: totals.nonBillable,
     unbilledHours: totals.unbilled,
-    availableHours: availableTotal,
     utilization: utilizationOf({ billableHours: totals.billable, nonBillableHours: totals.nonBillable }),
     revenue: totals.revenue,
     laborCost: totals.cost,
@@ -438,8 +442,10 @@ export async function buildWorkforce(
     hours: (g._sum.minutes ?? 0) / 60,
   }))
 
-  const current = computePeriodStats(rows, from, to, employees, clients, hpm, allMode)
-  const previousStats = allMode ? null : computePeriodStats(rows, prev.from, prev.to, employees, clients, hpm)
+  const current = computePeriodStats(rows, from, to, employees, clients, hpm, settings.hoursPerDay, allMode)
+  const previousStats = allMode
+    ? null
+    : computePeriodStats(rows, prev.from, prev.to, employees, clients, hpm, settings.hoursPerDay)
   const hasPrevious = previousStats !== null && previousStats.summary.hours > 0
 
   /* trend: months ending at month(to) — in all-mode only months with entries
@@ -495,28 +501,9 @@ export async function buildWorkforce(
     trend.push({ month: mk, label: monthLabel(mk), hours, revenue, laborCost: cost, contribution: revenue - cost })
   }
 
-  /* capacity (active employees, current period) */
-  const capacity: CapacityRow[] = current.employees
-    .filter((e) => e.active)
-    .map((e) => {
-      const allocation = safeRatio(e.hours, e.availableHours)
-      return {
-        id: e.id,
-        name: e.name,
-        availableHours: e.availableHours,
-        allocatedHours: e.hours,
-        remainingHours: Math.max(0, e.availableHours - e.hours),
-        allocation,
-        status: capacityStatus(allocation),
-      }
-    })
-    .sort((a, b) => (b.allocation ?? 0) - (a.allocation ?? 0))
-
   // How far through the period we are. Measured against the end of the last
   // calendar month the period touches — the same window `plannedHours` budgets
-  // against — so a month-to-date view reports ~50% mid-month instead of 100%
-  // (with `to` pinned to now, dividing by `to − from` always yielded 1 and the
-  // budget-pacing alert could never fire).
+  // against — so a month-to-date view reports ~50% mid-month instead of 100%.
   const budgetWindowEnd = endOfUtcMonth(to)
   const elapsedSpan = Math.max(1, budgetWindowEnd.getTime() - from.getTime())
   const elapsedFraction = Math.max(0, Math.min(1, (now.getTime() - from.getTime()) / elapsedSpan))
@@ -525,14 +512,13 @@ export async function buildWorkforce(
     employees: current.employees,
     clients: current.clients,
     previousClients: new Map((previousStats?.clients ?? []).map((c) => [c.id, { margin: c.margin, hours: c.hours }])),
-    capacity,
     companyRevenuePerHour: current.summary.revenuePerHour,
     defaultUtilizationTarget: 0.75,
     periodElapsedFraction: elapsedFraction,
   })
-  // Utilization/capacity targets are monthly concepts — meaningless across
-  // a multi-year "all history" window.
-  if (allMode) insights = insights.filter((i) => i.kind !== 'utilization' && i.kind !== 'capacity')
+  // Utilization targets are a monthly concept — meaningless across a
+  // multi-year "all history" window.
+  if (allMode) insights = insights.filter((i) => i.kind !== 'utilization')
 
   const pricing = findPricingOpportunities(current.clients, current.summary.revenuePerHour)
 
@@ -553,10 +539,10 @@ export async function buildWorkforce(
     clients: current.clients,
     trend,
     insights,
-    capacity,
     pricing,
     companyRevenuePerHour: current.summary.revenuePerHour,
     hoursPerMonth: hpm,
+    hoursPerDay: settings.hoursPerDay,
   }
 }
 

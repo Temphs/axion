@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   allocateProRata,
-  capacityStatus,
   clientHealth,
   computeInsights,
   contributionMargin,
@@ -14,7 +13,6 @@ import {
   safeRatio,
   type ClientRow,
   type EmployeeRow,
-  type CapacityRow,
 } from '@/lib/profitability'
 
 describe('safeRatio / contributionMargin', () => {
@@ -103,13 +101,6 @@ describe('statuses', () => {
     expect(clientHealth(null, false, false)).toBe('overhead')
   })
 
-  it('classifies capacity allocation', () => {
-    expect(capacityStatus(0.3)).toBe('under')
-    expect(capacityStatus(0.64)).toBe('healthy')
-    expect(capacityStatus(0.94)).toBe('near')
-    expect(capacityStatus(1.2)).toBe('over')
-    expect(capacityStatus(null)).toBeNull()
-  })
 })
 
 /* ─── insight rules ──────────────────────────────────────────── */
@@ -124,7 +115,11 @@ function emp(over: Partial<EmployeeRow>): EmployeeRow {
     billableHours: 80,
     nonBillableHours: 20,
     unbilledHours: 20,
-    availableHours: 160,
+    activeDays: 20,
+    firstEntry: '2026-03-02',
+    lastEntry: '2026-03-27',
+    incompleteDays: 0,
+    missingHours: 0,
     utilization: 0.5,
     revenue: 5000,
     laborCost: 2000,
@@ -160,7 +155,6 @@ function cli(over: Partial<ClientRow>): ClientRow {
   }
 }
 
-const noCapacity: CapacityRow[] = []
 
 describe('computeInsights', () => {
   it('flags a client whose margin dropped sharply, citing the hours increase', () => {
@@ -168,7 +162,6 @@ describe('computeInsights', () => {
       employees: [],
       clients: [cli({ margin: 0.21 })],
       previousClients: new Map([['c1', { margin: 0.43, hours: 22 }]]),
-      capacity: noCapacity,
       companyRevenuePerHour: null,
       defaultUtilizationTarget: 0.75,
       periodElapsedFraction: 1,
@@ -182,7 +175,6 @@ describe('computeInsights', () => {
       employees: [emp({ utilization: 0.58, targets: { utilizationPct: 75, monthlyHours: null, monthlyContribution: null } })],
       clients: [],
       previousClients: new Map(),
-      capacity: noCapacity,
       companyRevenuePerHour: null,
       defaultUtilizationTarget: 0.75,
       periodElapsedFraction: 1,
@@ -195,7 +187,6 @@ describe('computeInsights', () => {
       employees: [],
       clients: [cli({ plannedHours: 40, budgetConsumed: 52 / 40, hours: 52 })],
       previousClients: new Map(),
-      capacity: noCapacity,
       companyRevenuePerHour: null,
       defaultUtilizationTarget: 0.75,
       periodElapsedFraction: 0.5,
@@ -206,7 +197,6 @@ describe('computeInsights', () => {
       employees: [],
       clients: [cli({ plannedHours: 100, budgetConsumed: 0.92, hours: 92 })],
       previousClients: new Map(),
-      capacity: noCapacity,
       companyRevenuePerHour: null,
       defaultUtilizationTarget: 0.75,
       periodElapsedFraction: 0.6,
@@ -219,7 +209,6 @@ describe('computeInsights', () => {
       employees: [],
       clients: [cli({ revenuePerHour: 24, margin: 0.3 })],
       previousClients: new Map(),
-      capacity: noCapacity,
       companyRevenuePerHour: 51,
       defaultUtilizationTarget: 0.75,
       periodElapsedFraction: 1,
@@ -227,32 +216,11 @@ describe('computeInsights', () => {
     expect(insights.some((i) => i.kind === 'pricing' && i.message.includes('€24') && i.message.includes('€51'))).toBe(true)
   })
 
-  it('pairs an overloaded employee with available capacity elsewhere', () => {
-    const capacity: CapacityRow[] = [
-      { id: 'a', name: 'Maria', availableHours: 160, allocatedHours: 150, remainingHours: 10, allocation: 0.94, status: 'near' },
-      { id: 'b', name: 'Andreas', availableHours: 160, allocatedHours: 58, remainingHours: 102, allocation: 0.36, status: 'under' },
-    ]
-    const insights = computeInsights({
-      employees: [],
-      clients: [],
-      previousClients: new Map(),
-      capacity,
-      companyRevenuePerHour: null,
-      defaultUtilizationTarget: 0.75,
-      periodElapsedFraction: 1,
-    })
-    const cap = insights.find((i) => i.kind === 'capacity')
-    expect(cap).toBeDefined()
-    expect(cap!.message).toContain('Maria')
-    expect(cap!.message).toContain('Andreas')
-  })
-
   it('stays silent when everything is in range', () => {
     const insights = computeInsights({
       employees: [emp({ utilization: 0.8 })],
       clients: [cli({ margin: 0.6, revenuePerHour: 80, health: 'healthy' })],
       previousClients: new Map([['c1', { margin: 0.58, hours: 30 }]]),
-      capacity: [{ id: 'a', name: 'Maria', availableHours: 160, allocatedHours: 100, remainingHours: 60, allocation: 0.62, status: 'healthy' }],
       companyRevenuePerHour: 80,
       defaultUtilizationTarget: 0.75,
       periodElapsedFraction: 0.5,
