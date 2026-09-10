@@ -323,6 +323,8 @@ export type EmployeeDetail = {
   utilization: number | null
   cost: number
   entryCount: number
+  // Terminal link, so the profile can show/create/revoke it. Null = none yet.
+  accessToken: string | null
   billableHours: number
   nonBillableHours: number
   workTypes: { type: string; hours: number; pct: number }[]
@@ -410,6 +412,7 @@ export async function getEmployeeDetail(userId: string, id: string): Promise<Emp
     utilization: utilizationOf({ billableHours, nonBillableHours }),
     cost: hours * costPerHour,
     entryCount,
+    accessToken: employee.accessToken,
     billableHours,
     nonBillableHours,
     workTypes,
