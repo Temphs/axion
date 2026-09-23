@@ -14,6 +14,7 @@ import { Donut, ProgressBar } from '@/components/axion/charts'
 import { MonthlyHoursChart } from '@/components/dashboard/MonthlyHoursChart'
 import { EmployeeClientsTable } from '@/components/dashboard/EmployeeClientsTable'
 import { EmployeeEditPanel } from '@/components/dashboard/EmployeeEditPanel'
+import { WorkLogLinkCard } from '@/components/dashboard/WorkLogLinkCard'
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter'
 import { KpiCard } from '@/components/workforce/KpiCard'
 import { DayCompletionCard } from '@/components/workforce/DayCompletionCard'
@@ -82,6 +83,8 @@ export default async function EmployeeDetailPage({
         </div>
         <EmployeeEditPanel lang={lang} id={d.id} name={d.name} monthlyCost={d.monthlyCost} notes={d.notes} active={d.active} />
       </div>
+
+      <WorkLogLinkCard lang={lang} employeeId={d.id} employeeName={d.name} />
 
       {d.entryCount === 0 ? (
         <Card className="p-10 text-center text-slate-500">Δεν υπάρχουν ακόμη καταχωρήσεις για αυτόν τον εργαζόμενο.</Card>

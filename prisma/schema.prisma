@@ -75,6 +75,10 @@ model Employee {
   targetUtilizationPct      Float? // billable utilization target, 0–100
   targetMonthlyHours        Float?
   targetMonthlyContribution Float? // €/month
+  // Secret token for this employee's personal work-log link (/log/[token]).
+  // Nullable: older employees get one lazily on first request (see lib/employeeLog.ts),
+  // matching how contractHoursPerMonth and the target fields were added.
+  logToken    String?     @unique
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   entries     WorkEntry[]
