@@ -1,11 +1,11 @@
 'use client'
 
-import { Banknote, LayoutDashboard, Database, Lock } from 'lucide-react'
+import { BellRing, KeyRound, Database, Landmark } from 'lucide-react'
 import { Eyebrow } from './ui'
 import { Reveal, RevealGroup, RevealItem } from './motion'
 import { useI18n } from './i18n'
 
-const featureIcons = [Banknote, LayoutDashboard, Database, Lock]
+const featureIcons = [BellRing, KeyRound, Database, Landmark]
 
 export function FeatureGrid() {
   const { dict } = useI18n()
@@ -39,7 +39,7 @@ export function FeatureGrid() {
                 >
                   {isComingSoon && (
                     <span className="absolute right-4 top-4 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                      Soon
+                      {t.soon}
                     </span>
                   )}
                   <span
