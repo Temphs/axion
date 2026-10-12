@@ -1,6 +1,10 @@
 import { getCurrentUser, hashApiKey, type SessionUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
+// Length caps for free-text fields, so a client can't store megabytes per row.
+export const MAX_NAME = 120
+export const MAX_NOTES = 2000
+
 export function ok(data: unknown, init?: ResponseInit): Response {
   return Response.json(data, init)
 }

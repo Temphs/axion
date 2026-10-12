@@ -9,6 +9,19 @@ const SESSION_COOKIE = 'axion_session'
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30 // 30 days
 const KEY_LEN = 64
 
+export const PASSWORD_MIN = 8
+// Upper bound so a multi-megabyte "password" can't tie up scrypt.
+export const PASSWORD_MAX = 256
+
+// Returns a user-facing problem with a proposed new password, or null if it's acceptable.
+export function passwordProblem(password: unknown): string | null {
+  if (typeof password !== 'string' || password.length < PASSWORD_MIN) {
+    return `Password must be at least ${PASSWORD_MIN} characters`
+  }
+  if (password.length > PASSWORD_MAX) return `Password must be at most ${PASSWORD_MAX} characters`
+  return null
+}
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString('hex')
   const derived = (await scrypt(password, salt, KEY_LEN)) as Buffer

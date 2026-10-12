@@ -29,3 +29,16 @@ export function rateLimit(key: string, limit: number, windowMs: number): RateLim
   current.count++
   return { ok: true }
 }
+
+// Best-effort client IP for rate-limit keys. On Vercel the first
+// x-forwarded-for hop is set by the platform and can't be spoofed by the client.
+export function clientIp(request: Request): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  if (forwarded) return forwarded.split(',')[0].trim()
+  return request.headers.get('x-real-ip')?.trim() || 'unknown'
+}
+
+// 429 response with Retry-After, for a limit that was hit.
+export function tooManyRequests(retryAfterSeconds: number, message = 'Too many attempts — try again later'): Response {
+  return Response.json({ error: message }, { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } })
+}

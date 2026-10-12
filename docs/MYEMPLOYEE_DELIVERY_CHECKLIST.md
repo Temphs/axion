@@ -1,7 +1,8 @@
 # MyEmployee — delivery checklist (security · GDPR · functional)
 
 Built from a full read of the MyEmployee code on `main` (commit `d5b55f4`), plus a
-local run with seeded data. Every item names the file/line it comes from, so it
+local run with seeded data. Items ticked `[x]` were fixed on branch
+`claude/sleepy-volta-ewsah5` and verified end to end against a running app. Every item names the file/line it comes from, so it
 can be checked or turned into a ticket.
 
 **Priority**
@@ -28,25 +29,32 @@ Shown so nobody spends time re-checking them:
 - [x] **Hosting region.** Vercel functions pinned to Dublin (`vercel.json` → `dub1`).
 - [x] **No tracking.** No analytics or third-party scripts; fonts are self-hosted by `next/font` (no Google Fonts calls at runtime); the only cookie is the strictly-necessary session cookie, so no cookie banner is needed while this stays true.
 - [x] **No raw SQL / no `dangerouslySetInnerHTML`** in the MyEmployee surface.
-- [x] Unit tests pass (`npm test`: 11 files, 102 tests).
+- [x] Unit tests pass (`npm test`: 13 files, 114 tests).
 
 ---
 
 ## 1. Security
 
 ### P0
-- [ ] **Rate-limit login and signup.** Neither route has any throttle, so passwords can be brute-forced and accounts mass-created. Reuse `lib/rateLimit.ts` (already used for password change): e.g. 10 attempts / 15 min per IP + per email on `app/api/auth/login/route.ts:14`, and per IP on signup. Because the limiter is per instance, also turn on Vercel's firewall rate limiting for `/api/auth/*`.
-- [ ] **Security headers.** `next.config.ts` sets none. Add `headers()` with at least: `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY` (or CSP `frame-ancestors 'none'`), `Permissions-Policy`, and a Content-Security-Policy (start in report-only). Set `poweredByHeader: false`.
-- [ ] **Least privilege for API keys.** `GET /api/employees` with an API key returns the full employee row (salary `monthlyCost`, `notes`, targets) via `...e` (`app/api/employees/route.ts:17`). The time-tracking app only needs `id`, `name`, `active`. Return a minimal projection when `principal.kind === 'apiKey'`. Do the same check on `GET /api/clients` (revenue).
-- [ ] **Upgrade vulnerable dependencies.** `npm audit --omit=dev` (Oct 2026) reports 1 critical and 11 high: `next@16.2.1` has a **critical** advisory, fixed in `next@16.4.0` (bump `eslint-config-next` with it); `fast-xml-parser` (VAT module) is high with a fix available; `prisma` is flagged through a transitive dependency, so check the advisory before acting. Then turn on Dependabot.
-- [ ] **CSV formula injection.** `components/workforce/csv.ts:4` doesn't neutralise cells that start with `=`, `+`, `-`, `@`, tab or CR. An employee/client name such as `=HYPERLINK(...)` (which can come in through the API) runs as a formula when a manager opens the export in Excel. Prefix such strings with `'`.
+- [x] **Rate-limit login and signup.** Neither route has any throttle, so passwords can be brute-forced and accounts mass-created. Reuse `lib/rateLimit.ts` (already used for password change): e.g. 10 attempts / 15 min per IP + per email on `app/api/auth/login/route.ts:14`, and per IP on signup. Because the limiter is per instance, also turn on Vercel's firewall rate limiting for `/api/auth/*`.
+  - ✅ Done: per IP (20/15 min) + per email (10/15 min) on login, 5/hour per IP on signup. The limiter is still per instance, so also turn on the Vercel firewall rule for `/api/auth/*`.
+- [x] **Security headers.** `next.config.ts` sets none. Add `headers()` with at least: `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY` (or CSP `frame-ancestors 'none'`), `Permissions-Policy`, and a Content-Security-Policy (start in report-only). Set `poweredByHeader: false`.
+  - ✅ Done in `next.config.ts`: CSP (still needs `unsafe-inline` for scripts, since Next injects inline bootstrap scripts into the static pages), HSTS, nosniff, `X-Frame-Options: DENY`, Referrer-Policy, Permissions-Policy, COOP, `no-store` on `/api/*`, `poweredByHeader: false`.
+- [x] **Least privilege for API keys.** `GET /api/employees` with an API key returns the full employee row (salary `monthlyCost`, `notes`, targets) via `...e` (`app/api/employees/route.ts:17`). The time-tracking app only needs `id`, `name`, `active`. Return a minimal projection when `principal.kind === 'apiKey'`. Do the same check on `GET /api/clients` (revenue).
+  - ✅ Done: API keys get `id, name, active` for employees and `id, name, active, billable` for clients.
+- [x] **Upgrade vulnerable dependencies.** `npm audit --omit=dev` (Oct 2026) reports 1 critical and 11 high: `next@16.2.1` has a **critical** advisory, fixed in `next@16.4.0` (bump `eslint-config-next` with it); `fast-xml-parser` (VAT module) is high with a fix available; `prisma` is flagged through a transitive dependency, so check the advisory before acting. Then turn on Dependabot.
+  - ✅ Done: `next@16.4.0` (critical fixed), `fast-xml-parser@5.11`. **Still open:** 7 high / 4 moderate, all inside the Prisma CLI tooling (`@prisma/dev`, `@prisma/config` and their dependencies); npm's only fix is a breaking downgrade to Prisma 6. Re-check when Prisma 7 ships a patch. `lib/package.json` is a stale copy of `package.json` (still pinning `next@16.2.1`) that dependency scanners will flag: delete it.
+- [x] **CSV formula injection.** `components/workforce/csv.ts:4` doesn't neutralise cells that start with `=`, `+`, `-`, `@`, tab or CR. An employee/client name such as `=HYPERLINK(...)` (which can come in through the API) runs as a formula when a manager opens the export in Excel. Prefix such strings with `'`.
+  - ✅ Done: `csvCell` prefixes `= + - @ tab CR` with `'` (tested in `tests/csv.test.ts`).
 
 ### P1
 - [ ] **Account enumeration.** Signup returns `409 An account with this email already exists` (`app/api/auth/signup/route.ts:22`). Combined with no rate limit, this lists your customers' emails. Return a generic response (or rate-limit hard).
-- [ ] **Input size limits.** No max length on employee/client `name`/`notes`, entry `notes`/`workType`, or passwords (scrypt on a multi-MB password burns CPU). No cap on batch size in `POST /api/entries` (`app/api/entries/route.ts:118`). Suggested: name ≤ 120, notes ≤ 2 000, password ≤ 256, batch ≤ 1 000 entries, and reject request bodies over ~1 MB.
+- [x] **Input size limits.** No max length on employee/client `name`/`notes`, entry `notes`/`workType`, or passwords (scrypt on a multi-MB password burns CPU). No cap on batch size in `POST /api/entries` (`app/api/entries/route.ts:118`). Suggested: name ≤ 120, notes ≤ 2 000, password ≤ 256, batch ≤ 1 000 entries, and reject request bodies over ~1 MB.
+  - ✅ Done: name ≤ 120, notes ≤ 2 000, workType ≤ 120, externalId ≤ 200, password ≤ 256, batch ≤ 1 000 (413 above), one entry ≤ 24 h.
 - [ ] **Session tokens stored in plaintext.** `lib/auth.ts:30` stores the raw token; a DB leak (backup, Turso token) means live sessions. Store `sha256(token)` like API keys already do. 30-day TTL with no idle timeout (`lib/auth.ts:9`): consider 7-day idle / 30-day absolute.
 - [ ] **"Sign out everywhere"** button in Settings (today only a password change does it).
-- [ ] **Password reset flow.** None exists. A customer who forgets a password needs a manual DB edit. Needs email delivery: reset token (hashed, 30-min expiry, single use).
+- [x] **Password reset flow.** None exists. A customer who forgets a password needs a manual DB edit. Needs email delivery: reset token (hashed, 30-min expiry, single use).
+  - ✅ Done: `/[lang]/forgot-password` and `/[lang]/reset-password`, "Ξεχάσατε τον κωδικό;" link on login. Tokens are 256-bit, stored as SHA-256, single-use, 30-min expiry, newest link only; same response whether or not the email exists (the work runs after the response); per-IP and per-email rate limits; links built from `APP_URL` only; all sessions signed out on reset. **To go live:** run `scripts/add-password-reset.sql` on Turso, set `APP_URL`, `RESEND_API_KEY` and `EMAIL_FROM` (verified sender domain) in Vercel.
 - [ ] **Email verification on signup** (signup is open to anyone today).
 
 ### P2
@@ -67,10 +75,14 @@ Shown so nobody spends time re-checking them:
 - [ ] **Privacy Policy, Terms and Cookie notice pages.** The footer links are `href="#"` (`components/axion/Footer.tsx:33,51,70`). Publish real pages (EL + EN) and link them from the signup form.
 - [ ] **Data Processing Agreement (Art. 28)** that customers accept at signup or contract, with an annex listing **sub-processors** (Vercel, Turso, AWS for invoice PDFs, any email provider) and their locations / transfer mechanism (EU-US DPF or SCCs).
 - [ ] **Confirm the database region is in the EU.** `vercel.json` pins functions to Dublin, but the Turso database region isn't in the repo. Check it in the Turso dashboard; if it's not EU, migrate before delivery.
-- [ ] **Account deletion (erasure).** No endpoint deletes a user. The schema already cascades every domain table on `User` delete, so this is mostly one `DELETE /api/account` route (re-auth with password) plus a Settings button. Define what happens to backups (they age out within X days).
-- [ ] **Employee erasure / anonymisation.** An employee with logged work can't be deleted (`app/api/employees/[id]/route.ts:97`, by design, to keep history). Add an **"Anonymise"** action: replace the name with `Employee #N` and clear the notes, while keeping hours and cost figures (needed for historical reports, and no longer tied to a person once the name is gone). That lets the controller honour an ex-employee's erasure request without breaking reports.
-- [ ] **Data export (access / portability, Art. 15/20).** Add a workspace export (JSON/CSV of employees, clients, entries, settings) and a **per-employee export** so the controller can answer an employee's access request.
-- [ ] **Free-text notes warning.** Employee and entry `notes` are free text. Add helper text ("Don't record health, union or other sensitive data here") in `components/dashboard/EmployeeEditPanel.tsx`, and mention it in the DPA/customer guidance. Special-category data (Art. 9) would change the risk profile completely.
+- [x] **Account deletion (erasure).** No endpoint deletes a user. The schema already cascades every domain table on `User` delete, so this is mostly one `DELETE /api/account` route (re-auth with password) plus a Settings button. Define what happens to backups (they age out within X days).
+  - ✅ Done: Settings → "Δεδομένα & απόρρητο" → delete account (needs the password). `DELETE /api/account` removes every row of the workspace. Not covered: PDFs uploaded through `/api/invoices/upload-url` (S3 + raw `invoices` table), which the UI doesn't use yet. Still to define: how long backups keep deleted data.
+- [x] **Employee erasure / anonymisation.** An employee with logged work can't be deleted (`app/api/employees/[id]/route.ts:97`, by design, to keep history). Add an **"Anonymise"** action: replace the name with `Employee #N` and clear the notes, while keeping hours and cost figures (needed for historical reports, and no longer tied to a person once the name is gone). That lets the controller honour an ex-employee's erasure request without breaking reports.
+  - ✅ Done: "Ανωνυμοποίηση" in the employee panel (`POST /api/employees/[id]/anonymize`). It replaces the name with `Anonymised #…`, clears the employee's and their entries' notes and targets, and deactivates them; hours and cost stay.
+- [x] **Data export (access / portability, Art. 15/20).** Add a workspace export (JSON/CSV of employees, clients, entries, settings) and a **per-employee export** so the controller can answer an employee's access request.
+  - ✅ Done: workspace JSON export in Settings (`GET /api/account/export`, no secrets) and per-employee JSON export in the employee panel (`GET /api/employees/[id]/export`).
+- [x] **Free-text notes warning.** Employee and entry `notes` are free text. Add helper text ("Don't record health, union or other sensitive data here") in `components/dashboard/EmployeeEditPanel.tsx`, and mention it in the DPA/customer guidance. Special-category data (Art. 9) would change the risk profile completely.
+  - ✅ Done: hint under the notes fields in the employee create form and edit panel. Still to do: add the same guidance to the DPA/customer pack.
 
 ### P1
 - [ ] **Retention policy.** Work entries are kept forever. Decide a default (e.g. statutory retention + 1 year) and/or let the customer configure it. Purge expired `Session` rows (today they're only deleted when the same token is presented again).
@@ -89,17 +101,22 @@ Shown so nobody spends time re-checking them:
 ## 3. Functional
 
 ### P0 (bugs a customer will notice in week one)
-- [ ] **Month-to-date compared against a full previous month.** The default period is "1st of this month → now" (`lib/workforce.ts:81`), but `previousPeriodOf` (`lib/profitability.ts:121`) compares it with the **whole** previous month. On the 12th of the month every KPI shows about −60% (seen on the seeded overview: revenue −61%, labour cost −60%). Compare like-for-like (same day-count of the previous month), or label the delta "vs. full previous month".
-- [ ] **Dates and time zones.** Entries are bucketed by UTC day/month. A time-tracking app that sends `2026-10-01T00:30:00+03:00` lands on **30 Sep** in UTC. Either require plain `YYYY-MM-DD` dates in the API contract (and reject datetimes), or convert to `Europe/Athens` before bucketing. Add a test for the month-boundary case.
-- [ ] **Entry date sanity.** `new Date(input.date)` accepts any year (`app/api/entries/route.ts:34`). Reject dates more than ~1 day in the future or before e.g. 2000; one typo (`2062`) skews every chart.
+- [x] **Month-to-date compared against a full previous month.** The default period is "1st of this month → now" (`lib/workforce.ts:81`), but `previousPeriodOf` (`lib/profitability.ts:121`) compares it with the **whole** previous month. On the 12th of the month every KPI shows about −60% (seen on the seeded overview: revenue −61%, labour cost −60%). Compare like-for-like (same day-count of the previous month), or label the delta "vs. full previous month".
+  - ✅ Done: month-to-date now compares with the same days of the previous month (1–12 Oct vs 1–12 Sep). Tested in `tests/period-math.test.ts`.
+- [x] **Dates and time zones.** Entries are bucketed by UTC day/month. A time-tracking app that sends `2026-10-01T00:30:00+03:00` lands on **30 Sep** in UTC. Either require plain `YYYY-MM-DD` dates in the API contract (and reject datetimes), or convert to `Europe/Athens` before bucketing. Add a test for the month-boundary case.
+  - ✅ Done: `lib/entryDate.ts` stores every entry on its **Greek** calendar day. Plain `YYYY-MM-DD` dates and offset-less datetimes keep their date; timestamps with an offset are converted to Europe/Athens. Tested in `tests/entry-date.test.ts`.
+- [x] **Entry date sanity.** `new Date(input.date)` accepts any year (`app/api/entries/route.ts:34`). Reject dates more than ~1 day in the future or before e.g. 2000; one typo (`2062`) skews every chart.
+  - ✅ Done: rejects impossible dates, years before 2000 and anything more than one day ahead.
 
 ### P1
-- [ ] **Cost per hour is inconsistent between API and UI.** `GET /api/employees` computes `costPerHour` from the account-wide hours (`app/api/employees/route.ts:18`) and ignores the employee's `contractHoursPerMonth`, which the dashboards do use. Use the same helper everywhere.
-- [ ] **Settings bounds.** `hoursPerDay`/`daysPerMonth` only check `> 0` (`app/api/settings/route.ts:26`). Cap them (≤ 24, ≤ 31).
+- [x] **Cost per hour is inconsistent between API and UI.** `GET /api/employees` computes `costPerHour` from the account-wide hours (`app/api/employees/route.ts:18`) and ignores the employee's `contractHoursPerMonth`, which the dashboards do use. Use the same helper everywhere.
+  - ✅ Done: the API now uses the employee's contract hours, falling back to the account default.
+- [x] **Settings bounds.** `hoursPerDay`/`daysPerMonth` only check `> 0` (`app/api/settings/route.ts:26`). Cap them (≤ 24, ≤ 31).
+  - ✅ Done: ≤ 24 h/day, ≤ 31 days/month.
 - [ ] **Language.** The dashboard UI is Greek only (hard-coded strings) while the landing page and `/en` routes are bilingual. Either localise the dashboard or make `/en/dashboard` clearly Greek-only for v1. API error messages mix English and Greek (e.g. the password route).
 - [ ] **API contract doc for the time-tracking app.** Endpoint list, auth header, `externalId` idempotency, batch limits, date format, error shapes. `scripts/smoke-apikey.mjs` is a start.
 - [ ] **Empty states and onboarding.** Walk a brand-new account through: no employees → add employee → add client (with revenue) → create API key → first entry → overview shows data. Make sure each empty screen points to the next step (the overview already does).
-- [ ] **Integration tests for API routes.** All 102 tests are unit tests on pure functions; nothing exercises auth or tenant isolation. Add tests that log in as user A and assert 404 on user B's employee/client/entry/merge, 401 without auth, and API-key-only access to ingestion.
+- [ ] **Integration tests for API routes.** All 114 tests are unit tests on pure functions; nothing exercises auth or tenant isolation in CI (it was checked by hand with an end-to-end script for this round of fixes). Add tests that log in as user A and assert 404 on user B's employee/client/entry/merge, 401 without auth, and API-key-only access to ingestion.
 
 ### P2
 - [ ] Partial-month revenue proration is correct but not obvious: the tooltip explains it, but consider a "month to date" chip on KPIs.
@@ -111,7 +128,8 @@ Shown so nobody spends time re-checking them:
 ## 4. Release / operations
 
 - [ ] **P0 Schema migrations are reproducible.** The Prisma migrations folder stops at `add_api_keys`. Later columns (`userId`, targets, contract hours) only exist as hand-run SQL in `scripts/*.sql`. Fold them into Prisma migrations (or one documented, ordered runbook) so a fresh environment can be built without guessing.
-- [ ] **P0 Production env check:** `TURSO_*`, `AXION_ENCRYPTION_KEY` (≥ 32 random chars, stored only in Vercel), `NODE_ENV=production` (needed for the `Secure` cookie flag).
+- [ ] **P0 Apply `scripts/add-password-reset.sql` to Turso** (`node scripts/run-sql-file.mjs scripts/add-password-reset.sql`) before deploying this branch: without the table, "forgot password" fails silently.
+- [ ] **P0 Production env check:** `APP_URL`, `RESEND_API_KEY`, `EMAIL_FROM` (new, for password reset), `TURSO_*`, `AXION_ENCRYPTION_KEY` (≥ 32 random chars, stored only in Vercel), `NODE_ENV=production` (needed for the `Secure` cookie flag).
 - [ ] **P2 Build needs S3 secrets.** `next build` fails unless `AWS_*` / `S3_BUCKET_NAME` are set, because `lib/s3.ts` reads them at import time (via `/api/invoices/upload-url`). Read them lazily so CI and preview builds don't need production secrets.
 - [ ] **P1 Error monitoring + uptime** (e.g. Sentry with PII scrubbing, Vercel log drains, an uptime check on `/api/auth/me`).
 - [ ] **P1 Backups:** confirm Turso point-in-time restore is on, and run one test restore.

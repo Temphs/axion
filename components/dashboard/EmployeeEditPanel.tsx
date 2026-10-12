@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Pencil } from 'lucide-react'
+import { Download, Pencil, UserX } from 'lucide-react'
 import { api } from '@/components/dashboard/api'
 
 export function EmployeeEditPanel({
@@ -44,6 +44,22 @@ export function EmployeeEditPanel({
     router.refresh()
   }
 
+  // GDPR erasure for someone with logged hours: irreversible, so spell it out.
+  async function anonymise() {
+    const ok = confirm(
+      `Ανωνυμοποίηση του/της «${name}»;\n\n` +
+        'Το όνομα και όλες οι σημειώσεις (και στις καταχωρήσεις) διαγράφονται οριστικά και ο εργαζόμενος απενεργοποιείται. ' +
+        'Οι ώρες και το κόστος παραμένουν στις αναφορές. Η ενέργεια δεν αναιρείται.\n\n' +
+        'Αν το ζήτησε ο εργαζόμενος, κατεβάστε πρώτα τα δεδομένα του.'
+    )
+    if (!ok) return
+    setBusy(true); setError(null)
+    const r = await api('POST', `/api/employees/${id}/anonymize`)
+    setBusy(false)
+    if (!r.ok) return setError(r.data.error ?? 'Σφάλμα')
+    setOpen(false); router.refresh()
+  }
+
   async function remove() {
     if (!confirm('Διαγραφή εργαζομένου;')) return
     setBusy(true); setError(null)
@@ -75,7 +91,10 @@ export function EmployeeEditPanel({
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-slate-600">Σημειώσεις / Ρόλος</span>
-              <input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} />
+              <input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />
+              <span className="mt-1 block text-[11px] leading-snug text-slate-400">
+                Μόνο ρόλος ή πρακτικές πληροφορίες — όχι υγεία, άδειες ασθενείας ή άλλα ευαίσθητα δεδομένα.
+              </span>
             </label>
             {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
             <div className="flex gap-2">
@@ -86,9 +105,27 @@ export function EmployeeEditPanel({
                 {active ? 'Απενεργοπ.' : 'Ενεργοπ.'}
               </button>
             </div>
-            <button type="button" onClick={remove} disabled={busy} className="w-full rounded-xl px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50">
-              Διαγραφή
-            </button>
+            <div className="space-y-1 border-t border-slate-100 pt-3">
+              <p className="px-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Δεδομένα εργαζομένου (GDPR)</p>
+              <a
+                href={`/api/employees/${id}/export`}
+                download
+                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                <Download size={14} /> Λήψη δεδομένων (JSON)
+              </a>
+              <button
+                type="button"
+                onClick={anonymise}
+                disabled={busy}
+                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
+              >
+                <UserX size={14} /> Ανωνυμοποίηση
+              </button>
+              <button type="button" onClick={remove} disabled={busy} className="w-full rounded-xl px-3 py-2 text-left text-sm font-medium text-red-500 hover:bg-red-50">
+                Διαγραφή
+              </button>
+            </div>
           </form>
         </div>
       )}

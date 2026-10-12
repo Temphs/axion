@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { KeyRound, SlidersHorizontal, UserRound, Users } from 'lucide-react'
+import { Download, KeyRound, ShieldCheck, SlidersHorizontal, Trash2, UserRound, Users } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
 import { api } from '@/components/dashboard/api'
 import { eur, hrs, num } from '@/lib/format'
@@ -46,6 +46,7 @@ export function AccountSettings({
       <PasswordCard />
       <CalcCard settings={settings} />
       <ContractHoursCard employees={employees} defaultHours={settings.hoursPerDay * settings.daysPerMonth} />
+      <PrivacyCard email={account.email} />
     </div>
   )
 }
@@ -283,6 +284,85 @@ function ContractRow({ employee, defaultHours }: { employee: EmployeeContract; d
       {saved && <span className="text-xs text-emerald-600">✓</span>}
       {error && <span className="text-xs text-red-600">{error}</span>}
     </div>
+  )
+}
+
+/* ─── data & privacy (GDPR export / erasure) ─────────────────── */
+
+function PrivacyCard({ email }: { email: string }) {
+  const router = useRouter()
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function deleteAccount(ev: React.FormEvent) {
+    ev.preventDefault()
+    setError(null)
+    const sure = confirm(
+      `Οριστική διαγραφή του λογαριασμού ${email};\n\n` +
+        'Διαγράφονται όλοι οι εργαζόμενοι, πελάτες, καταχωρήσεις, παραστατικά, API keys και ρυθμίσεις. ' +
+        'Η ενέργεια δεν αναιρείται — κατεβάστε πρώτα τα δεδομένα σας αν τα χρειάζεστε.'
+    )
+    if (!sure) return
+    setBusy(true)
+    const r = await api('DELETE', '/api/account', { password })
+    setBusy(false)
+    if (!r.ok) {
+      return setError(
+        r.status === 403 ? 'Λάθος κωδικός' : r.status === 429 ? 'Πολλές προσπάθειες — δοκιμάστε αργότερα' : (r.data.error ?? 'Σφάλμα')
+      )
+    }
+    router.push('/')
+    router.refresh()
+  }
+
+  return (
+    <Section icon={<ShieldCheck size={16} />} title="Δεδομένα & απόρρητο" sub="Εξαγωγή όλων των δεδομένων σας ή οριστική διαγραφή του λογαριασμού">
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-3.5 py-3">
+          <p className="text-sm text-slate-600">
+            Όλα τα δεδομένα του λογαριασμού σε ένα αρχείο JSON (εργαζόμενοι, πελάτες, καταχωρήσεις, παραστατικά, ρυθμίσεις).
+          </p>
+          <a
+            href="/api/account/export"
+            download
+            className="inline-flex h-[38px] shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            <Download size={15} /> Λήψη δεδομένων
+          </a>
+        </div>
+
+        <form onSubmit={deleteAccount} className="rounded-xl border border-red-100 bg-red-50/40 p-3.5">
+          <p className="flex items-center gap-2 text-sm font-semibold text-red-700">
+            <Trash2 size={15} /> Διαγραφή λογαριασμού
+          </p>
+          <p className="mt-1 text-xs text-red-600/80">
+            Οριστική διαγραφή του λογαριασμού και όλων των δεδομένων του. Δεν αναιρείται.
+          </p>
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <label className="block min-w-[200px] flex-1">
+              <span className="mb-1.5 block text-xs font-medium text-slate-600">Κωδικός (για επιβεβαίωση)</span>
+              <input
+                type="password"
+                autoComplete="current-password"
+                className={inputCls}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={busy || !password}
+              className="h-[42px] rounded-xl bg-red-600 px-5 text-sm font-semibold text-white transition hover:bg-red-500 disabled:opacity-50"
+            >
+              {busy ? '…' : 'Διαγραφή λογαριασμού'}
+            </button>
+          </div>
+          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        </form>
+      </div>
+    </Section>
   )
 }
 

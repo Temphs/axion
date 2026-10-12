@@ -65,10 +65,12 @@ describe('monthCoverage / periods', () => {
     expect(cov.get('2026-06')).toBeCloseTo(0.5)
   })
 
-  it('previous period of a month-aligned range is the preceding months', () => {
+  it('previous period of a month-to-date range stops at the same day of the month', () => {
+    // 1–20 July compares with 1–20 June, not all of June (which made every
+    // KPI read about −35% on the 20th).
     const prev = previousPeriodOf(new Date(Date.UTC(2026, 6, 1)), new Date(Date.UTC(2026, 6, 20)))
     expect(prev.from.toISOString().slice(0, 10)).toBe('2026-06-01')
-    expect(prev.to.toISOString().slice(0, 10)).toBe('2026-06-30')
+    expect(prev.to.toISOString().slice(0, 10)).toBe('2026-06-20')
   })
 })
 

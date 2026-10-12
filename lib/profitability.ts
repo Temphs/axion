@@ -117,12 +117,22 @@ export function monthsInPeriod(from: Date, to: Date): number {
 }
 
 // The comparable preceding window. Month-aligned periods (starting on the 1st)
-// shift back by whole calendar months; arbitrary ranges shift by duration.
+// shift back by whole calendar months. When the period stops part-way through
+// its last month (the default "this month to date"), the previous window stops
+// at the same day of the month, so 1–12 Oct compares with 1–12 Sep rather than
+// all of September. Arbitrary ranges shift by duration.
 export function previousPeriodOf(from: Date, to: Date): Period {
   if (from.getUTCDate() === 1) {
     const monthCount = monthCoverage(from, to).size
     const prevFrom = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() - monthCount, 1))
-    const prevTo = new Date(from.getTime() - 1)
+    const lastY = to.getUTCFullYear()
+    const lastM = to.getUTCMonth()
+    const endsOnMonthEnd = to.getUTCDate() === daysInMonth(lastY, lastM)
+    if (endsOnMonthEnd) return { from: prevFrom, to: new Date(from.getTime() - 1) }
+    // Same day-of-month, clamped for shorter months (31 Mar → 28/29 Feb).
+    const prevLast = new Date(Date.UTC(lastY, lastM - monthCount, 1))
+    const day = Math.min(to.getUTCDate(), daysInMonth(prevLast.getUTCFullYear(), prevLast.getUTCMonth()))
+    const prevTo = new Date(Date.UTC(prevLast.getUTCFullYear(), prevLast.getUTCMonth(), day, 23, 59, 59, 999))
     return { from: prevFrom, to: prevTo }
   }
   // Arbitrary ranges shift back by their own length in whole days, so the

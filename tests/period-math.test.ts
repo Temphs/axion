@@ -33,6 +33,23 @@ describe('previousPeriodOf', () => {
     expect(prev.to.toISOString()).toBe('2026-02-28T23:59:59.999Z')
   })
 
+  it('compares month-to-date with the same days of the previous month', () => {
+    const prev = previousPeriodOf(new Date(Date.UTC(2026, 9, 1)), new Date(Date.UTC(2026, 9, 12, 14, 30)))
+    expect(prev.from.toISOString()).toBe('2026-09-01T00:00:00.000Z')
+    expect(prev.to.toISOString()).toBe('2026-09-12T23:59:59.999Z')
+  })
+
+  it('clamps the comparison day to the end of a shorter month', () => {
+    const prev = previousPeriodOf(new Date(Date.UTC(2026, 2, 1)), new Date(Date.UTC(2026, 2, 30)))
+    expect(prev.to.toISOString()).toBe('2026-02-28T23:59:59.999Z')
+  })
+
+  it('keeps whole-month multi-month ranges contiguous', () => {
+    const prev = previousPeriodOf(new Date(Date.UTC(2026, 3, 1)), new Date(Date.UTC(2026, 5, 30, 23, 59, 59, 999)))
+    expect(prev.from.toISOString()).toBe('2026-01-01T00:00:00.000Z')
+    expect(prev.to.toISOString()).toBe('2026-03-31T23:59:59.999Z')
+  })
+
   it('gives an arbitrary range a previous window of the same length in days', () => {
     const bounds: Array<[Date, Date]> = [
       [new Date(Date.UTC(2026, 2, 10)), new Date(Date.UTC(2026, 2, 19, 23, 59, 59, 999))],

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -54,10 +54,14 @@ export function DateField({
   const [text, setText] = useState(() => isoToDisplay(value))
   const nativeRef = useRef<HTMLInputElement>(null)
 
-  // Re-sync the visible text whenever the external value changes (clear, preset, navigation).
-  useEffect(() => {
+  // Re-sync the visible text whenever the external value changes (clear, preset,
+  // navigation). Adjusted during render, React's pattern for state derived from
+  // a prop, rather than in an effect that would render twice.
+  const [syncedValue, setSyncedValue] = useState(value)
+  if (value !== syncedValue) {
+    setSyncedValue(value)
     setText(isoToDisplay(value))
-  }, [value])
+  }
 
   function handleChange(raw: string) {
     const formatted = autoFormat(raw)

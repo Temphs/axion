@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { ok, fail, readJson, authed, isUniqueViolation, isNotFound, isForeignKeyConstraint } from '@/lib/api'
+import { ok, fail, readJson, authed, isUniqueViolation, isNotFound, isForeignKeyConstraint, MAX_NAME, MAX_NOTES } from '@/lib/api'
 import { getSettings, hoursPerMonth } from '@/lib/settings'
 
 export async function GET(_req: Request, ctx: RouteContext<'/api/employees/[id]'>) {
@@ -13,8 +13,8 @@ export async function GET(_req: Request, ctx: RouteContext<'/api/employees/[id]'
   ])
   if (!employee) return fail('Employee not found', 404)
 
-  const hpm = hoursPerMonth(settings)
-  return ok({ employee: { ...employee, costPerHour: hpm > 0 ? employee.monthlyCost / hpm : 0 } })
+  const hours = employee.contractHoursPerMonth ?? hoursPerMonth(settings)
+  return ok({ employee: { ...employee, costPerHour: hours > 0 ? employee.monthlyCost / hours : 0 } })
 }
 
 export async function PATCH(request: Request, ctx: RouteContext<'/api/employees/[id]'>) {
@@ -39,8 +39,9 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/employees/
 
   const data: Record<string, unknown> = {}
   if (body.name !== undefined) {
-    const name = body.name.trim()
+    const name = body.name?.toString().trim()
     if (!name) return fail('name cannot be empty')
+    if (name.length > MAX_NAME) return fail(`name must be at most ${MAX_NAME} characters`)
     data.name = name
   }
   if (body.monthlyCost !== undefined) {
@@ -49,7 +50,11 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/employees/
     }
     data.monthlyCost = body.monthlyCost
   }
-  if (body.notes !== undefined) data.notes = body.notes?.toString().trim() || null
+  if (body.notes !== undefined) {
+    const notes = body.notes?.toString().trim() || null
+    if (notes && notes.length > MAX_NOTES) return fail(`notes must be at most ${MAX_NOTES} characters`)
+    data.notes = notes
+  }
   if (body.active !== undefined) data.active = !!body.active
 
   // Optional numeric fields: a value within range, or null to clear.

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from './ui'
 
@@ -29,7 +30,7 @@ export function AuthForm({ lang }: { lang: string }) {
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error ?? 'Κάτι πήγε στραβά')
+        setError(res.status === 429 ? 'Πολλές προσπάθειες — δοκιμάστε ξανά αργότερα' : (data.error ?? 'Κάτι πήγε στραβά'))
         return
       }
       router.push(`/${lang}/dashboard`)
@@ -65,6 +66,14 @@ export function AuthForm({ lang }: { lang: string }) {
         <Field label="Κωδικός">
           <input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className={inputCls} placeholder="••••••••" />
           {mode === 'signup' && <span className="mt-1 block text-xs text-slate-400">Τουλάχιστον 8 χαρακτήρες</span>}
+          {mode === 'login' && (
+            <Link
+              href={`/${lang}/forgot-password`}
+              className="mt-1.5 inline-block text-xs font-medium text-blue-600 hover:text-blue-700"
+            >
+              Ξεχάσατε τον κωδικό;
+            </Link>
+          )}
         </Field>
 
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
