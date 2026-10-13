@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/db'
-import { hashPassword, verifyPassword } from '@/lib/auth'
+import { hashPassword, verifyPassword, PASSWORD_MAX } from '@/lib/auth'
 import { ok, fail, readJson, authed } from '@/lib/api'
 import { rateLimit } from '@/lib/rateLimit'
 
@@ -23,7 +23,11 @@ export async function POST(request: Request) {
   const body = await readJson<{ currentPassword?: string; newPassword?: string }>(request)
   if (!body) return fail('Invalid JSON body')
   if (!body.currentPassword || !body.newPassword) return fail('Απαιτείται ο τρέχων και ο νέος κωδικός')
+  if (typeof body.currentPassword !== 'string' || typeof body.newPassword !== 'string') return fail('Invalid JSON body')
   if (body.newPassword.length < 8) return fail('Ο νέος κωδικός πρέπει να έχει τουλάχιστον 8 χαρακτήρες')
+  if (body.newPassword.length > PASSWORD_MAX || body.currentPassword.length > PASSWORD_MAX) {
+    return fail(`Ο κωδικός μπορεί να έχει έως ${PASSWORD_MAX} χαρακτήρες`)
+  }
   if (body.newPassword === body.currentPassword) return fail('Ο νέος κωδικός πρέπει να διαφέρει από τον τρέχοντα')
 
   const record = await prisma.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } })

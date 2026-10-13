@@ -1,8 +1,12 @@
 import { prisma } from '@/lib/db'
-import { ok, fail, readJson, authed, authedAny, isForeignKeyConstraint } from '@/lib/api'
+import { ok, fail, readJson, authed, authedAny, isForeignKeyConstraint, MAX_NAME, MAX_NOTES } from '@/lib/api'
+import { parseEntryDate } from '@/lib/entryDate'
 
 const MAX_LIMIT = 500
 const DEFAULT_LIMIT = 100
+// Largest batch accepted in one request; bigger syncs must be split.
+const MAX_BATCH = 1000
+const MAX_EXTERNAL_ID = 200
 
 type EntryInput = {
   date?: string
@@ -29,26 +33,39 @@ function normalizeEntry(input: EntryInput): { data: NormalizedEntry } | { error:
   if (!input || typeof input !== 'object') return { error: 'entry must be an object' }
   if (!input.employeeId) return { error: 'employeeId is required' }
   if (!input.clientId) return { error: 'clientId is required' }
-  if (!input.date) return { error: 'date is required' }
+  if (typeof input.employeeId !== 'string' || typeof input.clientId !== 'string') {
+    return { error: 'employeeId and clientId must be strings' }
+  }
 
-  const date = new Date(input.date)
-  if (Number.isNaN(date.getTime())) return { error: `invalid date: ${input.date}` }
+  const parsedDate = parseEntryDate(input.date)
+  if ('error' in parsedDate) return { error: parsedDate.error }
+  const date = parsedDate.date
+
+  const workType = input.workType?.toString().trim() || null
+  const notes = input.notes?.toString().trim() || null
+  const externalId = input.externalId?.toString().trim() || null
+  if (workType && workType.length > MAX_NAME) return { error: `workType must be at most ${MAX_NAME} characters` }
+  if (notes && notes.length > MAX_NOTES) return { error: `notes must be at most ${MAX_NOTES} characters` }
+  if (externalId && externalId.length > MAX_EXTERNAL_ID) {
+    return { error: `externalId must be at most ${MAX_EXTERNAL_ID} characters` }
+  }
 
   let minutes: number
   if (typeof input.minutes === 'number') minutes = Math.round(input.minutes)
   else if (typeof input.hours === 'number') minutes = Math.round(input.hours * 60)
   else return { error: 'minutes or hours is required' }
   if (!Number.isFinite(minutes) || minutes <= 0) return { error: 'minutes/hours must be a positive number' }
+  if (minutes > 24 * 60) return { error: 'a single entry cannot exceed 24 hours' }
 
   return {
     data: {
       date,
       employeeId: input.employeeId,
       clientId: input.clientId,
-      workType: input.workType?.trim() || null,
+      workType,
       minutes,
-      notes: input.notes?.trim() || null,
-      externalId: input.externalId?.trim() || null,
+      notes,
+      externalId,
     },
   }
 }
@@ -118,6 +135,7 @@ export async function POST(request: Request) {
   if (isBatch) {
     const items = Array.isArray(body) ? body : (body as { entries: EntryInput[] }).entries
     if (!items.length) return fail('entries array is empty')
+    if (items.length > MAX_BATCH) return fail(`at most ${MAX_BATCH} entries per request — split the batch`, 413)
 
     const normalized: NormalizedEntry[] = []
     const errors: { index: number; error: string }[] = []

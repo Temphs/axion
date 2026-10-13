@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db'
-import { ok, fail, readJson, authed, isNotFound, isForeignKeyConstraint } from '@/lib/api'
+import { ok, fail, readJson, authed, isNotFound, isForeignKeyConstraint, MAX_NAME, MAX_NOTES } from '@/lib/api'
+import { parseEntryDate } from '@/lib/entryDate'
 
 export async function GET(_req: Request, ctx: RouteContext<'/api/entries/[id]'>) {
   const { user, res } = await authed()
@@ -38,17 +39,26 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/entries/[i
 
   const data: Record<string, unknown> = {}
   if (body.date !== undefined) {
-    const d = new Date(body.date)
-    if (Number.isNaN(d.getTime())) return fail(`invalid date: ${body.date}`)
-    data.date = d
+    const parsed = parseEntryDate(body.date)
+    if ('error' in parsed) return fail(parsed.error)
+    data.date = parsed.date
   }
   if (body.employeeId !== undefined) data.employeeId = body.employeeId
   if (body.clientId !== undefined) data.clientId = body.clientId
-  if (body.workType !== undefined) data.workType = body.workType?.toString().trim() || null
-  if (body.notes !== undefined) data.notes = body.notes?.toString().trim() || null
+  if (body.workType !== undefined) {
+    const workType = body.workType?.toString().trim() || null
+    if (workType && workType.length > MAX_NAME) return fail(`workType must be at most ${MAX_NAME} characters`)
+    data.workType = workType
+  }
+  if (body.notes !== undefined) {
+    const notes = body.notes?.toString().trim() || null
+    if (notes && notes.length > MAX_NOTES) return fail(`notes must be at most ${MAX_NOTES} characters`)
+    data.notes = notes
+  }
   if (body.minutes !== undefined || body.hours !== undefined) {
     const minutes = typeof body.minutes === 'number' ? Math.round(body.minutes) : Math.round((body.hours as number) * 60)
     if (!Number.isFinite(minutes) || minutes <= 0) return fail('minutes/hours must be a positive number')
+    if (minutes > 24 * 60) return fail('a single entry cannot exceed 24 hours')
     data.minutes = minutes
   }
 

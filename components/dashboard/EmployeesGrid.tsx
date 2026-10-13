@@ -75,12 +75,22 @@ export function EmployeesGrid({
               <input className={inputCls} type="number" min="0" step="0.01" value={monthlyCost} onChange={(e) => setMonthlyCost(e.target.value)} placeholder="1600" />
             </Field>
             <Field label="Σημειώσεις / Ρόλος">
-              <input className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Λογιστής" />
+              <input
+                className={inputCls}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Λογιστής"
+                maxLength={2000}
+                title="Μόνο ρόλος ή πρακτικές πληροφορίες — όχι υγεία, άδειες ασθενείας, συνδικαλιστικά ή άλλα ευαίσθητα δεδομένα."
+              />
             </Field>
             <button type="submit" disabled={saving} className="h-[42px] rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50">
               {saving ? '…' : 'Προσθήκη'}
             </button>
           </form>
+          <p className="mt-2 text-[11px] text-slate-400">
+            Σημειώσεις: μόνο ρόλος ή πρακτικές πληροφορίες — όχι υγεία, άδειες ασθενείας, συνδικαλιστικά ή άλλα ευαίσθητα δεδομένα.
+          </p>
           {monthlyCost && Number(monthlyCost) > 0 && hoursPerMonth > 0 && (
             <p className="mt-2 text-xs text-slate-500">≈ {eur(Number(monthlyCost) / hoursPerMonth, true)} / ώρα</p>
           )}

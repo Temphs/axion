@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { ok, fail, readJson, authed, isUniqueViolation, isNotFound, isForeignKeyConstraint } from '@/lib/api'
+import { ok, fail, readJson, authed, isUniqueViolation, isNotFound, isForeignKeyConstraint, MAX_NAME, MAX_NOTES } from '@/lib/api'
 
 export async function GET(_req: Request, ctx: RouteContext<'/api/clients/[id]'>) {
   const { user, res } = await authed()
@@ -31,8 +31,9 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/clients/[i
 
   const data: Record<string, unknown> = {}
   if (body.name !== undefined) {
-    const name = body.name.trim()
+    const name = body.name?.toString().trim()
     if (!name) return fail('name cannot be empty')
+    if (name.length > MAX_NAME) return fail(`name must be at most ${MAX_NAME} characters`)
     data.name = name
   }
   if (body.monthlyRevenue !== undefined) {
@@ -56,7 +57,11 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/clients/[i
     }
   }
   if (body.billable !== undefined) data.billable = !!body.billable
-  if (body.notes !== undefined) data.notes = body.notes?.toString().trim() || null
+  if (body.notes !== undefined) {
+    const notes = body.notes?.toString().trim() || null
+    if (notes && notes.length > MAX_NOTES) return fail(`notes must be at most ${MAX_NOTES} characters`)
+    data.notes = notes
+  }
   if (body.active !== undefined) data.active = !!body.active
 
   try {

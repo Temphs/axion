@@ -23,14 +23,14 @@ export async function PATCH(request: Request) {
 
   const data: Record<string, unknown> = {}
   if (body.hoursPerDay !== undefined) {
-    if (typeof body.hoursPerDay !== 'number' || !Number.isFinite(body.hoursPerDay) || body.hoursPerDay <= 0) {
-      return fail('hoursPerDay must be a positive number')
+    if (typeof body.hoursPerDay !== 'number' || !Number.isFinite(body.hoursPerDay) || body.hoursPerDay <= 0 || body.hoursPerDay > 24) {
+      return fail('hoursPerDay must be a number between 0 and 24')
     }
     data.hoursPerDay = body.hoursPerDay
   }
   if (body.daysPerMonth !== undefined) {
-    if (typeof body.daysPerMonth !== 'number' || !Number.isFinite(body.daysPerMonth) || body.daysPerMonth <= 0) {
-      return fail('daysPerMonth must be a positive number')
+    if (typeof body.daysPerMonth !== 'number' || !Number.isFinite(body.daysPerMonth) || body.daysPerMonth <= 0 || body.daysPerMonth > 31) {
+      return fail('daysPerMonth must be a number between 0 and 31')
     }
     data.daysPerMonth = body.daysPerMonth
   }

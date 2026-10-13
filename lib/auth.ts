@@ -1,28 +1,11 @@
 import { cookies } from 'next/headers'
-import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto'
-import { promisify } from 'node:util'
+import { createHash, randomBytes } from 'node:crypto'
 import { prisma } from '@/lib/db'
 
-const scrypt = promisify(scryptCb)
+export { hashPassword, verifyPassword, passwordProblem, PASSWORD_MIN, PASSWORD_MAX } from '@/lib/password'
 
 const SESSION_COOKIE = 'axion_session'
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30 // 30 days
-const KEY_LEN = 64
-
-export async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(16).toString('hex')
-  const derived = (await scrypt(password, salt, KEY_LEN)) as Buffer
-  return `${salt}:${derived.toString('hex')}`
-}
-
-export async function verifyPassword(password: string, stored: string): Promise<boolean> {
-  const [salt, key] = stored.split(':')
-  if (!salt || !key) return false
-  const derived = (await scrypt(password, salt, KEY_LEN)) as Buffer
-  const keyBuf = Buffer.from(key, 'hex')
-  if (keyBuf.length !== derived.length) return false
-  return timingSafeEqual(keyBuf, derived)
-}
 
 export async function createSession(userId: string): Promise<void> {
   const token = randomBytes(32).toString('hex')

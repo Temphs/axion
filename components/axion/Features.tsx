@@ -5,7 +5,8 @@ import { motion } from 'framer-motion'
 import {
   Check,
   Database,
-  Zap,
+  RefreshCw,
+  ListChecks,
   TrendingUp,
   PieChart as PieIcon,
   Users,
@@ -15,7 +16,8 @@ import {
   ArrowUpRight,
   Star,
 } from 'lucide-react'
-import { ForecastChart, BarChart, Donut, ProgressBar } from './charts'
+import { BarChart, Donut } from './charts'
+import { useMockFormat } from './AppFrame'
 import { Eyebrow } from './ui'
 import { Reveal } from './motion'
 import { useI18n } from './i18n'
@@ -41,7 +43,9 @@ function FeatureRow({
   chips,
   mockup,
   reverse,
+  badge,
 }: {
+  badge?: string
   eyebrow: string
   title: string
   desc: string
@@ -53,7 +57,14 @@ function FeatureRow({
   return (
     <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
       <Reveal className={reverse ? 'lg:order-2' : ''}>
-        <Eyebrow>{eyebrow}</Eyebrow>
+        <div className="flex flex-wrap items-center gap-2">
+          <Eyebrow>{eyebrow}</Eyebrow>
+          {badge && (
+            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              {badge}
+            </span>
+          )}
+        </div>
         <h3
           className="mt-3 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl"
           style={{ fontFamily: 'var(--font-manrope), system-ui, sans-serif' }}
@@ -111,33 +122,40 @@ function MockShell({ title, sub, children }: { title: string; sub?: string; chil
 function VatMockup() {
   const { dict } = useI18n()
   const t = dict.features.vatMockup
-  const liabilities = [
-    { m: t.months[0], v: '€18,420', up: true },
-    { m: t.months[1], v: '€21,050', up: true },
-    { m: t.months[2], v: '€19,300', up: false },
+  const f = useMockFormat()
+  const periods = [
+    { label: t.periods[0], net: 3400 },
+    { label: t.periods[1], net: 3900 },
+    { label: t.periods[2], net: 4860, forecast: true },
   ]
   return (
     <MockShell title={t.title} sub={t.sub}>
-      <ForecastChart data={[16, 19, 17, 24, 22, 28, 26, 31, 34]} splitAt={5} />
-      <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
-        <span className="text-xs font-medium text-amber-700">
-          {t.alertPre} <span className="font-bold">{t.alertDays}</span>
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <span className="text-2xl font-bold tracking-tight text-slate-900">{f.eur(4860, true)}</span>
+        <span className="text-xs font-medium text-slate-500">{t.payable}</span>
+        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+          {t.confidence}
         </span>
       </div>
+      <p className="mt-1 text-xs text-slate-400">
+        {t.range}: {f.eur(4310)} – {f.eur(5420)}
+      </p>
+      <BarChart groups={[[7400, 4300], [8100, 4700], [7800, 4900], [8600, 4800], [8900, 5000], [9120, 5180]]} className="mt-2" />
+      <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+        <span className="text-xs font-medium text-amber-700">{t.alert}</span>
+      </div>
       <div className="mt-3 space-y-1.5">
-        <div className="text-xs font-semibold text-slate-500">{t.upcoming}</div>
-        {liabilities.map((l) => (
-          <div
-            key={l.m}
-            className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"
-          >
-            <span className="text-slate-600">{l.m}</span>
-            <span className="flex items-center gap-1 font-semibold text-slate-900">
-              {l.v}
-              <ArrowUpRight
-                className={`h-3.5 w-3.5 ${l.up ? 'text-emerald-500' : 'rotate-90 text-slate-400'}`}
-              />
+        <div className="text-xs font-semibold text-slate-500">{t.netByPeriod}</div>
+        {periods.map((p) => (
+          <div key={p.label} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
+            <span className="text-slate-600">
+              {p.label}
+              {p.forecast && <span className="ml-1.5 text-[10px] font-semibold text-blue-600">{t.forecastTag}</span>}
+            </span>
+            <span className="flex items-center gap-1 font-semibold tabular-nums text-slate-900">
+              {f.eur(p.net, true)}
+              <ArrowUpRight className="h-3.5 w-3.5 text-amber-500" />
             </span>
           </div>
         ))}
@@ -205,44 +223,63 @@ function PnlMockup() {
 function EmployeeMockup() {
   const { dict } = useI18n()
   const t = dict.features.employeeMockup
+  const f = useMockFormat()
+  // hours × (revenue/h − cost/h) = contribution, as the app computes it
   const rows = [
-    { in: 'MP', name: 'Maria P.', role: t.roles[0], hours: '164h', rate: '€38', margin: 92, color: '#2563EB' },
-    { in: 'AN', name: 'Andreas N.', role: t.roles[1], hours: '152h', rate: '€42', margin: 78, color: '#3b82f6' },
-    { in: 'KG', name: 'Katerina G.', role: t.roles[2], hours: '148h', rate: '€29', margin: 64, color: '#60a5fa' },
-    { in: 'DV', name: 'Dimitris V.', role: t.roles[3], hours: '140h', rate: '€34', margin: 71, color: '#93c5fd' },
+    { in: 'MP', name: 'Maria P.', hours: 164, cost: 15, rev: 24, color: '#2563EB' },
+    { in: 'AN', name: 'Andreas N.', hours: 152, cost: 14, rev: 21, color: '#4f46e5' },
+    { in: 'KG', name: 'Katerina G.', hours: 148, cost: 11, rev: 16, color: '#0891b2', short: 2 },
+    { in: 'DV', name: 'Dimitris V.', hours: 140, cost: 12, rev: 13, color: '#7c3aed' },
   ]
+  const clients = [
+    { name: 'Aegean Foods', value: 40.6, color: '#1d4ed8' },
+    { name: 'Kolymbari O.E.', value: 28.1, color: '#2563EB' },
+    { name: 'Papaloukas IKE', value: 21.9, color: '#3b82f6' },
+    { name: 'Ilios Studio', value: 9.4, color: '#60a5fa' },
+  ]
+  const totalHours = rows.reduce((s, r) => s + r.hours, 0)
+  const totalContribution = rows.reduce((s, r) => s + r.hours * (r.rev - r.cost), 0)
   return (
     <div className="grid gap-4 lg:grid-cols-5">
       <div className="lg:col-span-3">
         <MockShell title={t.title} sub={t.sub}>
-          <div className="space-y-3">
-            {rows.map((r, i) => (
-              <motion.div
-                key={r.name}
-                initial={{ opacity: 0, x: -10 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.08 }}
-                className="flex items-center gap-3"
-              >
-                <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                  style={{ background: r.color }}
+          <div className="space-y-3.5">
+            {rows.map((r, i) => {
+              const contribution = r.hours * (r.rev - r.cost)
+              return (
+                <motion.div
+                  key={r.name}
+                  initial={{ opacity: 0, x: -10 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: i * 0.08 }}
                 >
-                  {r.in}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="truncate text-sm font-semibold text-slate-900">{r.name}</span>
-                    <span className="text-xs font-semibold text-slate-900">{r.margin}%</span>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                      style={{ background: r.color }}
+                    >
+                      {r.in}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-slate-900">{r.name}</span>
+                      <span className="block text-[11px] leading-snug text-slate-400">
+                        {f.hrs(r.hours)} · {t.cost} {f.eur(r.cost)}/{t.perHour} · {t.revenue} {f.eur(r.rev)}/{t.perHour}
+                      </span>
+                    </div>
+                    <span className="shrink-0 text-right">
+                      <span className="block text-sm font-bold tabular-nums text-emerald-600">{f.eur(contribution)}</span>
+                      <span className="block text-[10px] text-slate-400">{t.contribution}</span>
+                    </span>
                   </div>
-                  <div className="mb-1 flex items-center gap-2 text-[11px] text-slate-400">
-                    <span>{r.role}</span>·<span>{r.hours}</span>·<span>{r.rate}/hr</span>
-                  </div>
-                  <ProgressBar value={r.margin} color={r.color} delay={i * 0.1} />
-                </div>
-              </motion.div>
-            ))}
+                  {r.short && (
+                    <span className="ml-12 mt-1 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                      <AlertTriangle className="h-2.5 w-2.5" /> {r.short} {t.belowTarget}
+                    </span>
+                  )}
+                </motion.div>
+              )
+            })}
           </div>
         </MockShell>
       </div>
@@ -250,27 +287,31 @@ function EmployeeMockup() {
       <div className="space-y-4 lg:col-span-2">
         <MockShell title={t.revenueByClient}>
           <Donut
-            segments={[
-              { value: 42, color: '#2563EB' },
-              { value: 28, color: '#3b82f6' },
-              { value: 18, color: '#60a5fa' },
-              { value: 12, color: '#bfdbfe' },
-            ]}
-            centerLabel="€312k"
-            centerSub="Q2"
+            segments={clients.map((c) => ({ value: c.value, color: c.color }))}
+            centerLabel={f.eur(9200)}
+            centerSub={t.month}
             className="mx-auto w-32"
           />
+          <ul className="mt-3 space-y-1">
+            {clients.map((c) => (
+              <li key={c.name} className="flex items-center gap-2 text-[11px]">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: c.color }} />
+                <span className="min-w-0 flex-1 truncate text-slate-600">{c.name}</span>
+                <span className="tabular-nums text-slate-400">{f.pct(c.value / 100)}</span>
+              </li>
+            ))}
+          </ul>
         </MockShell>
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
             <Target className="mb-1 h-4 w-4 text-blue-600" />
-            <div className="text-lg font-bold text-slate-900">€142</div>
+            <div className="text-lg font-bold text-slate-900">{f.eur(totalContribution / totalHours, true)}</div>
             <div className="text-[10px] text-slate-400">{t.avgMarginHr}</div>
           </div>
           <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
             <Clock className="mb-1 h-4 w-4 text-blue-600" />
-            <div className="text-lg font-bold text-slate-900">86%</div>
-            <div className="text-[10px] text-slate-400">{t.billableRate}</div>
+            <div className="text-lg font-bold text-slate-900">2</div>
+            <div className="text-[10px] text-slate-400">{t.daysBelowTarget}</div>
           </div>
         </div>
       </div>
@@ -305,14 +346,15 @@ export function Features() {
             desc={t.vat.desc}
             bullets={t.vat.bullets}
             chips={[
-              { icon: Database, label: t.vat.chips[0] },
-              { icon: Zap, label: t.vat.chips[1] },
+              { icon: RefreshCw, label: t.vat.chips[0] },
+              { icon: ListChecks, label: t.vat.chips[1] },
             ]}
             mockup={<VatMockup />}
           />
 
           <FeatureRow
             reverse
+            badge={t.pnl.soon}
             eyebrow={t.pnl.eyebrow}
             title={t.pnl.title}
             desc={t.pnl.desc}

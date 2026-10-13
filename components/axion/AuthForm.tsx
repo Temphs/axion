@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from './ui'
+import { PasswordInput } from './PasswordInput'
 
 // Login / signup form. Render inside a Card (page) or AuthModal (popup).
 // Each signup gets its own isolated workspace, so open registration is safe.
@@ -12,30 +14,44 @@ export function AuthForm({ lang }: { lang: string }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ message: string; badCredentials?: boolean } | null>(null)
   const [loading, setLoading] = useState(false)
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
     setLoading(true)
+    // Read what is actually in the fields: a password manager or browser
+    // autofill can fill them without React seeing a change event, and then
+    // the component state would send an empty or stale password.
+    const form = new FormData(e.currentTarget)
+    const fields = {
+      email: String(form.get('email') ?? email),
+      password: String(form.get('password') ?? password),
+      name: String(form.get('name') ?? name),
+    }
     try {
       const path = mode === 'login' ? '/api/auth/login' : '/api/auth/signup'
-      const body = mode === 'login' ? { email, password } : { email, password, name }
+      const body =
+        mode === 'login'
+          ? { email: fields.email, password: fields.password }
+          : { email: fields.email, password: fields.password, name: fields.name }
       const res = await fetch(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data.error ?? 'Κάτι πήγε στραβά')
+        if (res.status === 429) setError({ message: 'Πολλές προσπάθειες — δοκιμάστε ξανά σε λίγα λεπτά.' })
+        else if (mode === 'login' && res.status === 401) setError({ message: 'Λάθος email ή κωδικός.', badCredentials: true })
+        else setError({ message: data.error ?? 'Κάτι πήγε στραβά' })
         return
       }
       router.push(`/${lang}/dashboard`)
       router.refresh()
     } catch {
-      setError('Σφάλμα δικτύου')
+      setError({ message: 'Σφάλμα δικτύου' })
     } finally {
       setLoading(false)
     }
@@ -56,18 +72,66 @@ export function AuthForm({ lang }: { lang: string }) {
       <form onSubmit={submit} className="space-y-4">
         {mode === 'signup' && (
           <Field label="Ονοματεπώνυμο">
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="Διαχειριστής" />
+            <input
+              type="text"
+              name="name"
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={inputCls}
+              placeholder="Διαχειριστής"
+            />
           </Field>
         )}
         <Field label="Email">
-          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} placeholder="manager@axion.gr" />
+          <input
+            type="email"
+            name="email"
+            required
+            autoComplete={mode === 'login' ? 'username' : 'email'}
+            autoCapitalize="none"
+            spellCheck={false}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={inputCls}
+            placeholder="manager@axion.gr"
+          />
         </Field>
         <Field label="Κωδικός">
-          <input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className={inputCls} placeholder="••••••••" />
+          <PasswordInput
+            key={mode}
+            name="password"
+            value={password}
+            onChange={setPassword}
+            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+            minLength={mode === 'signup' ? 8 : undefined}
+            className={inputCls}
+          />
           {mode === 'signup' && <span className="mt-1 block text-xs text-slate-400">Τουλάχιστον 8 χαρακτήρες</span>}
+          {mode === 'login' && (
+            <Link
+              href={`/${lang}/forgot-password`}
+              className="mt-1.5 inline-block text-xs font-medium text-blue-600 hover:text-blue-700"
+            >
+              Ξεχάσατε τον κωδικό;
+            </Link>
+          )}
         </Field>
 
-        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        {error && (
+          <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+            <p>{error.message}</p>
+            {error.badCredentials && (
+              <p className="mt-1 text-xs text-red-500/90">
+                Ελέγξτε ότι το πληκτρολόγιο είναι στα αγγλικά και ότι το Caps Lock είναι ανενεργό (πατήστε το εικονίδιο
+                του ματιού για να δείτε τι πληκτρολογήσατε).{' '}
+                <Link href={`/${lang}/forgot-password`} className="font-semibold underline">
+                  Επαναφορά κωδικού
+                </Link>
+              </p>
+            )}
+          </div>
+        )}
 
         <Button type="submit" disabled={loading} className="w-full">
           {loading ? '…' : mode === 'login' ? 'Σύνδεση' : 'Εγγραφή'}

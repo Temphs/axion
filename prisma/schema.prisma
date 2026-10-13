@@ -19,6 +19,7 @@ model User {
   name         String?
   createdAt    DateTime  @default(now())
   sessions     Session[]
+  passwordResetTokens PasswordResetToken[]
   employees    Employee[]
   clients      Client[]
   entries      WorkEntry[]
@@ -37,6 +38,20 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Single-use "forgot password" token. Only the sha256 of the token is stored;
+// the plaintext exists only in the emailed link. Expires after 30 minutes.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([userId])
 }
