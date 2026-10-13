@@ -101,6 +101,11 @@ Shown so nobody spends time re-checking them:
 ## 3. Functional
 
 ### P0 (bugs a customer will notice in week one)
+- [x] **Correct password rejected at login.** Reported by the owner. Causes found and fixed:
+  - ✅ Greek accented passwords hashed as raw bytes: a Mac/iPhone (decomposed `έ`) and Windows/Android (composed `έ`) produced different hashes for the same visible password. Passwords are now hashed in NFC, and older hashes are still accepted from either device (`lib/password.ts`, `tests/password.test.ts`).
+  - ✅ Login form sent React state instead of the field contents, so a password manager's autofill could be ignored and an older typed value sent. It now reads the form fields on submit; added `autocomplete`/`name` attributes so managers save and fill the right fields.
+  - ✅ No help for typing slips: Caps Lock and Greek-keyboard warnings, a show-password button, and a hint plus reset link on "wrong password".
+  - ✅ Diagnosis: failed logins log `no_account` vs `bad_password` (with a pseudonymous email hash). Each Vercel deployment logs which database host it uses, and refuses to start without `TURSO_DATABASE_URL`. If logs show `no_account` for a known user, that deployment is reading a different database (e.g. Preview vs Production env vars).
 - [x] **Month-to-date compared against a full previous month.** The default period is "1st of this month → now" (`lib/workforce.ts:81`), but `previousPeriodOf` (`lib/profitability.ts:121`) compares it with the **whole** previous month. On the 12th of the month every KPI shows about −60% (seen on the seeded overview: revenue −61%, labour cost −60%). Compare like-for-like (same day-count of the previous month), or label the delta "vs. full previous month".
   - ✅ Done: month-to-date now compares with the same days of the previous month (1–12 Oct vs 1–12 Sep). Tested in `tests/period-math.test.ts`.
 - [x] **Dates and time zones.** Entries are bucketed by UTC day/month. A time-tracking app that sends `2026-10-01T00:30:00+03:00` lands on **30 Sep** in UTC. Either require plain `YYYY-MM-DD` dates in the API contract (and reject datetimes), or convert to `Europe/Athens` before bucketing. Add a test for the month-boundary case.

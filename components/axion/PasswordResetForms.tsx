@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { CheckCircle2, MailCheck } from 'lucide-react'
 import { Button } from './ui'
+import { PasswordInput } from './PasswordInput'
 
 // "Forgot password" request form and the "choose a new password" form the
 // emailed link opens. Rendered inside a Card, like AuthForm.
@@ -186,30 +187,26 @@ export function ResetPasswordForm({ lang, token }: { lang: string; token: string
       <Header title={t.resetTitle} sub={t.resetSub} />
       <form onSubmit={submit} className="space-y-4">
         <Field label={t.newPassword}>
-          <input
-            type="password"
-            required
-            minLength={8}
-            maxLength={256}
-            autoComplete="new-password"
+          <PasswordInput
+            name="new-password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={setPassword}
+            autoComplete="new-password"
+            minLength={8}
+            lang={lang}
             className={inputCls}
-            placeholder="••••••••"
           />
           <span className="mt-1 block text-xs text-slate-400">{t.minHint}</span>
         </Field>
         <Field label={t.confirm}>
-          <input
-            type="password"
-            required
-            minLength={8}
-            maxLength={256}
-            autoComplete="new-password"
+          <PasswordInput
+            name="confirm-password"
             value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
+            onChange={setConfirm}
+            autoComplete="new-password"
+            minLength={8}
+            lang={lang}
             className={inputCls}
-            placeholder="••••••••"
           />
         </Field>
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
