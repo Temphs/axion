@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto'
 import { prisma } from '@/lib/db'
 import { hashApiKey, hashPassword } from '@/lib/auth'
 import { appBaseUrl, escapeHtml, sendEmail } from '@/lib/email'
+import { recordError } from '@/lib/monitoring/record'
 
 const TOKEN_TTL_MS = 30 * 60_000
 
@@ -19,6 +20,7 @@ export async function requestPasswordReset(email: string, lang: 'el' | 'en'): Pr
   const base = appBaseUrl()
   if (!base) {
     console.error('Password reset not sent: set APP_URL to the public URL of the app')
+    await recordError({ source: 'server', kind: 'email', message: 'Password reset not sent: APP_URL is not set' })
     return
   }
 

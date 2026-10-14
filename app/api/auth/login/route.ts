@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto'
+import { after } from 'next/server'
+import { track } from '@/lib/monitoring/record'
 import { prisma } from '@/lib/db'
 import { verifyPassword, createSession, PASSWORD_MAX } from '@/lib/auth'
 import { ok, fail, readJson } from '@/lib/api'
@@ -30,10 +32,12 @@ export async function POST(request: Request) {
     // server log says which it was. "no_account" for someone who signed up
     // before means this deployment is reading a different database.
     console.warn('login_failed', { reason: user ? 'bad_password' : 'no_account', email: emailTag(email) })
+    after(() => track(user ? 'login_failed' : 'login_failed_no_account'))
     return fail('Invalid email or password', 401)
   }
 
   await createSession(user.id)
+  after(() => track('login'))
 
   return ok({
     user: { id: user.id, email: user.email, name: user.name, createdAt: user.createdAt },

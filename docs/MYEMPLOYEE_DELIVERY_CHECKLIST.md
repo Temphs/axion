@@ -139,6 +139,7 @@ Shown so nobody spends time re-checking them:
 - [ ] **P0 Production env check:** `APP_URL`, `RESEND_API_KEY`, `EMAIL_FROM` (new, for password reset), `TURSO_*`, `AXION_ENCRYPTION_KEY` (≥ 32 random chars, stored only in Vercel), `NODE_ENV=production` (needed for the `Secure` cookie flag).
 - [ ] **P2 Build needs S3 secrets.** `next build` fails unless `AWS_*` / `S3_BUCKET_NAME` are set, because `lib/s3.ts` reads them at import time (via `/api/invoices/upload-url`). Read them lazily so CI and preview builds don't need production secrets.
 - [ ] **P1 Error monitoring + uptime** (e.g. Sentry with PII scrubbing, Vercel log drains, an uptime check on `/api/auth/me`).
+  - ✅ Partly done: admin console at `/el/admin` (accounts in `ADMIN_EMAILS` only) records server and browser errors (grouped, scrubbed of emails and tokens), runs health checks with one-click safe fixes, and shows cookieless analytics. Still open: an external uptime check and push/email alerts (the console only shows alerts when opened).
 - [ ] **P1 Backups:** confirm Turso point-in-time restore is on, and run one test restore.
 - [ ] **P1 Clean up before handover:** decide which `scripts/` (smoke tests, Excel import, ad-hoc SQL) ship, and remove the step-by-step `console.log` calls in `app/api/invoices/upload-url/route.ts`.
 

@@ -1,4 +1,6 @@
+import { after } from 'next/server'
 import { ok, fail, readJson } from '@/lib/api'
+import { track } from '@/lib/monitoring/record'
 import { passwordProblem } from '@/lib/auth'
 import { clientIp, rateLimit, tooManyRequests } from '@/lib/rateLimit'
 import { resetPassword } from '@/lib/passwordReset'
@@ -17,5 +19,6 @@ export async function POST(request: Request) {
 
   const result = await resetPassword(token, body.password as string)
   if (!result.ok) return fail('This reset link is invalid or has expired', 400)
+  after(() => track('password_reset_completed'))
   return ok({ reset: true })
 }
