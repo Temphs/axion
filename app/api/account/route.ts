@@ -1,4 +1,6 @@
+import { after } from 'next/server'
 import { prisma } from '@/lib/db'
+import { track } from '@/lib/monitoring/record'
 import { ok, fail, readJson, authed } from '@/lib/api'
 import { destroySession, verifyPassword, PASSWORD_MAX } from '@/lib/auth'
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
@@ -74,6 +76,7 @@ export async function DELETE(request: Request) {
     prisma.user.delete({ where: { id: user.id } }),
   ])
   await destroySession()
+  after(() => track('account_deleted'))
 
   return ok({ deleted: true })
 }

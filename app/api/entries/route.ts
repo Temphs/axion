@@ -1,4 +1,6 @@
+import { after } from 'next/server'
 import { prisma } from '@/lib/db'
+import { track } from '@/lib/monitoring/record'
 import { ok, fail, readJson, authed, authedAny, isForeignKeyConstraint, MAX_NAME, MAX_NOTES } from '@/lib/api'
 import { parseEntryDate } from '@/lib/entryDate'
 
@@ -123,7 +125,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { userId, res } = await authedAny(request)
+  const { principal, userId, res } = await authedAny(request)
   if (res) return res
 
   const body = await readJson<EntryInput | EntryInput[] | { entries?: EntryInput[] }>(request)
@@ -177,6 +179,7 @@ export async function POST(request: Request) {
       )
     )
 
+    if (principal.kind === 'apiKey') after(() => track('api_entries', normalized.length))
     return ok({ processed: normalized.length }, { status: 201 })
   }
 

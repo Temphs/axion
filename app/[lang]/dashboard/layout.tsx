@@ -1,4 +1,7 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { ShieldCheck } from 'lucide-react'
+import { isAdmin } from '@/lib/admin/auth'
 import { getCurrentUser } from '@/lib/auth'
 import { getSidebarSummary } from '@/lib/stats'
 import { Nav } from '@/components/dashboard/Nav'
@@ -11,6 +14,7 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
   if (!user) redirect(`/${lang}/login`)
 
   const summary = await getSidebarSummary(user.id)
+  const admin = isAdmin(user)
   const initials = (user.name ?? user.email)
     .trim()
     .split(/\s+/)
@@ -67,7 +71,15 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
                   <p className="truncate text-[11px] text-slate-400" title={user.email}>{user.email}</p>
                 </div>
               </div>
-              <div className="mt-2.5">
+              <div className="mt-2.5 space-y-1">
+                {admin && (
+                  <Link
+                    href={`/${lang}/admin`}
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-slate-900"
+                  >
+                    <ShieldCheck size={15} /> Admin console
+                  </Link>
+                )}
                 <LogoutButton />
               </div>
             </div>
@@ -85,6 +97,11 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
               <span className="font-display text-base font-bold tracking-tight text-slate-900">Axion</span>
             </span>
             <div className="flex items-center gap-2">
+              {admin && (
+                <Link href={`/${lang}/admin`} aria-label="Admin console" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100">
+                  <ShieldCheck size={16} />
+                </Link>
+              )}
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-[11px] font-bold text-blue-700">
                 {initials}
               </span>

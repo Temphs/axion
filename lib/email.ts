@@ -1,4 +1,5 @@
 import 'server-only'
+import { recordError } from '@/lib/monitoring/record'
 
 // Transactional email via Resend's HTTP API (no SDK dependency). Configure
 // RESEND_API_KEY and EMAIL_FROM. Without them, development logs the message
@@ -17,6 +18,7 @@ export async function sendEmail(email: Email): Promise<boolean> {
       return true
     }
     console.error('Email not sent: RESEND_API_KEY / EMAIL_FROM are not configured')
+    await recordError({ source: 'server', kind: 'email', message: 'Email not sent: RESEND_API_KEY / EMAIL_FROM are not configured' })
     return false
   }
 
@@ -29,11 +31,13 @@ export async function sendEmail(email: Email): Promise<boolean> {
     if (!res.ok) {
       // Status only: the provider's error body can echo the recipient address.
       console.error(`Email provider rejected the message (HTTP ${res.status})`)
+      await recordError({ source: 'server', kind: 'email', message: `Email provider rejected the message (HTTP ${res.status})` })
       return false
     }
     return true
   } catch (err) {
     console.error('Email provider unreachable', err instanceof Error ? err.name : 'UnknownError')
+    await recordError({ source: 'server', kind: 'email', message: 'Email provider unreachable' })
     return false
   }
 }

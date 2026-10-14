@@ -29,6 +29,7 @@ model User {
   aadeConnection  AadeConnection?
   vatSyncLogs     VatSyncLog[]
   categoryAudits  CategoryAuditEvent[]
+  errorEvents     ErrorEvent[]
 }
 
 model Session {
@@ -271,4 +272,52 @@ model Settings {
   daysPerMonth    Float    @default(22)
   includeOverhead Boolean  @default(true)
   updatedAt       DateTime @updatedAt
+}
+
+// --- Platform monitoring (admin console) ------------------------------------
+
+// One row per distinct error, grouped by fingerprint (source + normalised
+// message + route + top stack frame); repeats bump count/lastSeenAt. A
+// resolved error that happens again is reopened. Messages are scrubbed of
+// emails, tokens and long numbers before they are stored.
+model ErrorEvent {
+  id          String    @id @default(cuid())
+  fingerprint String    @unique
+  source      String // server | client
+  kind        String? // render | route | action | proxy | window | boundary | email | job
+  route       String? // normalised path, never a query string or token
+  message     String
+  stack       String?
+  count       Int       @default(1)
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  lastUserId  String?
+  lastUser    User?     @relation(fields: [lastUserId], references: [id], onDelete: SetNull)
+  status      String    @default("open") // open | resolved | ignored
+  resolvedAt  DateTime?
+
+  @@index([status, lastSeenAt])
+}
+
+// Cookieless page-view counts, aggregated per day. No IP address, cookie or
+// visitor id is ever stored: only how many views a page got from where.
+model PageViewDaily {
+  day      String // YYYY-MM-DD (UTC)
+  path     String // normalised: ids and tokens replaced, no query string
+  referrer String @default("") // external referring host only
+  country  String @default("") // ISO code from the hosting edge
+  device   String @default("desktop") // desktop | mobile
+  views    Int    @default(0)
+
+  @@id([day, path, referrer, country, device])
+  @@index([day])
+}
+
+// Daily product counters (signups, logins, failed logins, …), aggregate only.
+model MetricDaily {
+  day   String // YYYY-MM-DD (UTC)
+  key   String
+  count Int    @default(0)
+
+  @@id([day, key])
 }

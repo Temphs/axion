@@ -1,4 +1,6 @@
+import { after } from 'next/server'
 import { prisma } from '@/lib/db'
+import { track } from '@/lib/monitoring/record'
 import { fail, ok, readJson, MAX_NAME, MAX_NOTES } from '@/lib/api'
 import { rateLimit, tooManyRequests } from '@/lib/rateLimit'
 import {
@@ -69,6 +71,7 @@ export async function POST(request: Request, ctx: RouteContext<'/api/terminal/[t
     },
   })
 
+  after(() => track('terminal_entry'))
   // Return the refreshed day so the screen never drifts from the database.
   return ok(await loadTerminalData(session, day), { status: 201 })
 }

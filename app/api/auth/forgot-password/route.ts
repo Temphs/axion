@@ -2,6 +2,7 @@ import { after } from 'next/server'
 import { ok, fail, readJson } from '@/lib/api'
 import { clientIp, rateLimit, tooManyRequests } from '@/lib/rateLimit'
 import { requestPasswordReset } from '@/lib/passwordReset'
+import { recordError, track } from '@/lib/monitoring/record'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const HOUR_MS = 60 * 60_000
@@ -23,11 +24,18 @@ export async function POST(request: Request) {
   // Per-address cap stops the endpoint being used to flood someone's inbox.
   // Over the cap we still answer "sent", so it isn't an existence oracle.
   if (rateLimit(`forgot-email:${email}`, 3, HOUR_MS).ok) {
-    after(() =>
-      requestPasswordReset(email, lang).catch((err) =>
-        console.error('Password reset request failed', err instanceof Error ? err.name : 'UnknownError')
+    after(async () => {
+      await track('password_reset_requested')
+      await requestPasswordReset(email, lang).catch((err) =>
+        recordError({
+          source: 'server',
+          kind: 'job',
+          route: '/api/auth/forgot-password',
+          message: `Password reset request failed: ${err instanceof Error ? err.message : String(err)}`,
+          stack: err instanceof Error ? err.stack : null,
+        })
       )
-    )
+    })
   }
 
   return ok({ ok: true })

@@ -1,4 +1,6 @@
+import { after } from 'next/server'
 import { prisma } from '@/lib/db'
+import { track } from '@/lib/monitoring/record'
 import { hashPassword, createSession, passwordProblem } from '@/lib/auth'
 import { ok, fail, readJson, MAX_NAME } from '@/lib/api'
 import { clientIp, rateLimit, tooManyRequests } from '@/lib/rateLimit'
@@ -34,6 +36,7 @@ export async function POST(request: Request) {
   })
 
   await createSession(user.id)
+  after(() => track('signup'))
 
   return ok(
     { user: { id: user.id, email: user.email, name: user.name, createdAt: user.createdAt } },
