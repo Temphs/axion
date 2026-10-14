@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { prisma } from '@/lib/db'
+import { businessToday } from '@/lib/entryDate'
 
 // The entry terminal: a phone-sized screen an employee opens from a personal
 // link, with no account and no password. The token in that link is the whole
@@ -33,9 +34,12 @@ export async function resolveTerminal(token: string): Promise<TerminalSession | 
 // "I forgot Friday", short enough that closed months stay closed.
 export const EDIT_WINDOW_DAYS = 7
 
+// Counted in Greek calendar days, the same "today" the employee's phone shows:
+// from today back EDIT_WINDOW_DAYS days, never ahead of today.
 export function isWithinEditWindow(date: Date, now = new Date()): boolean {
-  const cutoff = new Date(now.getTime() - EDIT_WINDOW_DAYS * 86_400_000)
-  return date >= cutoff && date <= new Date(now.getTime() + 86_400_000)
+  const today = businessToday(now).getTime()
+  const day = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  return day >= today - EDIT_WINDOW_DAYS * 86_400_000 && day <= today
 }
 
 /* ─── the data one terminal screen needs ─────────────────────────── */
@@ -73,12 +77,25 @@ export function isoDate(d: Date): string {
 }
 
 // Entries are stored at UTC midnight; a YYYY-MM-DD string maps to one day.
+// Anything missing or impossible (2026-02-31) falls back to today in Greece,
+// so between midnight and 03:00 the screen doesn't open on yesterday.
 export function parseDayParam(value: string | null, now = new Date()): Date {
-  if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const d = new Date(`${value}T00:00:00.000Z`)
-    if (!Number.isNaN(d.getTime())) return d
+  const m = value ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(value) : null
+  if (m) {
+    const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
+    const day = new Date(Date.UTC(y, mo - 1, d))
+    if (day.getUTCFullYear() === y && day.getUTCMonth() === mo - 1 && day.getUTCDate() === d) return day
   }
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  return businessToday(now)
+}
+
+// Free text from the terminal, trimmed and capped like the rest of the API.
+// Returns undefined when the value is too long, so the caller can reject it.
+export function terminalText(value: unknown, max: number): string | null | undefined {
+  if (value === undefined || value === null) return null
+  const text = String(value).trim()
+  if (text.length > max) return undefined
+  return text || null
 }
 
 export async function loadTerminalData(

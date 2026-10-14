@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { Check, Copy, Link2, Loader2, Smartphone } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
 import { api } from '@/components/dashboard/api'
@@ -24,8 +24,11 @@ export function EmployeeAccessLink({
   const [error, setError] = useState<string | null>(null)
 
   // Built in the browser so the link is always the host the owner is actually
-  // using — localhost in development, the real domain in production.
-  const url = current && typeof window !== 'undefined' ? `${window.location.origin}/${lang}/t/${current}` : ''
+  // using — localhost in development, the real domain in production. Read via
+  // useSyncExternalStore: the server renders '' and the browser switches to the
+  // real origin after hydration, instead of the two disagreeing.
+  const origin = useSyncExternalStore(noSubscribe, () => window.location.origin, () => '')
+  const url = current && origin ? `${origin}/${lang}/t/${current}` : ''
 
   async function create() {
     setBusy(true)
@@ -105,4 +108,9 @@ export function EmployeeAccessLink({
       </div>
     </Card>
   )
+}
+
+// The page origin never changes while the page is open, so there is nothing to subscribe to.
+function noSubscribe(): () => void {
+  return () => {}
 }

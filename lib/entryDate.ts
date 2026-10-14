@@ -23,6 +23,11 @@ function athensDay(instant: Date): Date {
   return new Date(Date.UTC(y, m - 1, d))
 }
 
+// Today's calendar day in Greece, as UTC midnight (how entry dates are stored).
+export function businessToday(now = new Date()): Date {
+  return athensDay(now)
+}
+
 export type ParsedEntryDate = { date: Date } | { error: string }
 
 // Parses an entry date into UTC midnight of its Greek calendar day, rejecting

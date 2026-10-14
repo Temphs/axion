@@ -101,6 +101,7 @@ Shown so nobody spends time re-checking them:
 ## 3. Functional
 
 ### P0 (bugs a customer will notice in week one)
+- [x] **Employee entry link shipped.** Temphs/axion#10 (built in September, never merged) is merged into this branch and hardened: text length caps and type checks, a write limit per link (120/hour), "today" and the 7-day correction window in Greek time, `no-referrer` + `noindex` on `/t/<token>`, tokens left out of data exports, anonymising revokes the link, hydration-safe link display. Before deploy run `scripts/add-employee-access-token.sql` on Turso. **Without that column the Employee queries fail and the whole dashboard breaks.**
 - [x] **Correct password rejected at login.** Reported by the owner. Causes found and fixed:
   - ✅ Greek accented passwords hashed as raw bytes: a Mac/iPhone (decomposed `έ`) and Windows/Android (composed `έ`) produced different hashes for the same visible password. Passwords are now hashed in NFC, and older hashes are still accepted from either device (`lib/password.ts`, `tests/password.test.ts`).
   - ✅ Login form sent React state instead of the field contents, so a password manager's autofill could be ignored and an older typed value sent. It now reads the form fields on submit; added `autocomplete`/`name` attributes so managers save and fill the right fields.

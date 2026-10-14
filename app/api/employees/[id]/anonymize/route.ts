@@ -3,7 +3,7 @@ import { ok, fail, authed, isUniqueViolation } from '@/lib/api'
 
 // GDPR erasure for an employee who has logged work (and so can't be deleted
 // without breaking history): the name and every free-text note about them are
-// removed, the person is deactivated, and only hours and cost figures remain
+// removed, the person is deactivated and their entry link revoked, and only hours and cost figures remain
 // for the reports. Irreversible.
 export async function POST(_req: Request, ctx: RouteContext<'/api/employees/[id]/anonymize'>) {
   const { user, res } = await authed()
@@ -26,6 +26,8 @@ export async function POST(_req: Request, ctx: RouteContext<'/api/employees/[id]
           targetUtilizationPct: null,
           targetMonthlyHours: null,
           targetMonthlyContribution: null,
+          accessToken: null,
+          accessTokenAt: null,
         },
       }),
       prisma.workEntry.updateMany({ where: { employeeId: id, userId: user.id }, data: { notes: null } }),
