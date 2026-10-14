@@ -9,7 +9,8 @@ export async function GET(_req: Request, ctx: RouteContext<'/api/employees/[id]/
   if (res) return res
 
   const { id } = await ctx.params
-  const employee = await prisma.employee.findFirst({ where: { id, userId: user.id } })
+  // The entry-link token is a credential, not personal data: left out.
+  const employee = await prisma.employee.findFirst({ where: { id, userId: user.id }, omit: { accessToken: true } })
   if (!employee) return fail('Employee not found', 404)
 
   const entries = await prisma.workEntry.findMany({

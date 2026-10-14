@@ -5,7 +5,7 @@ import { jsonDownload, today } from '@/lib/exportResponse'
 
 // Everything stored for this workspace, as one JSON file (GDPR access and
 // portability). Secrets are left out: password hash, session tokens, API key
-// hashes and the encrypted AADE credentials.
+// hashes, employees' entry-link tokens and the encrypted AADE credentials.
 export async function GET() {
   const { user, res } = await authed()
   if (res) return res
@@ -16,7 +16,7 @@ export async function GET() {
   const where = { userId: user.id }
   const [settings, employees, clients, entries, apiKeys, aade, invoices, syncLogs, categoryAudits] = await Promise.all([
     prisma.settings.findUnique({ where }),
-    prisma.employee.findMany({ where, orderBy: { name: 'asc' } }),
+    prisma.employee.findMany({ where, orderBy: { name: 'asc' }, omit: { accessToken: true } }),
     prisma.client.findMany({ where, orderBy: { name: 'asc' } }),
     prisma.workEntry.findMany({ where, orderBy: { date: 'asc' } }),
     prisma.apiKey.findMany({
