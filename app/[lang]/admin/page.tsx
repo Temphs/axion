@@ -50,6 +50,12 @@ export default async function AdminPage({ params }: PageProps<'/[lang]/admin'>) 
       lang={lang}
       adminEmail={admin.email}
       generatedAt={new Date().toISOString()}
+      deployment={{
+        // Which Vercel environment and git version is answering, so a config
+        // change can be checked against the deployment that should see it.
+        env: process.env.VERCEL_ENV ?? 'local',
+        version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+      }}
       alerts={alerts}
       fixes={fixes}
       errors={errors}
