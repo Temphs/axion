@@ -18,6 +18,7 @@ import type { Alert, Severity } from '@/lib/admin/health'
 import type { FixStatus } from '@/lib/admin/fixes'
 import type { Analytics, Ranked } from '@/lib/admin/analytics'
 import { TrafficChart } from './TrafficChart'
+import { formatDateTime, formatTime } from '@/lib/datetime'
 
 export type ErrorRow = {
   id: string
@@ -170,7 +171,7 @@ export function AdminConsole({
           <AnalyticsPanel analytics={analytics} />
         </Section>
 
-        <p className="mt-8 text-center text-xs text-slate-400">Updated {new Date(generatedAt).toLocaleString('en-GB')}</p>
+        <p className="mt-8 text-center text-xs text-slate-400">Updated {formatDateTime(generatedAt, 'en-GB')} (Greek time)</p>
       </div>
     </div>
   )
@@ -192,7 +193,7 @@ function StatusBar({ tone, text, generatedAt }: { tone: Severity | 'ok'; text: s
       <t.Icon size={18} className="shrink-0" />
       <p className="text-sm font-semibold">{text}</p>
       <span className="ml-auto hidden text-xs opacity-70 sm:inline">
-        checked {new Date(generatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+        checked {formatTime(generatedAt, 'en-GB')}
       </span>
     </div>
   )
@@ -370,6 +371,7 @@ function ErrorList({ errors, now, onChange }: { errors: ErrorRow[]; now: number;
                       {e.userEmail && <span>· {e.userEmail}</span>}
                     </p>
                     <p className={`mt-1 text-sm font-medium text-slate-800 ${open ? 'break-words' : 'line-clamp-2'}`}>{e.message}</p>
+                    {explain(e.message) && <p className="mt-1 text-xs text-slate-500">💡 {explain(e.message)}</p>}
                   </button>
                   <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-700">
                     {num.format(e.count)}×
@@ -402,8 +404,8 @@ function ErrorList({ errors, now, onChange }: { errors: ErrorRow[]; now: number;
                 {open && (
                   <div className="mt-3 space-y-2">
                     <p className="text-xs text-slate-500">
-                      First seen {new Date(e.firstSeenAt).toLocaleString('en-GB')} · last seen{' '}
-                      {new Date(e.lastSeenAt).toLocaleString('en-GB')} · status {e.status}
+                      First seen {formatDateTime(e.firstSeenAt, 'en-GB')} · last seen{' '}
+                      {formatDateTime(e.lastSeenAt, 'en-GB')} · status {e.status}
                     </p>
                     {e.stack ? (
                       <pre className="max-h-64 overflow-auto rounded-lg bg-slate-900 p-3 text-[11px] leading-relaxed text-slate-100">{e.stack}</pre>
@@ -419,6 +421,23 @@ function ErrorList({ errors, now, onChange }: { errors: ErrorRow[]; now: number;
       )}
     </div>
   )
+}
+
+// Plain-language meaning of errors that are cryptic in their raw form.
+const EXPLANATIONS: Array<[RegExp, string]> = [
+  [
+    /Minified React error #(418|419|421|422|423|425)\b|Hydration failed|did(n't| not) match the client/i,
+    'Hydration mismatch: the server and the browser drew different text, usually a date or time formatted in different time zones. Needs a code fix.',
+  ],
+  [/no such (column|table)/i, 'The database is missing a change this version needs. Run "Apply missing database changes" above.'],
+  [/ChunkLoadError|Loading chunk|Failed to fetch dynamically imported module/i, 'A visitor still had an old version open during a deploy; a refresh fixes it. Safe to ignore unless it keeps happening.'],
+  [/Failed to fetch|NetworkError|Load failed|network error/i, "The visitor's connection dropped. Usually not a bug."],
+  [/AXION_ENCRYPTION_KEY/i, 'The encryption key setting is missing in Vercel; see "Needs your attention".'],
+]
+
+function explain(message: string): string | null {
+  for (const [pattern, text] of EXPLANATIONS) if (pattern.test(message)) return text
+  return null
 }
 
 function ActionButton({ busy, onClick, children }: { busy: boolean; onClick: () => void; children: React.ReactNode }) {

@@ -28,8 +28,10 @@ export function pct(fraction: number | null): string {
   return `${numFmt.format(fraction * 100)}%`
 }
 
+// A stored calendar day (entries are kept at UTC midnight). The zone is fixed
+// so server and browser render the same text (otherwise: hydration error).
 export function shortDate(value: string | Date): string {
-  return new Intl.DateTimeFormat('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(
+  return new Intl.DateTimeFormat('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }).format(
     new Date(value)
   )
 }

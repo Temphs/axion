@@ -6,6 +6,7 @@ import { Download, KeyRound, ShieldCheck, SlidersHorizontal, Trash2, UserRound, 
 import { Card } from '@/components/axion/ui'
 import { api } from '@/components/dashboard/api'
 import { eur, hrs, num } from '@/lib/format'
+import { formatDate } from '@/lib/datetime'
 
 type Account = {
   email: string
@@ -81,7 +82,7 @@ function ProfileCard({ account }: { account: Account }) {
         </Field>
 
         <div className="sm:col-span-2 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl bg-slate-50 px-3.5 py-3 text-xs text-slate-500">
-          <span>Μέλος από <strong className="text-slate-700">{new Date(account.createdAt).toLocaleDateString('el-GR')}</strong></span>
+          <span>Μέλος από <strong className="text-slate-700">{formatDate(account.createdAt)}</strong></span>
           <span>Εργαζόμενοι: <strong className="text-slate-700">{num(account.employeeCount)}</strong></span>
           <span>Πελάτες: <strong className="text-slate-700">{num(account.clientCount)}</strong></span>
           <span>Καταχωρήσεις: <strong className="text-slate-700">{num(account.entryCount)}</strong></span>

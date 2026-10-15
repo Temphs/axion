@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, Loader2, Pencil, Search, Trash2, X } from 'lucide-react'
 import type { TerminalClient, TerminalData } from '@/lib/terminal'
+import { todayInGreece } from '@/lib/datetime'
 
 // Three taps: which client, how many hours, done. Everything else — search,
 // work type, corrections — stays out of the way until it is needed.
@@ -20,10 +21,8 @@ const dayFmt = new Intl.DateTimeFormat('el-GR', {
   timeZone: 'UTC',
 })
 
-function todayIso(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-}
+// Greek "today", identical on the server render and on the phone.
+const todayIso = () => todayInGreece()
 
 function shiftIso(iso: string, days: number): string {
   const d = new Date(`${iso}T00:00:00Z`)

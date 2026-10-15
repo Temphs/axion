@@ -7,6 +7,7 @@ import { Card } from '@/components/axion/ui'
 import { api } from '@/components/dashboard/api'
 import { DateField } from '@/components/dashboard/DateField'
 import { hrs, shortDate } from '@/lib/format'
+import { todayInGreece } from '@/lib/datetime'
 
 type Ref = { id: string; name: string; active?: boolean }
 type Entry = {
@@ -19,10 +20,8 @@ type Entry = {
   client: { id: string; name: string }
 }
 
-function today() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+// Greek "today", identical on the server render and in the browser.
+const today = () => todayInGreece()
 
 // yyyy-mm-dd from an ISO timestamp, for the inline date editor.
 function isoDay(value: string): string {
