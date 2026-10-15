@@ -18,7 +18,7 @@ import type { Alert, Severity } from '@/lib/admin/health'
 import type { FixStatus } from '@/lib/admin/fixes'
 import type { Analytics, Ranked } from '@/lib/admin/analytics'
 import { TrafficChart } from './TrafficChart'
-import { formatDateTime, formatTime } from '@/lib/datetime'
+import { LocalTime } from './LocalTime'
 
 export type ErrorRow = {
   id: string
@@ -60,6 +60,7 @@ export function AdminConsole({
   lang,
   adminEmail,
   generatedAt,
+  deployment,
   alerts,
   fixes,
   errors,
@@ -68,6 +69,7 @@ export function AdminConsole({
   lang: string
   adminEmail: string
   generatedAt: string
+  deployment: { env: string; version: string | null }
   alerts: Alert[]
   fixes: FixStatus[]
   errors: ErrorRow[] | null
@@ -116,7 +118,7 @@ export function AdminConsole({
           </div>
         </header>
 
-        <StatusBar tone={status.tone} text={status.text} generatedAt={generatedAt} />
+        <StatusBar tone={status.tone} text={status.text} generatedAt={generatedAt} deployment={deployment} />
 
         {/* ── Headline numbers ───────────────────────────────── */}
         <section className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -171,7 +173,7 @@ export function AdminConsole({
           <AnalyticsPanel analytics={analytics} />
         </Section>
 
-        <p className="mt-8 text-center text-xs text-slate-400">Updated {formatDateTime(generatedAt, 'en-GB')} (Greek time)</p>
+        <p className="mt-8 text-center text-xs text-slate-400">Updated <LocalTime iso={generatedAt} withDate /> (your local time)</p>
       </div>
     </div>
   )
@@ -186,14 +188,25 @@ const TONE = {
   critical: { cls: 'border-red-200 bg-red-50 text-red-800', Icon: AlertOctagon, label: 'Critical' },
 } as const
 
-function StatusBar({ tone, text, generatedAt }: { tone: Severity | 'ok'; text: string; generatedAt: string }) {
+function StatusBar({
+  tone,
+  text,
+  generatedAt,
+  deployment,
+}: {
+  tone: Severity | 'ok'
+  text: string
+  generatedAt: string
+  deployment: { env: string; version: string | null }
+}) {
   const t = TONE[tone]
   return (
     <div className={`mt-5 flex items-center gap-2.5 rounded-xl border px-4 py-3 ${t.cls}`}>
       <t.Icon size={18} className="shrink-0" />
       <p className="text-sm font-semibold">{text}</p>
       <span className="ml-auto hidden text-xs opacity-70 sm:inline">
-        checked {formatTime(generatedAt, 'en-GB')}
+        {deployment.env}
+        {deployment.version ? ` · version ${deployment.version}` : ''} · checked <LocalTime iso={generatedAt} />
       </span>
     </div>
   )
@@ -404,8 +417,8 @@ function ErrorList({ errors, now, onChange }: { errors: ErrorRow[]; now: number;
                 {open && (
                   <div className="mt-3 space-y-2">
                     <p className="text-xs text-slate-500">
-                      First seen {formatDateTime(e.firstSeenAt, 'en-GB')} · last seen{' '}
-                      {formatDateTime(e.lastSeenAt, 'en-GB')} · status {e.status}
+                      First seen <LocalTime iso={e.firstSeenAt} withDate /> · last seen{' '}
+                      <LocalTime iso={e.lastSeenAt} withDate /> · status {e.status}
                     </p>
                     {e.stack ? (
                       <pre className="max-h-64 overflow-auto rounded-lg bg-slate-900 p-3 text-[11px] leading-relaxed text-slate-100">{e.stack}</pre>

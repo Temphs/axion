@@ -72,14 +72,25 @@ export async function runHealthChecks(): Promise<Alert[]> {
     })
   }
 
-  // 3. Encryption key for stored myDATA credentials.
-  if (!process.env.AXION_ENCRYPTION_KEY || process.env.AXION_ENCRYPTION_KEY.length < 16) {
+  // 3. Encryption key for stored myDATA credentials. Says precisely what this
+  // deployment sees (never the value), so a Vercel misconfiguration is obvious.
+  const key = process.env.AXION_ENCRYPTION_KEY
+  if (!key || key.trim().length < 16) {
+    const env = process.env.VERCEL_ENV ?? 'local'
     alerts.push({
       id: 'encryption-key',
       severity: 'warning',
-      title: 'AXION_ENCRYPTION_KEY is missing or too short',
-      detail: 'Customers cannot save their myDATA (AADE) connection without it.',
-      steps: ['Generate a random string of 32+ characters', 'Add it as AXION_ENCRYPTION_KEY in Vercel and redeploy. Never change it afterwards: saved credentials would become unreadable'],
+      title: key ? 'AXION_ENCRYPTION_KEY is too short' : 'AXION_ENCRYPTION_KEY is missing',
+      detail: key
+        ? `This ${env} deployment sees a key of only ${key.trim().length} characters (needs at least 16, ideally 32+). Customers cannot save their myDATA (AADE) connection until it's fixed.`
+        : `This ${env} deployment does not see any variable named AXION_ENCRYPTION_KEY. Customers cannot save their myDATA (AADE) connection without it.`,
+      steps: key
+        ? ['Replace the value in Vercel → Settings → Environment Variables with a random string of 32+ characters', 'Redeploy']
+        : [
+            `In Vercel → Settings → Environment Variables, check the name is exactly AXION_ENCRYPTION_KEY (no spaces) and that "${env === 'local' ? 'Development' : env.charAt(0).toUpperCase() + env.slice(1)}" is among its environments`,
+            'If it is a team-wide (shared) variable, make sure it is linked to this project',
+            'Redeploy (Deployments → ⋯ → Redeploy). Never change the key once customers have saved their myDATA logins',
+          ],
     })
   }
 
