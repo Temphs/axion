@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/axion/ui'
 import { api } from '@/components/dashboard/api'
-import { shortDate } from '@/lib/format'
+import { formatDate } from '@/lib/datetime'
 
 type Key = {
   id: string
@@ -102,7 +102,7 @@ export function ApiKeysManager({ initial }: { initial: Key[] }) {
                 <tr key={k.id} className="border-t border-slate-50">
                   <td className="px-5 py-3 text-slate-800">{k.name}</td>
                   <td className="px-5 py-3"><code className="text-xs text-slate-500">{k.prefix}…</code></td>
-                  <td className="px-5 py-3 text-slate-500">{k.lastUsedAt ? shortDate(k.lastUsedAt) : '—'}</td>
+                  <td className="px-5 py-3 text-slate-500">{k.lastUsedAt ? formatDate(k.lastUsedAt) : '—'}</td>
                   <td className="px-5 py-3 text-center">
                     <span className={'rounded-full px-2.5 py-0.5 text-xs font-medium ' + (k.revokedAt ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-600')}>
                       {k.revokedAt ? 'Ανακλήθηκε' : 'Ενεργό'}

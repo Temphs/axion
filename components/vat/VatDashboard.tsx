@@ -18,6 +18,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
+import { formatDateTime, formatDay } from '@/lib/datetime'
 import { BarChart, Donut } from '@/components/axion/charts'
 import { api } from '@/components/dashboard/api'
 import { CATEGORY_LABELS, INVOICE_CATEGORIES, type InvoiceCategory } from '@/services/vat/categories'
@@ -196,7 +197,7 @@ export function VatDashboard({
             : 'Δεν έχει ρυθμιστεί σύνδεση myDATA'}
         </span>
         {summary.sync.lastSyncedAt && (
-          <span>Τελευταίος συγχρονισμός: {new Date(summary.sync.lastSyncedAt).toLocaleString('el-GR')}</span>
+          <span>Τελευταίος συγχρονισμός: {formatDateTime(summary.sync.lastSyncedAt)}</span>
         )}
         {summary.sync.lastError && (
           <span className="inline-flex items-center gap-1 text-red-300">
@@ -530,7 +531,7 @@ function InvoiceTableRow({
 
   return (
     <tr className={`border-b border-slate-100 ${invoice.needsReview ? 'bg-amber-50/60' : ''}`}>
-      <td className="py-2.5 pr-3 tabular-nums text-slate-600">{new Date(invoice.issueDate).toLocaleDateString('el-GR')}</td>
+      <td className="py-2.5 pr-3 tabular-nums text-slate-600">{formatDay(invoice.issueDate)}</td>
       <td className="py-2.5 pr-3">
         <div className="font-medium text-slate-800">{invoice.documentNumber ?? invoice.aadeMark ?? '—'}</div>
         <div className="text-[10px] text-slate-400">
