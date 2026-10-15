@@ -68,7 +68,7 @@ export function EmployeesManager({ initial, hoursPerMonth }: { initial: Employee
         <h2 className="mb-4 text-sm font-semibold text-slate-900">
           {editId ? 'Επεξεργασία εργαζομένου' : 'Νέος εργαζόμενος'}
         </h2>
-        <form onSubmit={submit} className="grid gap-3 sm:grid-cols-[1fr_180px_1fr_auto] sm:items-end">
+        <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_1fr_auto] sm:items-end">
           <Field label="Όνομα">
             <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} required placeholder="Δημήτρης" />
           </Field>

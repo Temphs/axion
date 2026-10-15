@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { getSidebarSummary } from '@/lib/stats'
 import { Nav } from '@/components/dashboard/Nav'
 import { LogoutButton } from '@/components/dashboard/LogoutButton'
+import { MobileTabBar } from '@/components/dashboard/MobileTabBar'
 import { eur, hrs, num } from '@/lib/format'
 
 export default async function DashboardLayout({ children, params }: LayoutProps<'/[lang]/dashboard'>) {
@@ -24,7 +25,7 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
 
   return (
     <div className="dashboard-surface min-h-screen">
-      <div className="mx-auto flex max-w-[1440px] gap-6 px-4 py-6 lg:px-8">
+      <div className="mx-auto flex max-w-[1440px] gap-6 px-3 py-3 sm:px-4 sm:py-6 lg:px-8">
 
         {/* ── Desktop sidebar ─────────────────────────────────── */}
         <aside className="sticky top-6 hidden h-[calc(100vh-3rem)] w-64 shrink-0 flex-col justify-between overflow-hidden rounded-3xl border border-white/40 bg-white/95 p-4 shadow-[0_1px_3px_rgba(0,0,40,0.12),0_24px_48px_-16px_rgba(0,0,40,0.35)] backdrop-blur-md lg:flex">
@@ -87,7 +88,8 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
         </aside>
 
         {/* ── Main content ────────────────────────────────────── */}
-        <main className="min-w-0 flex-1">
+        {/* Bottom padding on phones keeps content clear of the tab bar. */}
+        <main className="min-w-0 flex-1 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-0">
           {/* Mobile header */}
           <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-white/40 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-md lg:hidden">
             <span className="flex items-center gap-2.5">
@@ -96,26 +98,15 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
               </span>
               <span className="font-display text-base font-bold tracking-tight text-slate-900">Axion</span>
             </span>
-            <div className="flex items-center gap-2">
-              {admin && (
-                <Link href={`/${lang}/admin`} aria-label="Admin console" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100">
-                  <ShieldCheck size={16} />
-                </Link>
-              )}
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-[11px] font-bold text-blue-700">
-                {initials}
-              </span>
-              <LogoutButton />
-            </div>
-          </div>
-          {/* Mobile nav */}
-          <div className="mb-4 overflow-hidden rounded-2xl border border-white/40 bg-white/95 p-2 shadow-sm backdrop-blur-md lg:hidden">
-            <Nav lang={lang} orientation="horizontal" />
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700" title={user.email}>
+              {initials}
+            </span>
           </div>
 
           {children}
         </main>
       </div>
+      <MobileTabBar lang={lang} admin={admin} name={user.name ?? 'Διαχειριστής'} email={user.email} />
     </div>
   )
 }

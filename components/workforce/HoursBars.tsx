@@ -9,7 +9,8 @@ export type HoursBar = { month: string; label: string; hours: number }
 // The animated bars of the hours panel, with a hover readout so the exact hours
 // for a month can be read rather than estimated off the gridlines. Split out
 // from HoursOverviewCard so the card itself stays a server component and can
-// take Lucide icons as props.
+// take Lucide icons as props. Hover is mouse-only: on phones a tap selects a
+// bar, and the emulated mouseleave that follows a tap must not clear it.
 export function HoursBars({ data, max }: { data: HoursBar[]; max: number }) {
   const [active, setActive] = useState<number | null>(null)
   const shown = active !== null ? data[active] : null
@@ -18,14 +19,15 @@ export function HoursBars({ data, max }: { data: HoursBar[]; max: number }) {
     <>
       <div
         className="absolute inset-0 flex items-stretch gap-1.5 pl-13"
-        onMouseLeave={() => setActive(null)}
+        onPointerLeave={(e) => e.pointerType === 'mouse' && setActive(null)}
       >
         {data.map((d, i) => (
           <button
             key={d.month}
             type="button"
-            onMouseEnter={() => setActive(i)}
+            onPointerEnter={(e) => e.pointerType === 'mouse' && setActive(i)}
             onFocus={() => setActive(i)}
+            onClick={() => setActive(i)}
             aria-label={`${d.label}: ${hrs(d.hours)}`}
             className="flex h-full flex-1 cursor-default items-end justify-center outline-none"
           >

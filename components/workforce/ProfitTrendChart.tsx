@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { eur, hrs } from '@/lib/format'
 import type { TrendPoint } from '@/lib/profitability'
 
@@ -9,8 +9,9 @@ import type { TrendPoint } from '@/lib/profitability'
 // common zero baseline, so the gap between them reads as the contribution.
 // Per-month figures stay available on hover.
 
-const W = 900
-const H = 240
+// Default drawing width; replaced by the measured width once on screen, so on
+// a phone the text is drawn at its real size instead of shrunk to a third.
+const DEFAULT_W = 900
 const PAD_L = 66
 const PAD_R = 36 // room for the last month label, which is centred on the final point
 const PAD_T = 14
@@ -54,6 +55,17 @@ export function ProfitTrendChart({ data }: { data: TrendPoint[] }) {
   // the chart instead of guessed from the curve.
   const [active, setActive] = useState<number | null>(null)
   const hasData = data.some((d) => d.revenue !== 0 || d.laborCost !== 0)
+  const boxRef = useRef<HTMLDivElement>(null)
+  const [measured, setMeasured] = useState<number | null>(null)
+  useEffect(() => {
+    const el = boxRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([entry]) => setMeasured(Math.round(entry.contentRect.width)))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [hasData])
+  const W = Math.max(280, measured ?? DEFAULT_W)
+  const H = W < 560 ? 200 : 240
   if (!hasData) {
     return <p className="py-10 text-center text-sm text-slate-400">Δεν υπάρχουν δεδομένα για την περίοδο.</p>
   }
@@ -71,9 +83,11 @@ export function ProfitTrendChart({ data }: { data: TrendPoint[] }) {
   const baseline = PAD_T + innerH
 
   const shown = active !== null ? data[active] : null
+  // Every label needs ~44px; on narrow screens show every 2nd/3rd month.
+  const labelStep = Math.max(1, Math.ceil((44 * data.length) / (W - PAD_L - PAD_R)))
 
   return (
-    <div onMouseLeave={() => setActive(null)}>
+    <div ref={boxRef} onMouseLeave={() => setActive(null)}>
       {/* Exact figures for the hovered month, or the period total at rest */}
       <div className="mb-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 px-1 text-xs">
         <span className="font-display text-sm font-bold text-slate-900">
@@ -87,7 +101,7 @@ export function ProfitTrendChart({ data }: { data: TrendPoint[] }) {
           tone={(shown ? shown.contribution : data.reduce((s, d) => s + d.contribution, 0)) >= 0 ? 'pos' : 'neg'}
         />
         {shown && <Figure label="Ώρες" value={hrs(shown.hours)} />}
-        {!shown && <span className="text-slate-400">— περάστε τον δείκτη πάνω από έναν μήνα</span>}
+        {!shown && <span className="text-slate-400">— πατήστε ή περάστε τον δείκτη πάνω από έναν μήνα</span>}
       </div>
 
       <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" fill="none" role="img" aria-label="Έσοδα και κόστος εργασίας ανά μήνα">
@@ -147,7 +161,7 @@ export function ProfitTrendChart({ data }: { data: TrendPoint[] }) {
         />
 
         {/* Month labels */}
-        {data.map((d, i) => (
+        {data.map((d, i) => (i % labelStep !== 0 && i !== data.length - 1 && active !== i ? null :
           <text
             key={d.month}
             x={xOf(i)}

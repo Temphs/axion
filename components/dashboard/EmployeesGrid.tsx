@@ -67,7 +67,7 @@ export function EmployeesGrid({
 
       {adding && (
         <Card className="p-5">
-          <form onSubmit={submit} className="grid gap-3 sm:grid-cols-[1fr_180px_1fr_auto] sm:items-end">
+          <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_1fr_auto] sm:items-end">
             <Field label="Όνομα">
               <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} required placeholder="Δημήτρης" />
             </Field>
@@ -101,7 +101,7 @@ export function EmployeesGrid({
       {employees.length === 0 ? (
         <Card className="p-10 text-center text-slate-500">Κανένας εργαζόμενος ακόμη — προσθέστε τον πρώτο.</Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {employees.map((e) => (
             <Link key={e.id} href={`/${lang}/dashboard/employees/${e.id}`} className="group">
               <Card className="h-full p-5 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-[0_12px_32px_-12px_rgba(37,99,235,0.35)]">

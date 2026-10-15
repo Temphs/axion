@@ -87,7 +87,7 @@ export function EmployeeAccessLink({
               <button
                 onClick={revoke}
                 disabled={busy}
-                className="mt-2 text-xs font-medium text-red-500 transition hover:underline disabled:opacity-50"
+                className="mt-1 py-2 text-xs font-medium text-red-500 transition hover:underline disabled:opacity-50"
               >
                 Ανάκληση συνδέσμου
               </button>

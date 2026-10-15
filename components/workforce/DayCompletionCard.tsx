@@ -148,7 +148,7 @@ export function DayCompletionCard({
               <button
                 onClick={() => fill([d], d.date)}
                 disabled={busy !== null}
-                className="ml-auto inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50"
+                className="ml-auto inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs sm:min-h-0 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50"
               >
                 <Plus size={12} />
                 {busy === d.date ? 'Συμπλήρωση…' : 'Συμπλήρωση'}

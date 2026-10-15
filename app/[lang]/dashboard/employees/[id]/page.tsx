@@ -63,7 +63,7 @@ export default async function EmployeeDetailPage({
 
   return (
     <div className="space-y-6">
-      <Link href={`/${lang}/dashboard/employees`} className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-200 transition hover:text-white">
+      <Link href={`/${lang}/dashboard/employees`} className="-my-2 inline-flex items-center gap-1.5 py-2 text-sm font-medium text-blue-200 transition hover:text-white">
         <ArrowLeft size={16} /> Εργαζόμενοι
       </Link>
 
@@ -106,7 +106,7 @@ export default async function EmployeeDetailPage({
             <section className="space-y-4">
               {/* Contribution spread over every hour logged, not just billable
                   ones — the overhead hours are part of what earned it. */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3 xl:grid-cols-6">
                 <KpiCard
                   icon={Hourglass}
                   label="Ώρες"
@@ -188,7 +188,7 @@ export default async function EmployeeDetailPage({
           </div>
 
           {/* trend + billable split */}
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <Card className="p-5 lg:col-span-2">
               <h2 className="mb-1 text-sm font-semibold text-slate-900">Ώρες ανά μήνα</h2>
               <p className="mb-3 text-xs text-slate-400">

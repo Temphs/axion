@@ -79,14 +79,14 @@ export function TargetsCard({ employeeId, targets, actuals }: TargetsCardProps) 
         </div>
         <button
           onClick={() => setEditing((v) => !v)}
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+          className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 sm:min-h-0 sm:px-2.5 transition hover:bg-slate-50 hover:text-slate-700"
         >
           <Pencil size={12} /> {editing ? 'Άκυρο' : 'Επεξεργασία'}
         </button>
       </div>
 
       {editing ? (
-        <form onSubmit={save} className="grid gap-3 sm:grid-cols-3">
+        <form onSubmit={save} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <label className="text-xs text-slate-600">
             Στόχος αξιοποίησης (%)
             <input
@@ -130,7 +130,7 @@ export function TargetsCard({ employeeId, targets, actuals }: TargetsCardProps) 
           </div>
         </form>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {rows.map((r) => (
             <div key={r.label}>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{r.label}</p>

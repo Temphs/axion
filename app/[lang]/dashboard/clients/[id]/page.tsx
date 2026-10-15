@@ -56,7 +56,7 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
 
   return (
     <div className="space-y-6">
-      <Link href={`/${lang}/dashboard/clients`} className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-200 transition hover:text-white">
+      <Link href={`/${lang}/dashboard/clients`} className="-my-2 inline-flex items-center gap-1.5 py-2 text-sm font-medium text-blue-200 transition hover:text-white">
         <ArrowLeft size={16} /> Πελάτες
       </Link>
 
@@ -108,7 +108,7 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
           </div>
           {row ? (
             <section className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3 xl:grid-cols-6">
                 <KpiCard
                   icon={TrendingUp}
                   label="Έσοδα περιόδου"

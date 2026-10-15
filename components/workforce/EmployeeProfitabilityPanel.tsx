@@ -54,7 +54,7 @@ export function EmployeeProfitabilityPanel({
   const marginPerHour = totals.hours > 0 ? totals.contribution / totals.hours : null
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-3">
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
       {/* ── Ranked employees ──────────────────────────────────── */}
       <Card className="p-5 lg:col-span-2">
         <div className="flex items-start justify-between gap-3">
@@ -82,7 +82,7 @@ export function EmployeeProfitabilityPanel({
                     <span className="block truncate text-sm font-semibold text-slate-900 transition group-hover:text-blue-600">
                       {e.name}
                     </span>
-                    <span className="block truncate text-xs text-slate-400">
+                    <span className="block text-xs text-slate-400 sm:truncate">
                       {hrs(e.hours)} · κόστος {eur(e.costPerHour)}/ώρα
                       {e.revenuePerHour !== null && ` · έσοδα ${eur(e.revenuePerHour)}/ώρα`}
                     </span>
