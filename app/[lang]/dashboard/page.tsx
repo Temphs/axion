@@ -67,7 +67,7 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
       {/* ── Header ──────────────────────────────────────────────── */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <nav aria-label="breadcrumb" className="flex items-center gap-1.5 text-xs text-blue-200/70">
+          <nav aria-label="breadcrumb" className="hidden items-center gap-1.5 text-xs text-blue-200/70 sm:flex">
             <span>MyEmployee</span>
             <span aria-hidden className="text-blue-200/40">
               /
@@ -75,7 +75,7 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
             <span className="font-medium text-white/90">Επισκόπηση</span>
           </nav>
           <h1 className="font-display mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">Επισκόπηση</h1>
-          <p className="mt-0.5 text-sm text-blue-200/80">Η γενική εικόνα της επιχείρησης</p>
+          <p className="mt-0.5 hidden text-sm text-blue-200/80 sm:block">Η γενική εικόνα της επιχείρησης</p>
         </div>
         <DateRangeFilter />
       </header>
@@ -126,7 +126,7 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
           )}
 
           {/* ── Four headline numbers ───────────────────────────── */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
             <KpiCard
               icon={TrendingUp}
               label="Έσοδα"
@@ -169,7 +169,7 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
           </div>
 
           {/* ── Charts ──────────────────────────────────────────── */}
-          <div className="grid items-start gap-4 lg:grid-cols-5">
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-5">
             <div className="lg:col-span-2">
               <HoursOverviewCard
                 data={wf.trend}
@@ -200,11 +200,11 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
           <AlertsPanel insights={wf.insights.slice(0, 4)} lang={lang} />
 
           {/* ── Top lists ───────────────────────────────────────── */}
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card className="p-5">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-slate-900">Κορυφαίοι πελάτες</h2>
-                <Link href={`/${lang}/dashboard/clients`} className="flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:underline">
+                <Link href={`/${lang}/dashboard/clients`} className="-my-2.5 -mr-1 flex items-center gap-0.5 px-1 py-2.5 text-xs font-medium text-blue-600 hover:underline">
                   Αναλυτικά <ChevronRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
@@ -241,7 +241,7 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
             <Card className="p-5">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-slate-900">Εργαζόμενοι</h2>
-                <Link href={`/${lang}/dashboard/employees`} className="flex items-center gap-0.5 text-xs font-medium text-blue-600 hover:underline">
+                <Link href={`/${lang}/dashboard/employees`} className="-my-2.5 -mr-1 flex items-center gap-0.5 px-1 py-2.5 text-xs font-medium text-blue-600 hover:underline">
                   Αναλυτικά <ChevronRight className="h-3.5 w-3.5" />
                 </Link>
               </div>

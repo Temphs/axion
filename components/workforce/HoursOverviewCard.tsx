@@ -51,7 +51,9 @@ export function HoursOverviewCard({
         <div className="mt-2 flex gap-1.5 pl-13">
           {data.map((d) => (
             <span key={d.month} className="flex-1 truncate text-center text-[10px] text-white/45">
-              {d.label}
+              {/* Phones: month only ("Ιουν"), so labels aren't clipped to "Ιου…". */}
+              <span className="sm:hidden">{d.label.split(' ')[0]}</span>
+              <span className="hidden sm:inline">{d.label}</span>
             </span>
           ))}
         </div>

@@ -30,7 +30,7 @@ export default async function ClientBoardPage({ params, searchParams }: PageProp
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">Πίνακας πελατών</h1>
-          <p className="mt-0.5 text-sm text-blue-200/80">Κερδοφορία, περιθώρια και ευκαιρίες ανατιμολόγησης</p>
+          <p className="mt-0.5 hidden text-sm text-blue-200/80 sm:block">Κερδοφορία, περιθώρια και ευκαιρίες ανατιμολόγησης</p>
         </div>
         <DateRangeFilter />
       </header>

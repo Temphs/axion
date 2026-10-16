@@ -50,11 +50,18 @@ export function InfoTip({ text }: { text: string }) {
   return (
     <span
       ref={anchor}
-      className="inline-flex align-middle"
+      // The padding (cancelled by the negative margin) gives the 13px icon a
+      // finger-sized tap area without moving anything; a tap toggles the tip.
+      className="-m-2 inline-flex p-2 align-middle"
       onMouseEnter={place}
       onMouseLeave={hide}
       onFocus={place}
       onBlur={hide}
+      onClick={(e) => {
+        e.stopPropagation()
+        if (spot) hide()
+        else place()
+      }}
     >
       <Info
         size={13}

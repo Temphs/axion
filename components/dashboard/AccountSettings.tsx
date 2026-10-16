@@ -40,7 +40,7 @@ export function AccountSettings({
     <div className="space-y-6">
       <header>
         <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">Ρυθμίσεις</h1>
-        <p className="mt-0.5 text-sm text-blue-200/80">Στοιχεία λογαριασμού, ασφάλεια και παράμετροι υπολογισμού</p>
+        <p className="mt-0.5 hidden text-sm text-blue-200/80 sm:block">Στοιχεία λογαριασμού, ασφάλεια και παράμετροι υπολογισμού</p>
       </header>
 
       <ProfileCard account={account} />
@@ -73,7 +73,7 @@ function ProfileCard({ account }: { account: Account }) {
 
   return (
     <Section icon={<UserRound size={16} />} title="Στοιχεία λογαριασμού" sub="Το όνομα που εμφανίζεται στην εφαρμογή">
-      <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
+      <form onSubmit={save} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Όνομα">
           <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="π.χ. Αρτέμιος" />
         </Field>
@@ -122,7 +122,7 @@ function PasswordCard() {
 
   return (
     <Section icon={<KeyRound size={16} />} title="Αλλαγή κωδικού" sub="Τουλάχιστον 8 χαρακτήρες">
-      <form onSubmit={submit} className="grid gap-4 sm:grid-cols-3">
+      <form onSubmit={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Field label="Τρέχων κωδικός">
           <input type="password" autoComplete="current-password" className={inputCls} value={current} onChange={(e) => setCurrent(e.target.value)} required />
         </Field>
@@ -176,7 +176,7 @@ function CalcCard({ settings }: { settings: CalcSettings }) {
       sub="Προεπιλογή για όσους εργαζόμενους δεν έχουν δικές τους συμβατικές ώρες"
     >
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Ώρες / ημέρα">
             <input type="number" min="1" step="0.5" className={inputCls} value={hoursPerDay} onChange={(e) => setHoursPerDay(e.target.value)} />
           </Field>

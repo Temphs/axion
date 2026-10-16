@@ -148,7 +148,7 @@ export function VatDashboard({
           </span>
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">VAT Analysis</h1>
-            <p className="mt-0.5 text-sm text-blue-200/80">Ανάλυση &amp; πρόβλεψη ΦΠΑ · myDATA / ΑΑΔΕ</p>
+            <p className="mt-0.5 hidden text-sm text-blue-200/80 sm:block">Ανάλυση &amp; πρόβλεψη ΦΠΑ · myDATA / ΑΑΔΕ</p>
           </div>
         </div>
 

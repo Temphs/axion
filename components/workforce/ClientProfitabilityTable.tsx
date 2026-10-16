@@ -28,6 +28,10 @@ const COLUMNS: Array<{ key: SortKey; label: string; align?: 'right'; tip?: strin
   { key: 'revenuePerHour', label: '€ / ώρα', align: 'right', tip: 'Έσοδα ÷ ώρες εργαζομένων στον πελάτη' },
 ]
 
+// On phones the table scrolls sideways; keep the name column pinned so each
+// row stays identifiable while the figures scroll past.
+const FIRST_COL = 'sticky left-0 z-10 bg-white shadow-[6px_0_8px_-6px_rgba(15,23,42,0.18)] xl:shadow-none'
+
 export function ClientProfitabilityTable({ clients, lang }: { clients: ClientRow[]; lang: string }) {
   const router = useRouter()
   const [q, setQ] = useState('')
@@ -86,7 +90,7 @@ export function ClientProfitabilityTable({ clients, lang }: { clients: ClientRow
           <select
             value={health}
             onChange={(e) => setHealth(e.target.value as '' | ClientHealth)}
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600"
+            className="rounded-lg border border-slate-200 bg-white px-2 py-2 sm:py-1.5 text-xs text-slate-600"
           >
             <option value="">Όλες οι καταστάσεις</option>
             <option value="healthy">Υγιείς</option>
@@ -106,7 +110,7 @@ export function ClientProfitabilityTable({ clients, lang }: { clients: ClientRow
           <button
             onClick={exportCsv}
             title="Εξαγωγή CSV"
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+            className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 sm:min-h-0 sm:px-2.5 transition hover:bg-slate-50 hover:text-slate-700"
           >
             <Download size={13} /> CSV
           </button>
@@ -117,11 +121,14 @@ export function ClientProfitabilityTable({ clients, lang }: { clients: ClientRow
         <table className="w-full min-w-[820px] text-sm">
           <thead>
             <tr className="text-left text-xs text-slate-400">
-              {COLUMNS.map((col) => (
-                <th key={col.key} className={`px-4 py-3 font-medium ${col.align === 'right' ? 'text-right' : ''}`}>
+              {COLUMNS.map((col, i) => (
+                <th
+                  key={col.key}
+                  className={`px-4 py-3 font-medium ${col.align === 'right' ? 'text-right' : ''} ${i === 0 ? FIRST_COL : ''}`}
+                >
                   <button
                     onClick={() => toggleSort(col.key)}
-                    className={`inline-flex items-center gap-1 transition hover:text-slate-600 ${
+                    className={`inline-flex min-h-10 items-center gap-1 transition hover:text-slate-600 sm:min-h-0 ${
                       col.align === 'right' ? 'flex-row-reverse' : ''
                     }`}
                   >
@@ -152,7 +159,7 @@ export function ClientProfitabilityTable({ clients, lang }: { clients: ClientRow
                 onClick={() => router.push(`/${lang}/dashboard/clients/${c.id}`)}
                 className="cursor-pointer border-t border-slate-50 transition hover:bg-blue-50/40"
               >
-                <td className="px-4 py-3 font-medium text-blue-600">{c.name}</td>
+                <td className={`px-4 py-3 font-medium text-blue-600 ${FIRST_COL}`}>{c.name}</td>
                 <td className="px-4 py-3 text-right tabular-nums text-slate-600">{c.billable ? eur(c.revenue) : '—'}</td>
                 <td className="px-4 py-3 text-right tabular-nums text-slate-600">{hrs(c.hours)}</td>
                 <td className="px-4 py-3 text-right tabular-nums text-slate-600">{eur(c.laborCost)}</td>

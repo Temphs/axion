@@ -16,6 +16,7 @@ import { ProgressBar } from '@/components/axion/charts'
 import { MonthlyHoursChart } from '@/components/dashboard/MonthlyHoursChart'
 import { ClientEditPanel } from '@/components/dashboard/ClientEditPanel'
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter'
+import { MobileFold } from '@/components/dashboard/MobileFold'
 import { KpiCard } from '@/components/workforce/KpiCard'
 import { ProfitTrendChart } from '@/components/workforce/ProfitTrendChart'
 import { getCurrentUser } from '@/lib/auth'
@@ -56,18 +57,18 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
 
   return (
     <div className="space-y-6">
-      <Link href={`/${lang}/dashboard/clients`} className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-200 transition hover:text-white">
+      <Link href={`/${lang}/dashboard/clients`} className="-my-2 inline-flex items-center gap-1.5 py-2 text-sm font-medium text-blue-200 transition hover:text-white">
         <ArrowLeft size={16} /> Πελάτες
       </Link>
 
       {/* header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-700 to-slate-500 text-2xl font-bold text-white">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-700 to-slate-500 text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
             {d.name.trim().charAt(0).toUpperCase()}
           </span>
           <div>
-            <h1 className="font-display text-3xl font-semibold tracking-tight text-white">{d.name}</h1>
+            <h1 className="font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl">{d.name}</h1>
             <p className="flex flex-wrap items-center gap-2 text-sm text-blue-200/90">
               <span className={'rounded-full px-2 py-0.5 text-[11px] font-medium ' + (d.billable ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700')}>
                 {d.billable ? 'Χρεώσιμος' : 'Overhead'}
@@ -108,7 +109,7 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
           </div>
           {row ? (
             <section className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3 xl:grid-cols-6">
                 <KpiCard
                   icon={TrendingUp}
                   label="Έσοδα περιόδου"
@@ -193,6 +194,7 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
           </Card>
 
           {/* KPI cards (historical averages) */}
+          <MobileFold label="Μέσοι όροι ιστορικού" hint="Ώρες, κόστος, έσοδα και κέρδος ανά μήνα">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Kpi icon={<Clock size={16} />} label="Ώρες / μήνα" value={hrs(d.avgPerMonth)} sub={`${num(d.months)} μήνες`} />
             <Kpi icon={<Hourglass size={16} />} label="Σύνολο ωρών" value={hrs(d.hours)} sub={`${d.entryCount} εγγραφές`} />
@@ -200,15 +202,19 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
             <Kpi icon={<Wallet size={16} />} label="Έσοδα / μήνα" value={d.billable ? eur(d.monthlyRevenue) : '—'} />
             <Kpi icon={<TrendingUp size={16} />} label="Καθαρό κέρδος / μήνα" value={d.billable ? eur(d.profitPerMonth) : '—'} tone={!d.billable ? undefined : d.profitPerMonth >= 0 ? 'pos' : 'neg'} />
           </div>
+          </MobileFold>
 
           {/* monthly hours trend */}
+          <MobileFold label="Ώρες ανά μήνα" hint="Πόσο χρόνο παίρνει ο πελάτης κάθε μήνα">
           <Card className="p-5">
             <h2 className="mb-1 text-sm font-semibold text-slate-900">Ώρες ανά μήνα</h2>
             <p className="mb-3 text-xs text-slate-400">{d.trend.length ? `${d.trend[0].label} → ${d.trend[d.trend.length - 1].label}` : '—'}</p>
             <MonthlyHoursChart data={d.trend} />
           </Card>
+          </MobileFold>
 
           {/* employees who worked on this client */}
+          <MobileFold label="Ποιοι εργαζόμενοι δούλεψαν εδώ" hint={`${d.employees.length} εργαζόμενοι · ώρες και κόστος`}>
           <Card className="overflow-hidden">
             <div className="border-b border-slate-100 px-5 py-4">
               <h2 className="text-sm font-semibold text-slate-900">Ποιοι εργαζόμενοι δούλεψαν εδώ</h2>
@@ -243,8 +249,10 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
               </table>
             </div>
           </Card>
+          </MobileFold>
 
           {/* what tasks */}
+          <MobileFold label="Τι εργασίες γίνονται" hint="Κατανομή ωρών ανά είδος εργασίας">
           <Card className="p-5">
             <h2 className="mb-1 text-sm font-semibold text-slate-900">Τι εργασίες γίνονται συνήθως</h2>
             <p className="mb-4 text-xs text-slate-400">Κατανομή ωρών ανά είδος εργασίας</p>
@@ -260,6 +268,7 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
               ))}
             </div>
           </Card>
+          </MobileFold>
         </>
       )}
     </div>
@@ -268,11 +277,11 @@ export default async function ClientDetailPage({ params, searchParams }: PagePro
 
 function Kpi({ icon, label, value, sub, tone }: { icon: React.ReactNode; label: string; value: string; sub?: string; tone?: 'pos' | 'neg' }) {
   return (
-    <Card className="p-4">
+    <Card className="p-3.5 sm:p-4">
       <div className="mb-1.5 flex items-center justify-between">
         <span className="text-blue-600">{icon}</span>
       </div>
-      <p className={'font-display text-2xl font-semibold tracking-tight tabular-nums ' + (tone === 'pos' ? 'text-emerald-600' : tone === 'neg' ? 'text-red-500' : 'text-stone-900')}>{value}</p>
+      <p className={'font-display text-xl font-semibold tracking-tight tabular-nums sm:text-2xl ' + (tone === 'pos' ? 'text-emerald-600' : tone === 'neg' ? 'text-red-500' : 'text-stone-900')}>{value}</p>
       <p className="text-[13px] font-medium text-slate-500">{label}</p>
       {sub && <p className="mt-0.5 text-[11px] text-slate-400">{sub}</p>}
     </Card>

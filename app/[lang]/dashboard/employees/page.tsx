@@ -4,6 +4,7 @@ import { getEmployeesOverview, parseStatsFilter } from '@/lib/stats'
 import { getSettings, hoursPerMonth } from '@/lib/settings'
 import { buildWorkforce } from '@/lib/workforce'
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter'
+import { MobileFold } from '@/components/dashboard/MobileFold'
 import { EmployeesGrid } from '@/components/dashboard/EmployeesGrid'
 import { EmployeePerformanceTable } from '@/components/workforce/EmployeePerformanceTable'
 import { EmployeeProfitabilityPanel } from '@/components/workforce/EmployeeProfitabilityPanel'
@@ -34,7 +35,7 @@ export default async function EmployeesPage({ params, searchParams }: PageProps<
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">Εργαζόμενοι</h1>
-          <p className="mt-0.5 text-sm text-blue-200/80">Απόδοση, κερδοφορία και πληρότητα καταχωρήσεων της ομάδας</p>
+          <p className="mt-0.5 hidden text-sm text-blue-200/80 sm:block">Απόδοση, κερδοφορία και πληρότητα καταχωρήσεων της ομάδας</p>
         </div>
         <DateRangeFilter />
       </header>
@@ -46,7 +47,9 @@ export default async function EmployeesPage({ params, searchParams }: PageProps<
         lang={lang}
       />
 
-      <EmployeePerformanceTable employees={wf.employees} lang={lang} />
+      <MobileFold label="Αναλυτικός πίνακας απόδοσης" hint="Ώρες, αξιοποίηση, έσοδα, κόστος ανά εργαζόμενο · CSV">
+        <EmployeePerformanceTable employees={wf.employees} lang={lang} />
+      </MobileFold>
 
       <EmployeesGrid lang={lang} employees={employees} hoursPerMonth={hoursPerMonth(settings)} />
     </div>

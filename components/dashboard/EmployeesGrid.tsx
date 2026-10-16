@@ -55,7 +55,7 @@ export function EmployeesGrid({
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-display text-xl font-semibold tracking-tight text-white">Διαχείριση εργαζομένων</h2>
-          <p className="text-sm text-blue-200/90">Επιλέξτε εργαζόμενο για αναλυτικά στοιχεία ή προσθέστε νέο</p>
+          <p className="hidden text-sm text-blue-200/90 sm:block">Επιλέξτε εργαζόμενο για αναλυτικά στοιχεία ή προσθέστε νέο</p>
         </div>
         <button
           onClick={() => setAdding((v) => !v)}
@@ -67,7 +67,7 @@ export function EmployeesGrid({
 
       {adding && (
         <Card className="p-5">
-          <form onSubmit={submit} className="grid gap-3 sm:grid-cols-[1fr_180px_1fr_auto] sm:items-end">
+          <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_1fr_auto] sm:items-end">
             <Field label="Όνομα">
               <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} required placeholder="Δημήτρης" />
             </Field>
@@ -101,34 +101,39 @@ export function EmployeesGrid({
       {employees.length === 0 ? (
         <Card className="p-10 text-center text-slate-500">Κανένας εργαζόμενος ακόμη — προσθέστε τον πρώτο.</Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
           {employees.map((e) => (
             <Link key={e.id} href={`/${lang}/dashboard/employees/${e.id}`} className="group">
-              <Card className="h-full p-5 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-[0_12px_32px_-12px_rgba(37,99,235,0.35)]">
-                <div className="mb-4 flex items-center gap-3">
+              <Card className="h-full p-4 transition-all sm:p-5 duration-200 group-hover:-translate-y-0.5 group-hover:shadow-[0_12px_32px_-12px_rgba(37,99,235,0.35)]">
+                <div className="flex items-center gap-3 sm:mb-4">
                   <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-400 text-lg font-bold text-white">
                     {e.name.trim().charAt(0).toUpperCase()}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-slate-900">{e.name}</p>
                     <p className="truncate text-xs text-slate-400">{e.notes || 'Εργαζόμενος'}</p>
+                    {/* Phones: the card's figures on one line instead of tiles. */}
+                    <p className="mt-0.5 truncate text-xs tabular-nums text-slate-600 sm:hidden">
+                      {hrs(e.hours)} · {eur(e.costPerHour, true)}/ώρα · {eur(e.monthlyCost)}/μήνα
+                      {!e.active && ' · ανενεργός'}
+                    </p>
                   </div>
                   <ArrowUpRight size={18} className="shrink-0 text-slate-300 transition group-hover:text-blue-500" />
                 </div>
 
                 {/* Lifetime facts only. Period metrics (utilization, contribution)
                     live in the performance table above, so the two never disagree. */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="hidden grid-cols-2 gap-3 sm:grid">
                   <Metric icon={<CalendarDays size={14} />} label="Ώρες συνολικά" value={hrs(e.hours)} />
                   <Metric icon={<Clock size={14} />} label="Κόστος / ώρα" value={eur(e.costPerHour, true)} />
                 </div>
 
-                <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
+                <div className="mt-3 hidden items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500 sm:flex">
                   <span>Μισθός: <span className="font-medium text-slate-700">{eur(e.monthlyCost)}/μήνα</span></span>
                   <span className="text-blue-600 group-hover:underline">Αναλυτικά</span>
                 </div>
                 {!e.active && (
-                  <span className="mt-2 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">Ανενεργός</span>
+                  <span className="mt-2 hidden rounded-full bg-slate-100 sm:inline-block px-2 py-0.5 text-[10px] font-medium text-slate-500">Ανενεργός</span>
                 )}
               </Card>
             </Link>

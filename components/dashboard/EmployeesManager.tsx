@@ -61,14 +61,14 @@ export function EmployeesManager({ initial, hoursPerMonth }: { initial: Employee
     <div className="space-y-5">
       <header>
         <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">Εργαζόμενοι</h1>
-        <p className="mt-0.5 text-sm text-blue-200/80">Μηνιαίο κόστος → κόστος/ώρα (διά {hoursPerMonth} ώρες/μήνα)</p>
+        <p className="mt-0.5 hidden text-sm text-blue-200/80 sm:block">Μηνιαίο κόστος → κόστος/ώρα (διά {hoursPerMonth} ώρες/μήνα)</p>
       </header>
 
       <Card className="p-5">
         <h2 className="mb-4 text-sm font-semibold text-slate-900">
           {editId ? 'Επεξεργασία εργαζομένου' : 'Νέος εργαζόμενος'}
         </h2>
-        <form onSubmit={submit} className="grid gap-3 sm:grid-cols-[1fr_180px_1fr_auto] sm:items-end">
+        <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_1fr_auto] sm:items-end">
           <Field label="Όνομα">
             <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} required placeholder="Δημήτρης" />
           </Field>

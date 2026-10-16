@@ -16,6 +16,7 @@ import { EmployeeClientsTable } from '@/components/dashboard/EmployeeClientsTabl
 import { EmployeeEditPanel } from '@/components/dashboard/EmployeeEditPanel'
 import { EmployeeAccessLink } from '@/components/dashboard/EmployeeAccessLink'
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter'
+import { MobileFold } from '@/components/dashboard/MobileFold'
 import { KpiCard } from '@/components/workforce/KpiCard'
 import { DayCompletionCard } from '@/components/workforce/DayCompletionCard'
 import { TargetsCard } from '@/components/workforce/TargetsCard'
@@ -63,18 +64,18 @@ export default async function EmployeeDetailPage({
 
   return (
     <div className="space-y-6">
-      <Link href={`/${lang}/dashboard/employees`} className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-200 transition hover:text-white">
+      <Link href={`/${lang}/dashboard/employees`} className="-my-2 inline-flex items-center gap-1.5 py-2 text-sm font-medium text-blue-200 transition hover:text-white">
         <ArrowLeft size={16} /> Εργαζόμενοι
       </Link>
 
       {/* header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-blue-400 text-2xl font-bold text-white">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-blue-400 text-xl font-bold text-white sm:h-14 sm:w-14 sm:text-2xl">
             {d.name.trim().charAt(0).toUpperCase()}
           </span>
           <div>
-            <h1 className="font-display text-3xl font-semibold tracking-tight text-white">{d.name}</h1>
+            <h1 className="font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl">{d.name}</h1>
             <p className="text-sm text-blue-200/90">
               {d.notes || 'Εργαζόμενος'} · {eur(d.monthlyCost)}/μήνα · {eur(d.costPerHour, true)}/ώρα
               {!d.active && <span className="ml-2 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-blue-50">Ανενεργός</span>}
@@ -106,7 +107,7 @@ export default async function EmployeeDetailPage({
             <section className="space-y-4">
               {/* Contribution spread over every hour logged, not just billable
                   ones — the overhead hours are part of what earned it. */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3 xl:grid-cols-6">
                 <KpiCard
                   icon={Hourglass}
                   label="Ώρες"
@@ -147,6 +148,7 @@ export default async function EmployeeDetailPage({
                 </KpiCard>
               </div>
 
+              <MobileFold label="Στόχοι" hint="Αξιοποίηση, ώρες και συνεισφορά ανά μήνα">
               <TargetsCard
                 employeeId={d.id}
                 targets={row.targets}
@@ -156,6 +158,7 @@ export default async function EmployeeDetailPage({
                   monthlyContribution: row.contribution / months,
                 }}
               />
+              </MobileFold>
             </section>
           )}
 
@@ -188,7 +191,8 @@ export default async function EmployeeDetailPage({
           </div>
 
           {/* trend + billable split */}
-          <div className="grid gap-4 lg:grid-cols-3">
+          <MobileFold label="Γραφήματα ωρών" hint="Ώρες ανά μήνα · χρεώσιμες vs overhead">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <Card className="p-5 lg:col-span-2">
               <h2 className="mb-1 text-sm font-semibold text-slate-900">Ώρες ανά μήνα</h2>
               <p className="mb-3 text-xs text-slate-400">
@@ -217,8 +221,10 @@ export default async function EmployeeDetailPage({
               </div>
             </Card>
           </div>
+          </MobileFold>
 
           {/* work-type mix */}
+          <MobileFold label="Τι δουλειά κάνει" hint="Κατανομή ωρών ανά είδος εργασίας">
           <Card className="p-5">
             <h2 className="mb-1 text-sm font-semibold text-slate-900">Τι δουλειά κάνει</h2>
             <p className="mb-4 text-xs text-slate-400">Κατανομή ωρών ανά είδος εργασίας</p>
@@ -236,9 +242,14 @@ export default async function EmployeeDetailPage({
               ))}
             </div>
           </Card>
+          </MobileFold>
 
           {/* employee → client breakdown for the period */}
-          {row && <EmployeeClientsTable clients={row.clients} lang={lang} />}
+          {row && (
+            <MobileFold label="Πού πήγε ο χρόνος" hint="Ώρες και έσοδα ανά πελάτη">
+              <EmployeeClientsTable clients={row.clients} lang={lang} />
+            </MobileFold>
+          )}
         </>
       )}
     </div>
@@ -247,11 +258,11 @@ export default async function EmployeeDetailPage({
 
 function Kpi({ icon, label, value, sub, tone }: { icon: React.ReactNode; label: string; value: string; sub?: string; tone?: 'pos' | 'neg' }) {
   return (
-    <Card className="p-4">
+    <Card className="p-3.5 sm:p-4">
       <div className="mb-1.5 flex items-center justify-between">
         <span className="text-blue-600">{icon}</span>
       </div>
-      <p className={'font-display text-2xl font-semibold tracking-tight tabular-nums ' + (tone === 'pos' ? 'text-emerald-600' : tone === 'neg' ? 'text-amber-600' : 'text-stone-900')}>{value}</p>
+      <p className={'font-display text-xl font-semibold tracking-tight tabular-nums sm:text-2xl ' + (tone === 'pos' ? 'text-emerald-600' : tone === 'neg' ? 'text-amber-600' : 'text-stone-900')}>{value}</p>
       <p className="text-[13px] font-medium text-slate-500">{label}</p>
       {sub && <p className="mt-0.5 text-[11px] text-slate-400">{sub}</p>}
     </Card>

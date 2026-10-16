@@ -319,7 +319,7 @@ function FixRow({ fix, onDone }: { fix: FixStatus; onDone: () => void }) {
       <button
         onClick={() => run(fix.id)}
         disabled={busy || nothing || (fix.pending === null && fix.id !== 'schema')}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 sm:min-h-0 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {busy ? <Loader2 size={13} className="animate-spin" /> : <Wrench size={13} />} Run
       </button>
@@ -353,7 +353,7 @@ function ErrorList({ errors, now, onChange }: { errors: ErrorRow[]; now: number;
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize ${
+              className={`min-h-10 rounded-lg px-3 py-1.5 text-xs font-medium capitalize sm:min-h-0 ${
                 filter === f ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
@@ -408,7 +408,7 @@ function ErrorList({ errors, now, onChange }: { errors: ErrorRow[]; now: number;
                     <button
                       onClick={() => setExpanded(open ? null : e.id)}
                       aria-label={open ? 'Hide details' : 'Show details'}
-                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
+                      className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 sm:h-auto sm:w-auto sm:p-1.5"
                     >
                       <ChevronDown size={15} className={open ? 'rotate-180' : ''} />
                     </button>
@@ -458,7 +458,7 @@ function ActionButton({ busy, onClick, children }: { busy: boolean; onClick: () 
     <button
       onClick={onClick}
       disabled={busy}
-      className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+      className="min-h-10 rounded-lg border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 sm:min-h-0 sm:px-2.5"
     >
       {children}
     </button>
@@ -491,7 +491,7 @@ function AnalyticsPanel({ analytics }: { analytics: Analytics }) {
         )}
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <RankedList title="Top pages" rows={traffic.topPages} mono />
         <RankedList title="Where visitors came from" rows={traffic.referrers} empty="Direct visits only so far" />
         <RankedList title="Countries" rows={traffic.countries} empty="Shown once deployed on Vercel" />

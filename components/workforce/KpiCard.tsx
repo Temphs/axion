@@ -38,7 +38,7 @@ export function KpiCard({
     const good = invert ? !up : up
     deltaEl = (
       <span
-        className={`shrink-0 text-sm font-bold tabular-nums ${good ? 'text-emerald-600' : 'text-red-500'}`}
+        className={`shrink-0 text-xs font-bold tabular-nums sm:text-sm ${good ? 'text-emerald-600' : 'text-red-500'}`}
         title="Μεταβολή σε σχέση με την προηγούμενη περίοδο"
       >
         {up ? '+' : '−'}
@@ -49,28 +49,29 @@ export function KpiCard({
   }
 
   return (
-    <Card className="p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_2px_6px_rgba(15,23,42,0.06),0_24px_48px_-24px_rgba(37,99,235,0.3)]">
+    <Card className="min-w-0 p-3.5 transition duration-200 sm:p-5 hover:-translate-y-0.5 hover:shadow-[0_2px_6px_rgba(15,23,42,0.06),0_24px_48px_-24px_rgba(37,99,235,0.3)]">
       {/* Label and icon share the top row, so the number below always gets the
-          full width of the card and the tile can never sit on top of it. */}
+          full width of the card and the tile can never sit on top of it.
+          Phones drop the decorative tile to keep the grid calm. */}
       <div className="flex items-start justify-between gap-2">
-        <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[13px] font-medium leading-snug text-slate-500">
+        <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[12px] font-medium leading-snug text-slate-500 sm:text-[13px]">
           <span>{label}</span>
           {tooltip && <InfoTip text={tooltip} />}
         </span>
         {Icon && (
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-[0_4px_12px_-2px_rgba(37,99,235,0.5)]">
+          <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br sm:flex from-blue-500 to-indigo-600 text-white shadow-[0_4px_12px_-2px_rgba(37,99,235,0.5)]">
             <Icon size={18} strokeWidth={2} />
           </span>
         )}
       </div>
 
-      <p className="mt-2.5 flex flex-wrap items-baseline gap-x-2">
-        <span className={`font-display text-[1.6rem] font-bold leading-none tabular-nums tracking-tight ${valueCls}`}>
+      <p className="mt-2 flex flex-wrap items-baseline gap-x-2 sm:mt-2.5">
+        <span className={`font-display text-[1.3rem] font-bold leading-none tabular-nums tracking-tight sm:text-[1.6rem] ${valueCls}`}>
           {value}
         </span>
         {deltaEl}
       </p>
-      {sub && <p className="mt-1.5 text-xs leading-snug text-slate-400">{sub}</p>}
+      {sub && <p className="mt-1 text-[11px] leading-snug text-slate-400 sm:mt-1.5 sm:text-xs">{sub}</p>}
       {children && <div className="mt-3 border-t border-slate-100 pt-2.5">{children}</div>}
     </Card>
   )

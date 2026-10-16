@@ -100,14 +100,14 @@ export function ClientsManager({ initial, lang }: { initial: Client[]; lang: str
     <div className="space-y-6">
       <header>
         <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">Πελάτες</h1>
-        <p className="mt-0.5 text-sm text-blue-200/80">
+        <p className="mt-0.5 hidden text-sm text-blue-200/80 sm:block">
           Μέσος όρος ανά μήνα — ώρες & κόστος μισθών (σταθμισμένο ανά κόστος/ώρα κάθε εργαζομένου)
         </p>
       </header>
 
       <Card className="p-5">
         <h2 className="mb-4 text-sm font-semibold text-slate-900">{editId ? 'Επεξεργασία πελάτη' : 'Νέος πελάτης'}</h2>
-        <form onSubmit={submit} className="grid gap-3 sm:grid-cols-[1fr_180px_1fr_auto] sm:items-end">
+        <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_1fr_auto] sm:items-end">
           <Field label="Όνομα">
             <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} required placeholder="KOLYMBARI O.E." />
           </Field>
@@ -192,13 +192,13 @@ export function ClientsManager({ initial, lang }: { initial: Client[]; lang: str
                     )}
                   </td>
                   <td className="px-5 py-3 text-center">
-                    <button onClick={(e) => { e.stopPropagation(); toggle(c) }} className={'rounded-full px-2.5 py-0.5 text-xs font-medium ' + (c.active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500')}>
+                    <button onClick={(e) => { e.stopPropagation(); toggle(c) }} className={'min-h-9 rounded-full px-3 py-1 text-xs font-medium sm:min-h-0 sm:px-2.5 sm:py-0.5 ' + (c.active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500')}>
                       {c.active ? 'Ενεργός' : 'Ανενεργός'}
                     </button>
                   </td>
                   <td className="px-5 py-3 text-right">
                     <div className="flex justify-end gap-2">
-                      <button onClick={(e) => { e.stopPropagation(); startEdit(c) }} className="text-blue-600 hover:underline">Επεξεργασία</button>
+                      <button onClick={(e) => { e.stopPropagation(); startEdit(c) }} className="-my-2 py-2 text-blue-600 hover:underline">Επεξεργασία</button>
                       <button onClick={(e) => { e.stopPropagation(); openMerge(c) }} className="text-slate-500 hover:underline">Συγχώνευση με</button>
                       <button onClick={(e) => { e.stopPropagation(); remove(c) }} className="text-red-500 hover:underline">Διαγραφή</button>
                     </div>

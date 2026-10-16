@@ -24,7 +24,7 @@ export function PricingPanel({ pricing, lang }: { pricing: PricingOpportunity[];
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Link
                   href={`/${lang}/dashboard/clients/${p.clientId}`}
-                  className="text-sm font-semibold text-slate-800 transition hover:text-blue-600"
+                  className="-my-2 py-2 text-sm font-semibold text-slate-800 transition hover:text-blue-600"
                 >
                   {p.name}
                 </Link>
