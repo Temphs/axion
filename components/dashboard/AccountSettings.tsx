@@ -40,7 +40,7 @@ export function AccountSettings({
     <div className="space-y-6">
       <header>
         <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">Ρυθμίσεις</h1>
-        <p className="mt-0.5 text-sm text-blue-200/80">Στοιχεία λογαριασμού, ασφάλεια και παράμετροι υπολογισμού</p>
+        <p className="mt-0.5 hidden text-sm text-blue-200/80 sm:block">Στοιχεία λογαριασμού, ασφάλεια και παράμετροι υπολογισμού</p>
       </header>
 
       <ProfileCard account={account} />

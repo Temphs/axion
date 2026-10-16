@@ -63,7 +63,7 @@ export default async function MyCfoPage() {
           <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">
             MyCFO
           </h1>
-          <p className="mt-0.5 text-sm text-blue-200/80">
+          <p className="mt-0.5 hidden text-sm text-blue-200/80 sm:block">
             Χρηματοοικονομική ευφυΐα — Κ&amp;Ζ, ταμειακές ροές, απόδοση
           </p>
         </div>

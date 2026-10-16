@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Check, ChevronLeft, ChevronRight, Pencil, Search, Trash2, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { Card } from '@/components/axion/ui'
 import { api } from '@/components/dashboard/api'
 import { DateField } from '@/components/dashboard/DateField'
@@ -80,6 +80,12 @@ export function EntriesManager({
 
   const canAdd = activeEmployees.length > 0 && activeClients.length > 0
 
+  // Phones keep the page light: the add form and the extra filters stay
+  // folded behind a button until needed. Tablets and desktop always show them.
+  const [formOpen, setFormOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(Boolean(employeeId || from || to))
+  const extraFilters = (employeeId ? 1 : 0) + (from || to ? 1 : 0)
+
   async function submit(ev: React.FormEvent) {
     ev.preventDefault()
     if (!date) return setError('Η ημερομηνία είναι υποχρεωτική')
@@ -115,13 +121,33 @@ export function EntriesManager({
     <div className="space-y-6">
       <header>
         <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">Καταχωρήσεις εργασίας</h1>
-        <p className="mt-0.5 text-sm text-blue-200/80">
+        <p className="mt-0.5 hidden text-sm text-blue-200/80 sm:block">
           Ιστορικό ωρών — προσθέστε, διορθώστε ή διαγράψτε καταχωρήσεις
         </p>
       </header>
 
-      <Card className="p-5">
-        <h2 className="mb-4 text-sm font-semibold text-slate-900">Νέα καταχώρηση</h2>
+      {!formOpen && (
+        <button
+          type="button"
+          onClick={() => setFormOpen(true)}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white text-sm font-semibold text-blue-700 shadow-sm active:bg-blue-50 md:hidden"
+        >
+          <Plus size={18} /> Νέα καταχώρηση
+        </button>
+      )}
+
+      <Card className={`p-5 ${formOpen ? '' : 'hidden md:block'}`}>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-slate-900">Νέα καταχώρηση</h2>
+          <button
+            type="button"
+            onClick={() => setFormOpen(false)}
+            aria-label="Κλείσιμο φόρμας"
+            className="-my-2 flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 md:hidden"
+          >
+            <X size={16} />
+          </button>
+        </div>
         {!canAdd ? (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
             Προσθέστε πρώτα τουλάχιστον έναν ενεργό εργαζόμενο και έναν ενεργό πελάτη.
@@ -175,7 +201,7 @@ export function EntriesManager({
                 ev.preventDefault()
                 setFilters({ q: query.trim() })
               }}
-              className="relative w-full sm:w-auto"
+              className="relative min-w-0 flex-1 sm:flex-none"
             >
               <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -197,6 +223,18 @@ export function EntriesManager({
                 </button>
               )}
             </form>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((o) => !o)}
+              aria-expanded={filtersOpen}
+              className={`flex h-10 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium md:hidden ${
+                filtersOpen || extraFilters ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600'
+              }`}
+            >
+              <SlidersHorizontal size={15} />
+              Φίλτρα{extraFilters > 0 && ` (${extraFilters})`}
+            </button>
+            <div className={`w-full flex-wrap items-center gap-1.5 md:flex md:w-auto ${filtersOpen ? 'flex' : 'hidden'}`}>
             <select
               value={employeeId}
               onChange={(e) => setFilters({ employeeId: e.target.value })}
@@ -223,6 +261,7 @@ export function EntriesManager({
                 Καθαρισμός
               </button>
             )}
+            </div>
           </div>
         </div>
 

@@ -90,15 +90,15 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
         {/* ── Main content ────────────────────────────────────── */}
         {/* Bottom padding on phones keeps content clear of the tab bar. */}
         <main className="min-w-0 flex-1 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-0">
-          {/* Mobile header */}
-          <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-white/40 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-md lg:hidden">
-            <span className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-bold text-white shadow-sm">
+          {/* Mobile header: a slim brand line, so the page title leads. */}
+          <div className="mb-3 flex items-center justify-between gap-3 px-1 lg:hidden">
+            <span className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/95 text-xs font-bold text-blue-700 shadow-sm">
                 A
               </span>
-              <span className="font-display text-base font-bold tracking-tight text-slate-900">Axion</span>
+              <span className="font-display text-sm font-bold tracking-tight text-white">Axion</span>
             </span>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700" title={user.email}>
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-[11px] font-bold text-white ring-1 ring-white/25" title={user.email}>
               {initials}
             </span>
           </div>

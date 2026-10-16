@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -15,9 +15,9 @@ import {
   ShieldCheck,
   Table2,
   Users,
-  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { BottomSheet } from './BottomSheet'
 import { LogoutButton } from './LogoutButton'
 
 // Phone navigation: the four MyEmployee screens people use daily as a fixed
@@ -45,22 +45,14 @@ export function MobileTabBar({ lang, admin, name, email }: { lang: string; admin
   const base = `/${lang}/dashboard`
   const href = (seg: string) => (seg ? `${base}/${seg}` : base)
 
-  // Close the sheet whenever the page changes or Escape is pressed.
+  const close = () => setOpen(false)
+
+  // Close the sheet whenever the page changes.
   const [lastPath, setLastPath] = useState(pathname)
   if (pathname !== lastPath) {
     setLastPath(pathname)
     setOpen(false)
   }
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
-    }
-  }, [open])
 
   // /clients/board belongs to "More", not to the Clients tab.
   const tabActive = (seg: string) =>
@@ -107,65 +99,41 @@ export function MobileTabBar({ lang, admin, name, email }: { lang: string; admin
         </div>
       </nav>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-slate-900/40 backdrop-blur-[2px] lg:hidden"
-          onClick={(e) => e.target === e.currentTarget && setOpen(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Περισσότερα"
-        >
-          <div className="w-full rounded-t-3xl bg-white px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 shadow-2xl">
-            <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-200" />
-            <div className="mb-3 flex items-center justify-between gap-3 px-1">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-900">{name}</p>
-                <p className="truncate text-xs text-slate-400">{email}</p>
-              </div>
-              <button
-                onClick={() => setOpen(false)}
-                aria-label="Κλείσιμο"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500"
+      <BottomSheet open={open} onClose={close} title={name} label="Περισσότερα" subtitle={email}>
+        <ul className="grid grid-cols-2 gap-2">
+          {MORE.map(({ seg, label, icon: Icon }) => {
+            const active = pathname.startsWith(href(seg))
+            return (
+              <li key={seg}>
+                <Link
+                  href={href(seg)}
+                  className={cn(
+                    'flex min-h-[52px] items-center gap-3 rounded-2xl px-3.5 text-sm font-medium',
+                    active ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-700 active:bg-slate-100'
+                  )}
+                >
+                  <Icon size={18} className="shrink-0" />
+                  {label}
+                </Link>
+              </li>
+            )
+          })}
+          {admin && (
+            <li>
+              <Link
+                href={`/${lang}/admin`}
+                className="flex min-h-[52px] items-center gap-3 rounded-2xl bg-slate-50 px-3.5 text-sm font-medium text-slate-700 active:bg-slate-100"
               >
-                <X size={18} />
-              </button>
-            </div>
-            <ul className="grid grid-cols-2 gap-2">
-              {MORE.map(({ seg, label, icon: Icon }) => {
-                const active = pathname.startsWith(href(seg))
-                return (
-                  <li key={seg}>
-                    <Link
-                      href={href(seg)}
-                      className={cn(
-                        'flex min-h-[52px] items-center gap-3 rounded-2xl px-3.5 text-sm font-medium',
-                        active ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-700 active:bg-slate-100'
-                      )}
-                    >
-                      <Icon size={18} className="shrink-0" />
-                      {label}
-                    </Link>
-                  </li>
-                )
-              })}
-              {admin && (
-                <li>
-                  <Link
-                    href={`/${lang}/admin`}
-                    className="flex min-h-[52px] items-center gap-3 rounded-2xl bg-slate-50 px-3.5 text-sm font-medium text-slate-700 active:bg-slate-100"
-                  >
-                    <ShieldCheck size={18} className="shrink-0" />
-                    Admin console
-                  </Link>
-                </li>
-              )}
-            </ul>
-            <div className="mt-3 border-t border-slate-100 pt-2">
-              <LogoutButton />
-            </div>
-          </div>
+                <ShieldCheck size={18} className="shrink-0" />
+                Admin console
+              </Link>
+            </li>
+          )}
+        </ul>
+        <div className="mt-3 border-t border-slate-100 pt-2">
+          <LogoutButton />
         </div>
-      )}
+      </BottomSheet>
     </>
   )
 }

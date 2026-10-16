@@ -60,12 +60,13 @@ export function EmployeeAccessLink({
   }
 
   return (
-    <Card className="p-5">
+    <Card className="p-4 sm:p-5">
       <div className="flex items-start gap-2.5">
         <Smartphone size={16} className="mt-0.5 shrink-0 text-blue-600" />
         <div className="min-w-0 flex-1">
           <h2 className="text-sm font-semibold text-slate-900">Οθόνη καταχώρησης</h2>
-          <p className="mt-0.5 text-xs text-slate-400">
+          <p className="mt-0.5 text-xs text-slate-400 sm:hidden">Σύνδεσμος για το κινητό του, χωρίς κωδικό.</p>
+          <p className="mt-0.5 hidden text-xs text-slate-400 sm:block">
             Προσωπικός σύνδεσμος για τον/την {employeeName} — ανοίγει στο κινητό χωρίς κωδικό και καταχωρεί ώρες
             μόνο στο δικό του όνομα.
           </p>

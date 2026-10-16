@@ -67,7 +67,7 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
       {/* ── Header ──────────────────────────────────────────────── */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <nav aria-label="breadcrumb" className="flex items-center gap-1.5 text-xs text-blue-200/70">
+          <nav aria-label="breadcrumb" className="hidden items-center gap-1.5 text-xs text-blue-200/70 sm:flex">
             <span>MyEmployee</span>
             <span aria-hidden className="text-blue-200/40">
               /
@@ -75,7 +75,7 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
             <span className="font-medium text-white/90">Επισκόπηση</span>
           </nav>
           <h1 className="font-display mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">Επισκόπηση</h1>
-          <p className="mt-0.5 text-sm text-blue-200/80">Η γενική εικόνα της επιχείρησης</p>
+          <p className="mt-0.5 hidden text-sm text-blue-200/80 sm:block">Η γενική εικόνα της επιχείρησης</p>
         </div>
         <DateRangeFilter />
       </header>

@@ -56,7 +56,7 @@ export function EmployeeProfitabilityPanel({
   return (
     <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
       {/* ── Ranked employees ──────────────────────────────────── */}
-      <Card className="p-5 lg:col-span-2">
+      <Card className="p-4 sm:p-5 lg:col-span-2">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="font-display text-base font-bold tracking-tight text-slate-900">
@@ -67,7 +67,7 @@ export function EmployeeProfitabilityPanel({
           <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-hidden />
         </div>
 
-        <ul className="mt-5 space-y-4">
+        <ul className="mt-4 space-y-3.5 sm:mt-5 sm:space-y-4">
           {ranked.map((e, i) => (
             <li key={e.id}>
               <Link href={`/${lang}/dashboard/employees/${e.id}`} className="group block">
@@ -102,13 +102,13 @@ export function EmployeeProfitabilityPanel({
                 {/* Which dates this person actually logged, and whether any of
                     those days came in under the daily target. */}
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 pl-12 text-[11px]">
-                  <span className="flex items-center gap-1 text-slate-400">
+                  <span className="hidden items-center gap-1 text-slate-400 sm:flex">
                     <CalendarDays size={12} className="shrink-0" />
                     {e.firstEntry && e.lastEntry
                       ? `${shortDate(e.firstEntry)} → ${shortDate(e.lastEntry)}`
                       : 'χωρίς καταχωρήσεις'}
                   </span>
-                  <span className="text-slate-400">{num(e.activeDays)} ημέρες</span>
+                  <span className="hidden text-slate-400 sm:inline">{num(e.activeDays)} ημέρες</span>
                   {e.incompleteDays > 0 && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
                       <AlertTriangle size={11} className="shrink-0" />
